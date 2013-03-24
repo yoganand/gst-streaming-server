@@ -325,9 +325,12 @@ gss_vts_new (GssServer * server, const char *name)
 {
   GssProgram *program;
 
-  program = g_object_new (GSS_TYPE_VTS, NULL);
+  program = g_object_new (GSS_TYPE_VTS,
+      "title", "Videotestsrc Stream",
+      "name", "vts-stream",
+      "description", "A simple example of using the GSS library to "
+      "create a web interface for a capture/encoding application.", NULL);
 
-  g_object_set (program, "name", "vts-stream", NULL);
   gss_server_add_program_simple (server, program);
   GSS_VTS (program)->stream = gss_stream_new (STREAM_TYPE, 640, 360, 600000);
   gss_program_add_stream (program, GSS_VTS (program)->stream);
