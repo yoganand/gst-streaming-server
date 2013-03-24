@@ -107,6 +107,10 @@ gss_program_init (GssProgram * program)
   gss_uuid_create (uuid);
   program->uuid = gss_uuid_to_string (uuid);
   program->description = g_strdup (DEFAULT_DESCRIPTION);
+  program->safe_description = gss_html_sanitize_entity (program->description);
+
+  gss_object_set_title (GSS_OBJECT (program), program->uuid);
+  gss_object_set_name (GSS_OBJECT (program), program->uuid);
 }
 
 static void
@@ -159,6 +163,7 @@ gss_program_finalize (GObject * object)
   g_free (program->follow_uri);
   g_free (program->follow_host);
   g_free (program->description);
+  g_free (program->safe_description);
   g_free (program->uuid);
 
   parent_class->finalize (object);
@@ -179,6 +184,9 @@ gss_program_set_property (GObject * object, guint prop_id,
     case PROP_DESCRIPTION:
       g_free (program->description);
       program->description = g_value_dup_string (value);
+      g_free (program->safe_description);
+      program->safe_description =
+          gss_html_sanitize_entity (program->description);
       break;
     default:
       g_assert_not_reached ();
@@ -655,9 +663,11 @@ gss_program_get_resource (GssTransaction * t)
 
   gss_program_add_video_block (program, t, 0);
 
+  GSS_P ("<br>%s", program->safe_description);
   GSS_A ("<br>");
 
   gss_program_add_stream_table (program, s);
+
 
   if (t->session && t->session->is_admin) {
     gss_config_append_config_block (G_OBJECT (program), t, FALSE);

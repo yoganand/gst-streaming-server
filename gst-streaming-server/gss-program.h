@@ -64,6 +64,7 @@ struct _GssProgram {
   gboolean enabled;
   char *uuid;
   char *description;
+  char *safe_description;
 
   gboolean is_archive;
 
