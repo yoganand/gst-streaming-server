@@ -52,6 +52,7 @@ gss_object_init (GssObject * object)
 
   object->name = g_strdup (DEFAULT_NAME);
   object->title = g_strdup (DEFAULT_TITLE);
+  object->safe_title = gss_html_sanitize_entity (object->title);
 }
 
 static void
