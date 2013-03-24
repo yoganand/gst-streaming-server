@@ -70,7 +70,8 @@ extern GssConfig *gss_config_global_config;
 
 GType gss_config_get_type (void);
 
-void _gss_config_init (void);
+void gss_deinit (void);
+void gss_init (void);
 
 GObject *gss_config_build_object (GssConfig *config, GType type);
 

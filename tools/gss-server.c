@@ -151,7 +151,7 @@ main (int argc, char *argv[])
   }
   g_option_context_free (context);
 
-  _gss_config_init ();
+  gss_init ();
 
   server = gss_server_new ();
   gss_object_set_name (GSS_OBJECT (server), "admin.server");
@@ -216,7 +216,7 @@ main (int argc, char *argv[])
   GSS_CLEANUP (user);
   GSS_CLEANUP (manager);
 
-  gss_server_deinit ();
+  gss_deinit ();
   gst_deinit ();
 
   exit (0);

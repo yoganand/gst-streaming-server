@@ -105,9 +105,18 @@ gss_config_get_property (GObject * object, guint prop_id,
 
 
 void
-_gss_config_init (void)
+gss_init (void)
 {
   gss_config_global_config = g_object_new (GSS_TYPE_CONFIG, NULL);
+}
+
+void
+gss_deinit (void)
+{
+  if (gss_config_global_config) {
+    g_object_unref (gss_config_global_config);
+    gss_config_global_config = NULL;
+  }
 }
 
 void

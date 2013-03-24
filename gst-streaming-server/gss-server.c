@@ -263,12 +263,6 @@ gss_server_init (GssServer * server)
   g_timeout_add (1000, (GSourceFunc) periodic_timer, server);
 }
 
-void
-gss_server_deinit (void)
-{
-
-}
-
 static void
 gss_server_finalize (GObject * object)
 {
