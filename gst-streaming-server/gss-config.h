@@ -22,6 +22,7 @@
 #define _GSS_CONFIG_H_
 
 #include <glib-object.h>
+#include <libxml/parser.h>
 
 #include "gss-session.h"
 #include "gss-transaction.h"
@@ -29,22 +30,53 @@
 
 G_BEGIN_DECLS
 
+#define GSS_TYPE_CONFIG \
+  (gss_config_get_type())
+#define GSS_CONFIG(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GSS_TYPE_CONFIG,GssConfig))
+#define GSS_CONFIG_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GSS_TYPE_CONFIG,GssConfigClass))
+#define GSS_CONFIG_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), GSS_TYPE_CONFIG, GssConfigClass))
+#define GSS_IS_CONFIG(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GSS_TYPE_CONFIG))
+#define GSS_IS_CONFIG_CLASS(obj) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_CONFIG))
+
+
 #define GSS_PARAM_SECURE (1<<27)
 #define GSS_PARAM_MULTILINE (1<<28)
 #define GSS_PARAM_HIDE (1<<29)
 #define GSS_PARAM_FILE_UPLOAD (1<<30)
 
 typedef struct _GssConfig GssConfig;
-
 struct _GssConfig
 {
-  GObject *object;
+  GObject object;
 
+  xmlDocPtr doc;
+
+  GList *config_list;
+};
+
+typedef struct _GssConfigClass GssConfigClass;
+struct _GssConfigClass
+{
+  GObjectClass object_class;
 
 };
 
+extern GssConfig *gss_config_global_config;
+
+GType gss_config_get_type (void);
+
+void _gss_config_init (void);
+
+GObject *gss_config_build_object (GssConfig *config, GType type);
+
 void gss_config_attach (GObject *object);
-void gss_config_free_all (void);
+void gss_config_save_config_file (void);
+void gss_config_load_config_file (void);
 
 void gss_config_append_config_block (GObject *object, GssTransaction *t,
     gboolean show);
@@ -53,8 +85,6 @@ GHashTable * gss_config_get_post_hash (GssTransaction *t);
 gboolean gss_config_handle_post_hash (GObject * object, GssTransaction * t,
     GHashTable *hash);
 void gss_config_add_server_resources (GssServer *server);
-void gss_config_save_config_file (void);
-void gss_config_load_config_file (void);
 void gss_config_post_resource (GssTransaction * t);
 
 

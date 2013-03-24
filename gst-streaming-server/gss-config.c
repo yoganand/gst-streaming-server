@@ -34,14 +34,80 @@
 
 #define CONFIG_FILE "config"
 
+static void gss_config_finalize (GObject * object);
+static void gss_config_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec);
+static void gss_config_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec);
 
-GList *config_list;
+GssConfig *gss_config_global_config;
+
+G_DEFINE_TYPE (GssConfig, gss_config, G_TYPE_OBJECT);
+
+
+static void
+gss_config_init (GssConfig * config)
+{
+
+}
+
+static void
+gss_config_class_init (GssConfigClass * config_class)
+{
+  G_OBJECT_CLASS (config_class)->set_property = gss_config_set_property;
+  G_OBJECT_CLASS (config_class)->get_property = gss_config_get_property;
+  G_OBJECT_CLASS (config_class)->finalize = gss_config_finalize;
+
+}
+
+static void
+gss_config_finalize (GObject * object)
+{
+  GssConfig *config = GSS_CONFIG (object);
+
+  g_list_free (config->config_list);
+  config->config_list = NULL;
+
+  G_OBJECT_CLASS (gss_config_parent_class)->finalize (object);
+}
+
+static void
+gss_config_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GssConfig *config;
+
+  config = GSS_CONFIG (object);
+  (void) config;
+
+  switch (prop_id) {
+    default:
+      g_assert_not_reached ();
+      break;
+  }
+}
+
+static void
+gss_config_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GssConfig *config;
+
+  config = GSS_CONFIG (object);
+  (void) config;
+
+  switch (prop_id) {
+    default:
+      g_assert_not_reached ();
+      break;
+  }
+}
+
 
 void
-gss_config_free_all (void)
+_gss_config_init (void)
 {
-  g_list_free (config_list);
-  config_list = NULL;
+  gss_config_global_config = g_object_new (GSS_TYPE_CONFIG, NULL);
 }
 
 void
@@ -49,7 +115,8 @@ gss_config_attach (GObject * object)
 {
   g_return_if_fail (G_IS_OBJECT (object));
 
-  config_list = g_list_prepend (config_list, object);
+  gss_config_global_config->config_list =
+      g_list_prepend (gss_config_global_config->config_list, object);
 }
 
 
@@ -460,7 +527,7 @@ gss_config_get_resource (GssTransaction * t)
   g_string_append (s, "</thead>\n");
   g_string_append (s, "<tbody>\n");
 
-  for (g = config_list; g; g = g_list_next (g)) {
+  for (g = gss_config_global_config->config_list; g; g = g_list_next (g)) {
     GObject *object = g->data;
     GParamSpec **pspecs;
     int n_properties;
@@ -628,7 +695,7 @@ gss_config_append_config_file (GString * s)
   ns = xmlNewNs (doc->xmlRootNode,
       (xmlChar *) "http://entropywave.com/oberon/1.0/", (xmlChar *) "ew");
 
-  for (g = config_list; g; g = g_list_next (g)) {
+  for (g = gss_config_global_config->config_list; g; g = g_list_next (g)) {
     GObject *object = g->data;
 
     gss_config_dump_object (object, ns, doc->xmlRootNode);
@@ -723,7 +790,7 @@ static GObject *
 gss_config_get (const char *name)
 {
   GList *g;
-  for (g = config_list; g; g = g->next) {
+  for (g = gss_config_global_config->config_list; g; g = g->next) {
     if (strcmp (GSS_OBJECT_NAME (g->data), name) == 0) {
       return (GObject *) g->data;
     }

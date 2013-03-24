@@ -42,8 +42,8 @@
 
 #undef USE_EW_CODECS
 
-#define STREAM_TYPE GSS_STREAM_TYPE_OGG_THEORA_VORBIS
-//#define STREAM_TYPE GSS_STREAM_TYPE_WEBM
+//#define STREAM_TYPE GSS_STREAM_TYPE_OGG_THEORA_VORBIS
+#define STREAM_TYPE GSS_STREAM_TYPE_WEBM
 //#define STREAM_TYPE GSS_STREAM_TYPE_M2TS_H264BASE_AAC
 
 
@@ -161,6 +161,8 @@ main (int argc, char *argv[])
     exit (1);
   }
   g_option_context_free (context);
+
+  _gss_config_init ();
 
   server = gss_server_new ();
   gss_object_set_name (GSS_OBJECT (server), "admin.server");

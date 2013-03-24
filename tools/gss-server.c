@@ -151,6 +151,8 @@ main (int argc, char *argv[])
   }
   g_option_context_free (context);
 
+  _gss_config_init ();
+
   server = gss_server_new ();
   gss_object_set_name (GSS_OBJECT (server), "admin.server");
 
