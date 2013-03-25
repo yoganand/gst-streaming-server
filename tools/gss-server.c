@@ -235,13 +235,15 @@ static void
 add_program (GssServer * server, int i)
 {
   GssProgram *program;
-  char *stream_name;
+  char *title;
 
-  stream_name = g_strdup_printf ("stream%d", i);
+  title = g_strdup_printf ("Stream #%d", i);
   program = gss_push_new ();
-  g_object_set (program, "name", stream_name, NULL);
+  g_object_set (program,
+      "title", title, "description", "Automatically created push stream", NULL);
+  gss_object_set_automatic_name (GSS_OBJECT (program));
   gss_server_add_program_simple (server, program);
-  g_free (stream_name);
+  g_free (title);
 
   g_object_set (program, "enabled", TRUE, NULL);
 }

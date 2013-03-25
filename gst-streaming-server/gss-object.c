@@ -150,3 +150,41 @@ gss_object_set_title (GssObject * object, const char *title)
   g_free (object->safe_title);
   object->safe_title = gss_html_sanitize_entity (object->title);
 }
+
+void
+gss_object_set_automatic_name (GssObject * object)
+{
+  int i;
+  char *s;
+  int j;
+  int len;
+  gboolean have_dash = TRUE;
+  char *norm;
+  char *normdown;
+
+  norm = g_utf8_normalize (object->title, -1, G_NORMALIZE_NFKD);
+  normdown = g_utf8_strdown (norm, -1);
+  g_free (norm);
+
+  len = strlen (normdown);
+  s = g_malloc (len + 1);
+
+  j = 0;
+  for (i = 0; i < len; i++) {
+    if (g_ascii_isalnum (normdown[i]) || (normdown[i] & 0x80)) {
+      s[j] = normdown[i];
+      j++;
+      have_dash = FALSE;
+    } else {
+      if (!have_dash) {
+        s[j] = '-';
+        j++;
+        have_dash = TRUE;
+      }
+    }
+  }
+  s[j] = 0;
+
+  gss_object_set_name (object, s);
+  g_free (s);
+}

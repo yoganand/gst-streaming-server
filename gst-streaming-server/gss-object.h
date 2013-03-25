@@ -67,6 +67,7 @@ GType gss_object_get_type (void);
 
 void gss_object_set_name (GssObject * object, const char *name);
 void gss_object_set_title (GssObject * object, const char *title);
+void gss_object_set_automatic_name (GssObject *object);
 
 
 G_END_DECLS
