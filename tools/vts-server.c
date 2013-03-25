@@ -406,9 +406,13 @@ gss_vts_start (GssProgram * program)
         "vp8enc ! queue ! "
         "webmmux streamable=true name=mux ! %s name=multifdsink "
         "audiotestsrc is-live=true wave=ticks volume=0.2 ! "
-        "audioconvert ! vorbisenc ! "
-        "queue ! mux.audio_%%d ",
-        vts->pattern, gss_server_get_multifdsink_string ());
+        "audioconvert ! vorbisenc ! " "queue ! "
+#if GST_CHECK_VERSION(1,0,0)
+        "mux.audio_%%u "
+#else
+        "mux.audio_%%d "
+#endif
+        , vts->pattern, gss_server_get_multifdsink_string ());
   } else if (STREAM_TYPE == GSS_STREAM_TYPE_OGG_THEORA_VORBIS) {
     s = g_strdup_printf ("videotestsrc is-live=true pattern=%d ! "
         RAW_CAPS " ! "
