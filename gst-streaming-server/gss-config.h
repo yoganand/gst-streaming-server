@@ -54,6 +54,9 @@ struct _GssConfig
 {
   GObject object;
 
+  /* properties */
+  char *config_file;
+
   xmlDocPtr doc;
 
   GList *config_list;

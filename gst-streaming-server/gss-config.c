@@ -32,7 +32,13 @@
 
 #include <libxml/parser.h>
 
-#define CONFIG_FILE "config"
+enum
+{
+  PROP_0,
+  PROP_CONFIG_FILE
+};
+
+#define DEFAULT_CONFIG_FILE "config"
 
 static void gss_config_finalize (GObject * object);
 static void gss_config_set_property (GObject * object, guint prop_id,
@@ -49,6 +55,7 @@ static void
 gss_config_init (GssConfig * config)
 {
 
+  config->config_file = g_strdup (DEFAULT_CONFIG_FILE);
 }
 
 static void
@@ -57,6 +64,12 @@ gss_config_class_init (GssConfigClass * config_class)
   G_OBJECT_CLASS (config_class)->set_property = gss_config_set_property;
   G_OBJECT_CLASS (config_class)->get_property = gss_config_get_property;
   G_OBJECT_CLASS (config_class)->finalize = gss_config_finalize;
+
+  g_object_class_install_property (G_OBJECT_CLASS (config_class),
+      PROP_CONFIG_FILE, g_param_spec_string ("config-file",
+          "Config File", "Config File", DEFAULT_CONFIG_FILE,
+          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_CONSTRUCT |
+              G_PARAM_STATIC_STRINGS)));
 
 }
 
@@ -68,6 +81,8 @@ gss_config_finalize (GObject * object)
   g_list_free (config->config_list);
   config->config_list = NULL;
 
+  g_free (config->config_file);
+
   G_OBJECT_CLASS (gss_config_parent_class)->finalize (object);
 }
 
@@ -78,9 +93,12 @@ gss_config_set_property (GObject * object, guint prop_id,
   GssConfig *config;
 
   config = GSS_CONFIG (object);
-  (void) config;
 
   switch (prop_id) {
+    case PROP_CONFIG_FILE:
+      g_free (config->config_file);
+      config->config_file = g_value_dup_string (value);
+      break;
     default:
       g_assert_not_reached ();
       break;
@@ -94,9 +112,11 @@ gss_config_get_property (GObject * object, guint prop_id,
   GssConfig *config;
 
   config = GSS_CONFIG (object);
-  (void) config;
 
   switch (prop_id) {
+    case PROP_CONFIG_FILE:
+      g_value_set_string (value, config->config_file);
+      break;
     default:
       g_assert_not_reached ();
       break;
@@ -734,7 +754,9 @@ gss_config_save_config_file (void)
 
   gss_config_append_config_file (s);
 
-  ret = g_file_set_contents (CONFIG_FILE, s->str, s->len, &error);
+  ret =
+      g_file_set_contents (gss_config_global_config->config_file, s->str,
+      s->len, &error);
   g_string_free (s, TRUE);
   if (!ret) {
     g_error_free (error);
@@ -897,7 +919,9 @@ gss_config_load_config_file (void)
   gsize size;
   gboolean ret;
 
-  ret = g_file_get_contents (CONFIG_FILE, &contents, &size, NULL);
+  ret =
+      g_file_get_contents (gss_config_global_config->config_file, &contents,
+      &size, NULL);
   if (!ret) {
     return;
   }
