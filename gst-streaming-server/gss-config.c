@@ -555,6 +555,8 @@ gss_config_get_resource (GssTransaction * t)
         continue;
       if (!(pspec->flags & G_PARAM_READABLE))
         continue;
+      if (pspec->flags & G_PARAM_CONSTRUCT_ONLY)
+        continue;
       if (strcmp (pspec->name, "name") == 0)
         continue;
 
@@ -666,6 +668,8 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
     if (!(pspec->flags & G_PARAM_READABLE))
       continue;
     if (!(pspec->flags & G_PARAM_WRITABLE))
+      continue;
+    if (pspec->flags & G_PARAM_CONSTRUCT_ONLY)
       continue;
 
     s = g_object_get_as_string (object, pspec);

@@ -116,16 +116,43 @@ static const gchar *soup_method_source;
 
 static GObjectClass *parent_class;
 
+static SoupServer *
+get_http_server (int port)
+{
+  SoupAddress *if6;
+  SoupServer *server;
+
+  if6 = soup_address_new_any (SOUP_ADDRESS_FAMILY_IPV6, port);
+  server = soup_server_new (SOUP_SERVER_INTERFACE, if6, SOUP_SERVER_PORT,
+      port, NULL);
+  g_object_unref (if6);
+  if (server)
+    return server;
+
+  /* try again with just IPv4 */
+  server = soup_server_new (SOUP_SERVER_PORT, port, NULL);
+  return server;
+}
+
 static void
 gss_server_set_http_port (GssServer * server, int port)
 {
-  SoupAddress *if6;
+  if (port == 0) {
+    GST_ERROR ("trying port 80");
+    server->server = get_http_server (80);
+    port = 80;
+    if (server->server == NULL) {
+      GST_ERROR ("trying port 8080");
+      server->server = get_http_server (8080);
+      port = 8080;
+    }
+  } else {
+    GST_ERROR ("trying port %d", port);
+    server->server = get_http_server (port);
+  }
 
-  if (server->http_port == port)
+  if (server->server == NULL) {
     return;
-
-  if (server->server) {
-    g_object_unref (server->server);
   }
 
   server->http_port = port;
@@ -138,17 +165,7 @@ gss_server_set_http_port (GssServer * server, int port)
         server->http_port);
   }
 
-  if6 = soup_address_new_any (SOUP_ADDRESS_FAMILY_IPV6, server->http_port);
-  server->server = soup_server_new (SOUP_SERVER_INTERFACE, if6,
-      SOUP_SERVER_PORT, server->http_port, NULL);
 
-  if (server->server == NULL) {
-    /* try again with just IPv4 */
-    server->server =
-        soup_server_new (SOUP_SERVER_PORT, server->http_port, NULL);
-  }
-
-  g_object_unref (if6);
 
   if (server->server) {
     soup_server_add_handler (server->server, "/", gss_server_resource_callback,
@@ -157,20 +174,49 @@ gss_server_set_http_port (GssServer * server, int port)
   }
 }
 
+static SoupServer *
+get_https_server (int port)
+{
+  SoupAddress *if6;
+  SoupServer *server;
+
+  if6 = soup_address_new_any (SOUP_ADDRESS_FAMILY_IPV6, port);
+  server = soup_server_new (SOUP_SERVER_PORT, port,
+      SOUP_SERVER_INTERFACE, if6,
+      SOUP_SERVER_SSL_CERT_FILE, "server.crt",
+      SOUP_SERVER_SSL_KEY_FILE, "server.key", NULL);
+  g_object_unref (if6);
+  if (server)
+    return server;
+
+  /* try again with just IPv4 */
+  server = soup_server_new (SOUP_SERVER_PORT, port,
+      SOUP_SERVER_SSL_CERT_FILE, "server.crt",
+      SOUP_SERVER_SSL_KEY_FILE, "server.key", NULL);
+  return server;
+}
+
 static void
 gss_server_set_https_port (GssServer * server, int port)
 {
-  SoupAddress *if6;
+  if (port == 0) {
+    server->ssl_server = get_https_server (443);
+    port = 443;
+    if (server->ssl_server == NULL) {
+      server->ssl_server = get_https_server (8443);
+      port = 8443;
+    }
+  } else {
+    server->ssl_server = get_https_server (port);
+  }
 
-  if (server->https_port == port)
+  if (server->ssl_server == NULL) {
     return;
-
-  if (server->ssl_server) {
-    g_object_unref (server->ssl_server);
   }
 
   server->https_port = port;
 
+  g_free (server->base_url_https);
   if (server->https_port == 443) {
     server->base_url_https = g_strdup_printf ("https://%s",
         server->server_hostname);
@@ -178,19 +224,6 @@ gss_server_set_https_port (GssServer * server, int port)
     server->base_url_https = g_strdup_printf ("https://%s:%d",
         server->server_hostname, server->https_port);
   }
-
-  if6 = soup_address_new_any (SOUP_ADDRESS_FAMILY_IPV6, server->https_port);
-  server->ssl_server = soup_server_new (SOUP_SERVER_PORT, server->https_port,
-      SOUP_SERVER_INTERFACE, if6,
-      SOUP_SERVER_SSL_CERT_FILE, "server.crt",
-      SOUP_SERVER_SSL_KEY_FILE, "server.key", NULL);
-  if (!server->ssl_server) {
-    server->ssl_server = soup_server_new (SOUP_SERVER_PORT, server->https_port,
-        SOUP_SERVER_SSL_CERT_FILE, "server.crt",
-        SOUP_SERVER_SSL_KEY_FILE, "server.key", NULL);
-  }
-
-  g_object_unref (if6);
 
   if (server->ssl_server) {
     soup_server_add_handler (server->ssl_server, "/",
@@ -203,7 +236,6 @@ static void
 gss_server_init (GssServer * server)
 {
   char *s;
-  int port, https_port;
 
   server->metrics = gss_metrics_new ();
 
@@ -211,17 +243,6 @@ gss_server_init (GssServer * server)
       g_free, (GDestroyNotify) gss_resource_free);
 
   server->client_session = soup_session_async_new ();
-
-  if (getuid () == 0) {
-    port = DEFAULT_HTTP_PORT;
-    https_port = DEFAULT_HTTPS_PORT;
-  } else {
-    port = 8000 + DEFAULT_HTTP_PORT;
-    https_port = 8000 + DEFAULT_HTTPS_PORT;
-  }
-
-  gss_server_set_http_port (server, port);
-  gss_server_set_https_port (server, https_port);
 
   server->enable_public_interface = DEFAULT_ENABLE_PUBLIC_INTERFACE;
   s = gss_utils_gethostname ();
@@ -314,11 +335,13 @@ gss_server_class_init (GssServerClass * server_class)
   g_object_class_install_property (G_OBJECT_CLASS (server_class),
       PROP_HTTP_PORT, g_param_spec_int ("http-port", "HTTP Port", "HTTP Port",
           0, 65535, DEFAULT_HTTP_PORT,
-          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+          (GParamFlags) (G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
   g_object_class_install_property (G_OBJECT_CLASS (server_class),
       PROP_HTTPS_PORT, g_param_spec_int ("https-port", "HTTPS Port",
           "HTTPS Port", 0, 65535, DEFAULT_HTTPS_PORT,
-          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+          (GParamFlags) (G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
   g_object_class_install_property (G_OBJECT_CLASS (server_class),
       PROP_SERVER_HOSTNAME, g_param_spec_string ("server-hostname",
           "Server Hostname", "Server Hostname", DEFAULT_SERVER_HOSTNAME,

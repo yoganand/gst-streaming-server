@@ -48,6 +48,9 @@
 gboolean verbose = TRUE;
 gboolean cl_verbose;
 gboolean enable_daemon = FALSE;
+int http_port = 0;
+int https_port = 0;
+char *config_file = NULL;
 
 void ew_stream_server_notify_url (const char *s, void *priv);
 
@@ -59,6 +62,10 @@ static void add_program (GssServer * server, int i);
 static GOptionEntry entries[] = {
   {"verbose", 'v', 0, G_OPTION_ARG_NONE, &cl_verbose, "Be verbose", NULL},
   {"daemon", 'd', 0, G_OPTION_ARG_NONE, &enable_daemon, "Daemonize", NULL},
+  {"http-port", 0, 0, G_OPTION_ARG_INT, &http_port, "HTTP port", NULL},
+  {"https-port", 0, 0, G_OPTION_ARG_INT, &https_port, "HTTPS port", NULL},
+  {"config-file", 0, 0, G_OPTION_ARG_STRING, &config_file, "Configuration file",
+      NULL},
 
   {NULL}
 
@@ -153,8 +160,8 @@ main (int argc, char *argv[])
 
   gss_init ();
 
-  server = gss_server_new ();
-  gss_object_set_name (GSS_OBJECT (server), "admin.server");
+  server = g_object_new (GSS_TYPE_SERVER, "name", "admin.server",
+      "http-port", http_port, "https-port", https_port, NULL);
 
   if (enable_daemon)
     daemonize ();
