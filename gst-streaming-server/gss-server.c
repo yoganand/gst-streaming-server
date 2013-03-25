@@ -906,10 +906,14 @@ gss_server_get_multifdsink_string (void)
 {
   return "multifdsink "
       "sync=false " "time-min=200000000 " "recover-policy=keyframe "
-      "unit-type=2 "
+#if GST_CHECK_VERSION(1,0,0)
+      "unit-format=time " "burst-format=time "
+#else
+      "unit-type=2 " "burst-unit=2 "
+#endif
       "units-max=20000000000 "
       "units-soft-max=11000000000 "
-      "sync-method=burst-keyframe " "burst-unit=2 " "burst-value=3000000000";
+      "sync-method=burst-keyframe " "burst-value=3000000000";
 }
 
 static void
