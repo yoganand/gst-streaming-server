@@ -42,7 +42,6 @@ enum
 #define DEFAULT_DESCRIPTION ""
 
 
-static void gss_program_get_resource (GssTransaction * transaction);
 static void gss_program_frag_resource (GssTransaction * transaction);
 static void gss_program_list_resource (GssTransaction * transaction);
 static void gss_program_png_resource (GssTransaction * transaction);
@@ -649,7 +648,7 @@ gss_program_frag_resource (GssTransaction * t)
   gss_program_add_video_block (program, t, 0);
 }
 
-static void
+void
 gss_program_get_resource (GssTransaction * t)
 {
   GssProgram *program = (GssProgram *) t->resource->priv;

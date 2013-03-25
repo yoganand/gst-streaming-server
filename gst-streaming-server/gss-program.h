@@ -139,6 +139,7 @@ void gss_program_set_state (GssProgram *program, GssProgramState state);
 int gss_program_get_stream_index (GssProgram *program, GssStream *stream);
 GssStream *gss_program_get_stream (GssProgram *program, int index);
 int gss_program_get_n_streams (GssProgram *program);
+void gss_program_get_resource (GssTransaction * transaction);
 
 void gss_program_add_jpeg_block (GssProgram * program,
     GssTransaction *t);

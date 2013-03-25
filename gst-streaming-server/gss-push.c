@@ -383,31 +383,6 @@ push_wrote_headers (SoupMessage * msg, void *user_data)
 }
 
 static void
-gss_push_get_resource (GssTransaction * t)
-{
-  GssProgram *program = (GssProgram *) t->resource->priv;
-  GString *s = g_string_new ("");
-
-  t->s = s;
-
-  gss_html_header (t);
-
-  GSS_P ("<h1>%s</h1>\n", GSS_OBJECT_NAME (program));
-
-  gss_program_add_video_block (program, t, 0);
-
-  GSS_A ("<br>");
-
-  gss_program_add_stream_table (program, s);
-
-  if (t->session && t->session->is_admin) {
-    gss_config_append_config_block (G_OBJECT (program), t, FALSE);
-  }
-
-  gss_html_footer (t);
-}
-
-static void
 gss_push_put_resource (GssTransaction * t)
 {
   GssProgram *program = (GssProgram *) t->resource->priv;
@@ -515,7 +490,7 @@ gss_push_add_resources (GssProgram * program)
   s = g_strdup_printf ("/%s", GSS_OBJECT_NAME (program));
   program->resource =
       gss_server_add_resource (GSS_OBJECT_SERVER (program), s, GSS_RESOURCE_UI,
-      GSS_TEXT_HTML, gss_push_get_resource, gss_push_put_resource,
+      GSS_TEXT_HTML, gss_program_get_resource, gss_push_put_resource,
       gss_config_post_resource, program);
   g_free (s);
 }
