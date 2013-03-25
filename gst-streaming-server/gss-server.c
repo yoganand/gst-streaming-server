@@ -1054,8 +1054,6 @@ gss_server_resource_main_page (GssTransaction * t)
 
   gss_html_header (t);
 
-  GSS_P ("<h2>Input Media</h2>\n");
-
   GSS_P ("<ul class='thumbnails'>\n");
   for (g = t->server->programs; g; g = g_list_next (g)) {
     GssProgram *program = g->data;
@@ -1078,8 +1076,6 @@ gss_server_resource_main_page (GssTransaction * t)
   GSS_P ("</ul>\n");
 
   if (t->server->enable_vod) {
-    GSS_P ("<h2>Archived Media</h2>\n");
-
     GSS_P ("<ul class='thumbnails'>\n");
     for (g = t->server->programs; g; g = g_list_next (g)) {
       GssProgram *program = g->data;
