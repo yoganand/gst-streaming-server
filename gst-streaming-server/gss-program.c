@@ -303,6 +303,7 @@ gss_program_disable_streaming (GssProgram * program)
   }
 }
 
+#if 0
 static gboolean
 idle_state_enable (gpointer ptr)
 {
@@ -320,20 +321,25 @@ idle_state_enable (gpointer ptr)
 
   return FALSE;
 }
+#endif
 
 void
 gss_program_set_state (GssProgram * program, GssProgramState state)
 {
+#if 0
   gboolean enabled;
 
   enabled = (program->enabled && GSS_OBJECT_SERVER (program)->enable_programs);
+#endif
   program->state = state;
+#if 0
   if ((program->state == GSS_PROGRAM_STATE_STOPPED && enabled) ||
       (program->state == GSS_PROGRAM_STATE_RUNNING && !enabled)) {
     if (!program->state_idle) {
       program->state_idle = g_idle_add (idle_state_enable, program);
     }
   }
+#endif
 }
 
 void
