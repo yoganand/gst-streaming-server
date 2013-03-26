@@ -24,9 +24,6 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstadapter.h>
-#ifdef ENABLE_RTSP
-#include <gst/rtsp-server/rtsp-server.h>
-#endif
 #include <libsoup/soup.h>
 #include "gss-config.h"
 #include "gss-types.h"
@@ -103,12 +100,8 @@ struct _GssStream {
     gboolean at_eos; /* true if sliding window is at the end of the stream */
   } hls;
 
-  /* RTSP */
-#ifdef ENABLE_RTSP
-  GssRtspStream *rtsp_stream;
-#else
+  /* FIXME move this into a private structure */
   void *rtsp_stream;
-#endif
 };
 
 typedef struct _GssStreamClass GssStreamClass;
