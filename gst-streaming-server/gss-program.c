@@ -151,10 +151,6 @@ gss_program_finalize (GObject * object)
     soup_buffer_free (program->hls.variant_buffer);
   }
 
-  if (program->pngappsink)
-    g_object_unref (program->pngappsink);
-  if (program->jpegsink)
-    g_object_unref (program->jpegsink);
   gss_metrics_free (program->metrics);
   g_free (program->follow_uri);
   g_free (program->follow_host);
@@ -358,6 +354,7 @@ void
 gss_program_stop (GssProgram * program)
 {
   GssProgramClass *program_class;
+  GList *g;
 
   if (program->state == GSS_PROGRAM_STATE_STOPPED ||
       program->state == GSS_PROGRAM_STATE_STOPPING) {
@@ -366,16 +363,27 @@ gss_program_stop (GssProgram * program)
   GST_DEBUG_OBJECT (program, "stop");
   gss_program_set_state (program, GSS_PROGRAM_STATE_STOPPING);
 
+  if (program->pngappsink) {
+    g_object_unref (program->pngappsink);
+    program->pngappsink = NULL;
+  }
+  if (program->jpegsink) {
+    g_object_unref (program->jpegsink);
+    program->jpegsink = NULL;
+  }
+  for (g = program->streams; g; g = g_list_next (g)) {
+    GssStream *stream = g->data;
+    gss_stream_set_sink (stream, NULL);
+  }
+
   program_class = GSS_PROGRAM_GET_CLASS (program);
   if (program_class->stop) {
     program_class->stop (program);
   } else {
-    GList *g;
 
     for (g = program->streams; g; g = g_list_next (g)) {
       GssStream *stream = g->data;
 
-      gss_stream_set_sink (stream, NULL);
       if (stream->pipeline) {
         gst_element_set_state (stream->pipeline, GST_STATE_NULL);
 
