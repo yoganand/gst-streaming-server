@@ -291,7 +291,9 @@ gss_server_finalize (GObject * object)
   g_free (server->server_hostname);
   g_free (server->realm);
   g_free (server->admin_hosts_allow);
+  gss_addr_range_list_free (server->admin_arl);
   g_free (server->kiosk_hosts_allow);
+  gss_addr_range_list_free (server->kiosk_arl);
   g_free (server->admin_token);
   g_free (server->archive_dir);
   g_free (server->cas_server);
@@ -456,6 +458,7 @@ gss_server_set_property (GObject * object, guint prop_id,
       if (strcmp (server->admin_hosts_allow, g_value_get_string (value))) {
         g_free (server->admin_hosts_allow);
         server->admin_hosts_allow = g_value_dup_string (value);
+        gss_addr_range_list_free (server->admin_arl);
         server->admin_arl =
             gss_addr_range_list_new_from_string (server->admin_hosts_allow,
             TRUE, TRUE);
@@ -465,6 +468,7 @@ gss_server_set_property (GObject * object, guint prop_id,
       if (strcmp (server->kiosk_hosts_allow, g_value_get_string (value))) {
         g_free (server->kiosk_hosts_allow);
         server->kiosk_hosts_allow = g_value_dup_string (value);
+        gss_addr_range_list_free (server->kiosk_arl);
         server->kiosk_arl =
             gss_addr_range_list_new_from_string (server->kiosk_hosts_allow,
             FALSE, FALSE);

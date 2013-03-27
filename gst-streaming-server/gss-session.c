@@ -830,7 +830,7 @@ gss_addr_range_list_new_from_string (const char *str, gboolean default_all,
 {
   char **chunks;
   char *end;
-  const char *s;
+  char *s;
   int n;
   int i;
   GssAddrRangeList *addr_range_list;
@@ -936,6 +936,7 @@ gss_addr_range_list_new_from_string (const char *str, gboolean default_all,
   }
 
   g_strfreev (chunks);
+  g_free (s);
 
   return addr_range_list;
 }
