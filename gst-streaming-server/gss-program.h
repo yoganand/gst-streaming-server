@@ -116,6 +116,8 @@ void gss_program_remove_server_resources (GssProgram *program);
 void gss_program_set_jpegsink (GssProgram *program, GstElement *jpegsink);
 void gss_program_stop (GssProgram * program);
 void gss_program_start (GssProgram * program);
+void gss_program_idle_stop (GssProgram * program);
+void gss_program_idle_start (GssProgram * program);
 
 void gss_program_follow (GssProgram *program, const char *host,
     const char *stream);

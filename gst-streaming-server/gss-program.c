@@ -351,6 +351,18 @@ gss_program_set_enabled (GssProgram * program, gboolean enabled)
 }
 
 void
+gss_program_idle_start (GssProgram * program)
+{
+  g_idle_add ((GSourceFunc) gss_program_start, program);
+}
+
+void
+gss_program_idle_stop (GssProgram * program)
+{
+  g_idle_add ((GSourceFunc) gss_program_stop, program);
+}
+
+void
 gss_program_stop (GssProgram * program)
 {
   GssProgramClass *program_class;
