@@ -114,6 +114,7 @@ vod_resource_chunked (GssTransaction * t)
     GST_ERROR_OBJECT (program, "read error");
   }
 
+  soup_message_body_set_accumulate (t->msg->response_body, FALSE);
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, chunk,
       len);
 

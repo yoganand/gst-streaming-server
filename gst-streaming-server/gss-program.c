@@ -154,10 +154,6 @@ gss_program_finalize (GObject * object)
     soup_buffer_free (program->hls.variant_buffer);
   }
 
-  if (program->pngappsink)
-    g_object_unref (program->pngappsink);
-  if (program->jpegsink)
-    g_object_unref (program->jpegsink);
   gss_metrics_free (program->metrics);
   g_free (program->follow_uri);
   g_free (program->follow_host);
@@ -310,6 +306,7 @@ gss_program_disable_streaming (GssProgram * program)
   }
 }
 
+#if 0
 static gboolean
 idle_state_enable (gpointer ptr)
 {
@@ -327,20 +324,25 @@ idle_state_enable (gpointer ptr)
 
   return FALSE;
 }
+#endif
 
 void
 gss_program_set_state (GssProgram * program, GssProgramState state)
 {
+#if 0
   gboolean enabled;
 
   enabled = (program->enabled && GSS_OBJECT_SERVER (program)->enable_programs);
+#endif
   program->state = state;
+#if 0
   if ((program->state == GSS_PROGRAM_STATE_STOPPED && enabled) ||
       (program->state == GSS_PROGRAM_STATE_RUNNING && !enabled)) {
     if (!program->state_idle) {
       program->state_idle = g_idle_add (idle_state_enable, program);
     }
   }
+#endif
 }
 
 void
@@ -356,9 +358,22 @@ gss_program_set_enabled (GssProgram * program, gboolean enabled)
 }
 
 void
+gss_program_idle_start (GssProgram * program)
+{
+  g_idle_add ((GSourceFunc) gss_program_start, program);
+}
+
+void
+gss_program_idle_stop (GssProgram * program)
+{
+  g_idle_add ((GSourceFunc) gss_program_stop, program);
+}
+
+void
 gss_program_stop (GssProgram * program)
 {
   GssProgramClass *program_class;
+  GList *g;
 
   if (program->state == GSS_PROGRAM_STATE_STOPPED ||
       program->state == GSS_PROGRAM_STATE_STOPPING) {
@@ -367,16 +382,27 @@ gss_program_stop (GssProgram * program)
   GST_DEBUG_OBJECT (program, "stop");
   gss_program_set_state (program, GSS_PROGRAM_STATE_STOPPING);
 
+  if (program->pngappsink) {
+    g_object_unref (program->pngappsink);
+    program->pngappsink = NULL;
+  }
+  if (program->jpegsink) {
+    g_object_unref (program->jpegsink);
+    program->jpegsink = NULL;
+  }
+  for (g = program->streams; g; g = g_list_next (g)) {
+    GssStream *stream = g->data;
+    gss_stream_set_sink (stream, NULL);
+  }
+
   program_class = GSS_PROGRAM_GET_CLASS (program);
   if (program_class->stop) {
     program_class->stop (program);
   } else {
-    GList *g;
 
     for (g = program->streams; g; g = g_list_next (g)) {
       GssStream *stream = g->data;
 
-      gss_stream_set_sink (stream, NULL);
       if (stream->pipeline) {
         gst_element_set_state (stream->pipeline, GST_STATE_NULL);
 
