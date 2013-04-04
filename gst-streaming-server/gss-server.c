@@ -138,16 +138,16 @@ static void
 gss_server_set_http_port (GssServer * server, int port)
 {
   if (port == 0) {
-    GST_ERROR ("trying port 80");
+    GST_DEBUG_OBJECT (server, "trying port 80");
     server->server = get_http_server (80);
     port = 80;
     if (server->server == NULL) {
-      GST_ERROR ("trying port 8080");
+      GST_DEBUG_OBJECT (server, "trying port 8080");
       server->server = get_http_server (8080);
       port = 8080;
     }
   } else {
-    GST_ERROR ("trying port %d", port);
+    GST_DEBUG_OBJECT (server, "trying port %d", port);
     server->server = get_http_server (port);
   }
 
