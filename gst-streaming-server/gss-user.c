@@ -722,7 +722,7 @@ gss_user_post_resource (GssTransaction * t)
       } else if (strcmp (value, "remove-session") == 0) {
         ret = handle_action_remove_session (user, t, hash);
       }
-      gss_config_save_config_file ();
+      gss_config_save_object (G_OBJECT (user));
     } else {
       ret = gss_config_handle_post_hash (G_OBJECT (user), t, hash);
 
@@ -734,7 +734,7 @@ gss_user_post_resource (GssTransaction * t)
           g_object_set (t->server, "admin-token", s, NULL);
           g_free (s);
 
-          gss_config_save_config_file ();
+          gss_config_save_object (G_OBJECT (user));
         }
       }
 

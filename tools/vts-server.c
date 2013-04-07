@@ -84,6 +84,7 @@ static GOptionEntry entries[] = {
 };
 
 GssServer *server;
+GssConfig *config;
 GssUser *user;
 GssManager *manager;
 GMainLoop *main_loop;
@@ -171,8 +172,14 @@ main (int argc, char *argv[])
 
   gss_init ();
 
+  config = g_object_new (GSS_TYPE_CONFIG, "config-file", "config", NULL);
+  gss_config_load_config_file (config);
+
   server = g_object_new (GSS_TYPE_SERVER, "name", "admin.server",
-      "http-port", http_port, "https-port", https_port, NULL);
+      "http-port", http_port, "https-port", https_port,
+      "title", "Videotestsrc Example", NULL);
+  gss_config_load_object (config, G_OBJECT (server), "admin.server");
+  gss_config_attach (config, G_OBJECT (server));
 
   if (enable_daemon)
     daemonize ();
@@ -186,26 +193,21 @@ main (int argc, char *argv[])
     exit (1);
   }
 
-  gss_server_set_title (server, "Videotestsrc Example");
   gss_server_set_footer_html (server, footer_html, NULL);
 
-  //ew_stream_server_add_admin_callbacks (server);
-
-  gss_config_attach (G_OBJECT (server));
   gss_config_add_server_resources (server);
 
-  user = gss_user_new ();
-  gss_config_attach (G_OBJECT (user));
+  user = (GssUser *) gss_config_create_object (config, GSS_TYPE_USER,
+      "admin.user");
   gss_user_add_resources (user, server);
 
-  manager = gss_manager_new ();
-  gss_config_attach (G_OBJECT (manager));
+  manager = (GssManager *) gss_config_create_object (config, GSS_TYPE_MANAGER,
+      "admin.manager");
   gss_manager_add_resources (manager, server);
 
   gss_vts_new (server, "vts-stream");
 
-  gss_config_load_config_file ();
-  gss_config_save_config_file ();
+  gss_config_save_config_file (config);
 
   main_loop = g_main_loop_new (NULL, TRUE);
 

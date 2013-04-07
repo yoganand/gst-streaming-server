@@ -46,7 +46,6 @@ static void gss_config_set_property (GObject * object, guint prop_id,
 static void gss_config_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
-GssConfig *gss_config_global_config;
 
 G_DEFINE_TYPE (GssConfig, gss_config, G_TYPE_OBJECT);
 
@@ -127,25 +126,25 @@ gss_config_get_property (GObject * object, guint prop_id,
 void
 gss_init (void)
 {
-  gss_config_global_config = g_object_new (GSS_TYPE_CONFIG, NULL);
+
 }
 
 void
 gss_deinit (void)
 {
-  if (gss_config_global_config) {
-    g_object_unref (gss_config_global_config);
-    gss_config_global_config = NULL;
-  }
 }
 
 void
-gss_config_attach (GObject * object)
+gss_config_attach (GssConfig * config, GObject * object)
 {
+  g_return_if_fail (GSS_IS_CONFIG (config));
   g_return_if_fail (G_IS_OBJECT (object));
 
-  gss_config_global_config->config_list =
-      g_list_prepend (gss_config_global_config->config_list, object);
+  /* FIXME need a detach */
+
+  g_object_set_data (object, "GssConfig", config);
+
+  config->config_list = g_list_prepend (config->config_list, object);
 }
 
 
@@ -198,6 +197,7 @@ gss_config_append_config_block (GObject * object, GssTransaction * t,
   for (i = 0; i < (int) n_pspecs; i++) {
     char *value;
     const char *blurb;
+    gboolean writable;
 
     if (!(pspecs[i]->flags & G_PARAM_READABLE))
       continue;
@@ -205,6 +205,9 @@ gss_config_append_config_block (GObject * object, GssTransaction * t,
       continue;
     if (strcmp (pspecs[i]->name, "name") == 0)
       continue;
+
+    writable = (pspecs[i]->flags & G_PARAM_WRITABLE) &&
+        !(pspecs[i]->flags & G_PARAM_CONSTRUCT_ONLY);
 
     if (strcmp (pspecs[i]->name, "width") == 0) {
       int width, height;
@@ -263,7 +266,7 @@ gss_config_append_config_block (GObject * object, GssTransaction * t,
 
     g_string_append (s, "<div class='control-group'>\n");
     g_string_append (s, "<label class='control-label'");
-    if (pspecs[i]->flags & G_PARAM_WRITABLE) {
+    if (writable) {
       g_string_append_printf (s, " for='%s'", pspecs[i]->name);
     }
     if (g_object_property_is_default (object, pspecs[i])) {
@@ -290,7 +293,7 @@ gss_config_append_config_block (GObject * object, GssTransaction * t,
     if (blurb[0] == '[') {
       g_string_append_printf (s, "<div class='input-append'>");
     }
-    if (!(pspecs[i]->flags & G_PARAM_WRITABLE)) {
+    if (!writable) {
       char *safe;
       safe = gss_html_sanitize_entity (value);
       g_string_append_printf (s,
@@ -483,13 +486,13 @@ gss_config_handle_post_hash (GObject * object, GssTransaction * t,
       GST_DEBUG ("setting property %s to '%s'", key, value);
       g_object_set_property (object, key, &val);
     } else {
-      GST_ERROR ("could not deserialize property %s, value %s", key, value);
+      GST_WARNING ("could not deserialize property %s, value %s", key, value);
     }
 
     g_value_unset (&val);
   }
 
-  gss_config_save_config_file ();
+  gss_config_save_object (object);
 
   return TRUE;
 }
@@ -530,6 +533,7 @@ gss_server_post_resource (GssTransaction * t)
 static void
 gss_config_get_resource (GssTransaction * t)
 {
+  GssConfig *config = t->resource->priv;
   GString *s = g_string_new ("");
   GList *g;
 
@@ -556,7 +560,7 @@ gss_config_get_resource (GssTransaction * t)
   g_string_append (s, "</thead>\n");
   g_string_append (s, "<tbody>\n");
 
-  for (g = gss_config_global_config->config_list; g; g = g_list_next (g)) {
+  for (g = config->config_list; g; g = g_list_next (g)) {
     GObject *object = g->data;
     GParamSpec **pspecs;
     int n_properties;
@@ -634,9 +638,8 @@ gss_config_post_resource (GssTransaction * t)
 }
 
 static char *
-get_xml_class_name (GObject * object)
+get_xml_class_name (const char *class_name)
 {
-  const char *class_name = G_OBJECT_TYPE_NAME (object);
 
   if (strncmp (class_name, "Gst", 3) == 0) {
     class_name += 3;
@@ -665,7 +668,7 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
   pspecs = g_object_class_list_properties (G_OBJECT_GET_CLASS (object),
       (guint *) & n_properties);
 
-  s = get_xml_class_name (object);
+  s = get_xml_class_name (G_OBJECT_TYPE_NAME (object));
   name = xmlCharStrdup (s);
   g_free (s);
   node = xmlNewChild (parent, ns, name, NULL);
@@ -702,21 +705,11 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
     g_free (s);
   }
 
-#if 0
-  if (GSS_IS_ENCODER (object)) {
-    GssEncoder *encoder = GSS_ENCODER (object);
-    GList *g;
-    for (g = encoder->program.streams; g; g = g_list_next (g)) {
-      gss_config_dump_object (g->data, ns, node);
-    }
-  }
-#endif
-
   g_free (pspecs);
 }
 
 static void
-gss_config_append_config_file (GString * s)
+gss_config_append_config_file (GssConfig * config, GString * s)
 {
   GList *g;
   xmlNsPtr ns;
@@ -728,7 +721,7 @@ gss_config_append_config_file (GString * s)
   ns = xmlNewNs (doc->xmlRootNode,
       (xmlChar *) "http://entropywave.com/oberon/1.0/", (xmlChar *) "ew");
 
-  for (g = gss_config_global_config->config_list; g; g = g_list_next (g)) {
+  for (g = config->config_list; g; g = g_list_next (g)) {
     GObject *object = g->data;
 
     gss_config_dump_object (object, ns, doc->xmlRootNode);
@@ -746,17 +739,28 @@ gss_config_append_config_file (GString * s)
 }
 
 void
-gss_config_save_config_file (void)
+gss_config_save_object (GObject * object)
+{
+  GssConfig *config;
+
+  g_return_if_fail (G_IS_OBJECT (object));
+
+  config = g_object_get_data (object, "GssConfig");
+  if (config) {
+    gss_config_save_config_file (config);
+  }
+}
+
+void
+gss_config_save_config_file (GssConfig * config)
 {
   GError *error = NULL;
   GString *s = g_string_new ("");
   gboolean ret;
 
-  gss_config_append_config_file (s);
+  gss_config_append_config_file (config, s);
 
-  ret =
-      g_file_set_contents (gss_config_global_config->config_file, s->str,
-      s->len, &error);
+  ret = g_file_set_contents (config->config_file, s->str, s->len, &error);
   g_string_free (s, TRUE);
   if (!ret) {
     g_error_free (error);
@@ -766,11 +770,12 @@ gss_config_save_config_file (void)
 static void
 gss_config_file_get_resource (GssTransaction * t)
 {
+  GssConfig *config = t->resource->priv;
   GString *s = g_string_new ("");
 
   t->s = s;
 
-  gss_config_append_config_file (s);
+  gss_config_append_config_file (config, s);
 }
 
 static xmlNodePtr
@@ -821,126 +826,178 @@ find_node (xmlNodePtr root, const char *type, const char *name)
   return NULL;
 }
 
-static GObject *
-gss_config_get (const char *name)
-{
-  GList *g;
-  for (g = gss_config_global_config->config_list; g; g = g->next) {
-    if (strcmp (GSS_OBJECT_NAME (g->data), name) == 0) {
-      return (GObject *) g->data;
-    }
-  }
-  return NULL;
-}
-
-static void
-load_config (xmlNodePtr root, const char *type, const char *name)
-{
-  xmlNodePtr node;
-  xmlNodePtr n;
-  GObject *object;
-  xmlChar *enabled_val = NULL;
-
-  GST_INFO ("loading config %s %s", type, name);
-
-  node = find_node (root, type, name);
-  if (node == NULL) {
-    GST_ERROR ("config: failed to find %s:%s", type, name);
-    return;
-  }
-
-  object = gss_config_get (name);
-  if (object == NULL) {
-    GST_ERROR ("config: no object %s", name);
-    return;
-  }
-
-  n = node->children;
-  while (n) {
-    if (n->type == XML_ELEMENT_NODE &&
-        strcmp ((const char *) n->name, "name") == 0) {
-      /* already set */
-#if 0
-    } else if (GSS_IS_ENCODER (object) && n->type == XML_ELEMENT_NODE &&
-        strcmp ((const char *) n->name, "stream") == 0) {
-      GssEncoder *encoder = GSS_ENCODER (object);
-      GssStream *stream;
-      xmlNodePtr n2;
-
-      GST_INFO_OBJECT (object, "adding stream");
-      stream = g_object_new (GSS_TYPE_STREAM, NULL);
-      n2 = n->children;
-      while (n2) {
-        if (n2->type == XML_ELEMENT_NODE) {
-          xmlChar *s;
-          s = xmlNodeGetContent (n2);
-          GST_DEBUG_OBJECT (stream, "setting %s:%s to %s",
-              GSS_OBJECT_NAME (stream), n2->name, s);
-          g_object_set_as_string (G_OBJECT (stream), (char *) n2->name,
-              (char *) s);
-          xmlFree (s);
-        }
-
-        n2 = n2->next;
-      }
-
-      gss_encoder_add_stream (encoder, stream);
-#endif
-    } else if (n->type == XML_ELEMENT_NODE &&
-        strcmp ((const char *) n->name, "enabled") == 0) {
-      if (enabled_val) {
-        xmlFree (enabled_val);
-      }
-      enabled_val = xmlNodeGetContent (n);
-    } else if (n->type == XML_ELEMENT_NODE) {
-      xmlChar *s;
-      s = xmlNodeGetContent (n);
-      GST_DEBUG_OBJECT (object, "setting %s:%s to %s", GSS_OBJECT_NAME (object),
-          n->name,
-          gss_object_param_is_secure (object, (char *) n->name) ? "SECURE" :
-          (char *) s);
-      g_object_set_as_string (object, (char *) n->name, (char *) s);
-      xmlFree (s);
-    }
-    n = n->next;
-  }
-  if (enabled_val) {
-    g_object_set_as_string (object, "enabled", (char *) enabled_val);
-    xmlFree (enabled_val);
-  }
-}
-
 void
-gss_config_load_config_file (void)
+gss_config_load_config_file (GssConfig * config)
 {
-  xmlDocPtr doc;
   xmlNodePtr root;
   char *contents;
   gsize size;
   gboolean ret;
 
-  ret =
-      g_file_get_contents (gss_config_global_config->config_file, &contents,
-      &size, NULL);
+  ret = g_file_get_contents (config->config_file, &contents, &size, NULL);
   if (!ret) {
     return;
   }
-  doc = xmlParseMemory (contents, size);
+  config->doc = xmlParseMemory (contents, size);
   g_free (contents);
 
-  root = xmlDocGetRootElement (doc);
+  root = xmlDocGetRootElement (config->doc);
   if (root == NULL) {
+    xmlFreeDoc (config->doc);
+    config->doc = NULL;
     GST_WARNING ("corrupt config file");
     return;
   }
-  //load_config (root, "network", "admin.network");
-  //load_config (root, "hardware", "admin.hardware");
-  load_config (root, "server", "admin.server");
-  load_config (root, "user", "admin.user");
-
-  xmlFreeDoc (doc);
 }
 
+static int
+get_num_children (xmlNodePtr node)
+{
+  xmlNodePtr n;
+  int count = 0;
+
+  n = node->children;
+  while (n) {
+    if (n->type == XML_ELEMENT_NODE) {
+      count++;
+    }
+    n = n->next;
+  }
+
+  return count;
+}
+
+GObject *
+gss_config_create_object (GssConfig * config, GType type, const char *name)
+{
+  xmlNodePtr root;
+  xmlNodePtr node = NULL;
+  xmlNodePtr n;
+  char *type_name;
+  int n_params;
+  int i;
+  GParameter *params = NULL;
+  GObjectClass *object_class;
+  GObject *obj = NULL;
+
+  object_class = g_type_class_ref (type);
+  type_name = get_xml_class_name (g_type_name (type));
+
+  root = xmlDocGetRootElement (config->doc);
+  if (root) {
+    node = find_node (root, type_name, name);
+  }
+  if (node) {
+
+    n_params = get_num_children (node);
+    params = g_malloc0 (sizeof (GParameter) * n_params);
+
+    n = node->children;
+    n_params = 0;
+    while (n) {
+      if (n->type == XML_ELEMENT_NODE) {
+        GParamSpec *pspec;
+        xmlChar *s;
+
+        s = xmlNodeGetContent (n);
+        GST_DEBUG_OBJECT (config, "creating %s:%s to %s", name, n->name,
+            (char *) s);
+        pspec = g_object_class_find_property (object_class, (char *) n->name);
+        if (pspec) {
+          gboolean ret;
+
+          params[n_params].name = pspec->name;
+          g_value_init (&params[n_params].value, pspec->value_type);
+          ret = gst_value_deserialize (&params[n_params].value, (char *) s);
+          if (ret) {
+            n_params++;
+          } else {
+            GST_WARNING_OBJECT (config,
+                "could not deserialize property %s, value %s", n->name, s);
+          }
+        }
+        xmlFree (s);
+      }
+      n = n->next;
+    }
+  } else {
+    n_params = 1;
+    params = g_malloc0 (sizeof (GParameter) * n_params);
+
+    params[0].name = "name";
+    g_value_init (&params[0].value, G_TYPE_STRING);
+    g_value_set_string (&params[0].value, name);
+  }
+
+  obj = g_object_newv (type, n_params, params);
+  gss_config_attach (config, obj);
+
+  for (i = 0; i < n_params; i++) {
+    g_value_unset (&params[i].value);
+  }
+
+  g_free (type_name);
+  g_free (params);
+  g_type_class_unref (object_class);
+
+  return obj;
+}
+
+void
+gss_config_load_object (GssConfig * config, GObject * object, const char *name)
+{
+  xmlNodePtr root;
+  xmlNodePtr node;
+  xmlNodePtr n;
+  char *type_name;
+
+  if (config->doc == NULL)
+    return;
+
+  type_name = get_xml_class_name (G_OBJECT_TYPE_NAME (object));
+
+  root = xmlDocGetRootElement (config->doc);
+
+  node = find_node (root, type_name, name);
+  if (node == NULL) {
+    GST_WARNING ("config: failed to find %s:%s", type_name, name);
+    goto done;
+  }
+
+  n = node->children;
+  while (n) {
+    if (n->type == XML_ELEMENT_NODE) {
+      GParamSpec *pspec;
+      xmlChar *s;
+
+      s = xmlNodeGetContent (n);
+      GST_DEBUG_OBJECT (config, "loading %s:%s to %s", name, n->name,
+          (char *) s);
+      pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (object),
+          (char *) n->name);
+      if (pspec && pspec->flags & G_PARAM_WRITABLE &&
+          !(pspec->flags & G_PARAM_CONSTRUCT_ONLY)) {
+        GValue value = G_VALUE_INIT;
+        gboolean ret;
+
+        g_value_init (&value, pspec->value_type);
+        ret = gst_value_deserialize (&value, (char *) s);
+        if (ret) {
+          g_object_set_property (object, (char *) n->name, &value);
+        } else {
+          GST_WARNING_OBJECT (config,
+              "could not deserialize property %s, value %s", n->name, s);
+        }
+        g_value_unset (&value);
+      }
+      xmlFree (s);
+    }
+    n = n->next;
+  }
+
+done:
+  g_free (type_name);
+}
 
 void
 gss_config_add_server_resources (GssServer * server)

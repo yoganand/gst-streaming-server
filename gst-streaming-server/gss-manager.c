@@ -273,7 +273,7 @@ gss_manager_post_resource (GssTransaction * t)
   }
 
   if (ret) {
-    gss_config_save_config_file ();
+    gss_config_save_object (G_OBJECT (manager));
     gss_transaction_redirect (t, "");
   } else {
     gss_transaction_error (t, "Configuration Error");

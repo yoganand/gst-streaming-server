@@ -69,18 +69,20 @@ struct _GssConfigClass
 
 };
 
-extern GssConfig *gss_config_global_config;
-
 GType gss_config_get_type (void);
 
 void gss_deinit (void);
 void gss_init (void);
 
-GObject *gss_config_build_object (GssConfig *config, GType type);
+GObject *gss_config_create_object (GssConfig *config, GType type,
+    const char *name);
+void gss_config_load_object (GssConfig *config, GObject *object,
+    const char *name);
 
-void gss_config_attach (GObject *object);
-void gss_config_save_config_file (void);
-void gss_config_load_config_file (void);
+void gss_config_attach (GssConfig *config, GObject *object);
+void gss_config_save_config_file (GssConfig *config);
+void gss_config_save_object (GObject *object);
+void gss_config_load_config_file (GssConfig *config);
 
 void gss_config_append_config_block (GObject *object, GssTransaction *t,
     gboolean show);

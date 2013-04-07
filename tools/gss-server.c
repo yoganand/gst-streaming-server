@@ -52,8 +52,6 @@ int http_port = 0;
 int https_port = 0;
 char *config_file = NULL;
 
-void ew_stream_server_notify_url (const char *s, void *priv);
-
 static void signal_interrupt (int signum);
 static void footer_html (GssServer * server, GString * s, void *priv);
 static void add_program (GssServer * server, int i);
@@ -71,6 +69,7 @@ static GOptionEntry entries[] = {
 
 };
 
+GssConfig *config;
 GssServer *server;
 GssUser *user;
 GssManager *manager;
@@ -133,7 +132,6 @@ daemonize (void)
   ret = write (fd, s, strlen (s));
   close (fd);
 
-  //signal (SIGCHLD, SIG_IGN);
   signal (SIGHUP, do_quit);
   signal (SIGTERM, do_quit);
 
@@ -160,8 +158,14 @@ main (int argc, char *argv[])
 
   gss_init ();
 
+  config = g_object_new (GSS_TYPE_CONFIG, "config-file", "config", NULL);
+  gss_config_load_config_file (config);
+
   server = g_object_new (GSS_TYPE_SERVER, "name", "admin.server",
-      "http-port", http_port, "https-port", https_port, NULL);
+      "http-port", http_port, "https-port", https_port,
+      "title", "GStreamer Streaming Server", NULL);
+  gss_config_load_object (config, G_OBJECT (server), "admin.server");
+  gss_config_attach (config, G_OBJECT (server));
 
   if (enable_daemon)
     daemonize ();
@@ -175,20 +179,18 @@ main (int argc, char *argv[])
     exit (1);
   }
 
-  gss_server_set_title (server, "GStreamer Streaming Server");
   gss_server_set_footer_html (server, footer_html, NULL);
 
-  //ew_stream_server_add_admin_callbacks (server);
-
-  gss_config_attach (G_OBJECT (server));
   gss_config_add_server_resources (server);
 
-  user = gss_user_new ();
-  gss_config_attach (G_OBJECT (user));
+  user = (GssUser *) gss_config_create_object (config, GSS_TYPE_USER,
+      "admin.user");
+  g_assert (user);
   gss_user_add_resources (user, server);
 
-  manager = gss_manager_new ();
-  gss_config_attach (G_OBJECT (manager));
+  manager = (GssManager *) gss_config_create_object (config, GSS_TYPE_MANAGER,
+      "admin.manager");
+  g_assert (manager);
   gss_manager_add_resources (manager, server);
 
   for (i = 0; i < 1; i++) {
@@ -205,12 +207,7 @@ main (int argc, char *argv[])
     g_free (key);
   }
 
-  gss_config_load_config_file ();
-
-  gss_config_save_config_file ();
-
-
-  //g_timeout_add (1000, periodic_timer, NULL);
+  gss_config_save_config_file (config);
 
   main_loop = g_main_loop_new (NULL, TRUE);
 
