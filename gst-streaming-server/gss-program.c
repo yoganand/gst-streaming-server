@@ -431,7 +431,8 @@ gss_program_start (GssProgram * program)
       program->state == GSS_PROGRAM_STATE_STOPPING) {
     return;
   }
-  if (!program->enabled || !GSS_OBJECT_SERVER (program)->enable_programs) {
+  if (!program->enabled || !GSS_OBJECT_SERVER (program) ||
+      !GSS_OBJECT_SERVER (program)->enable_programs) {
     return;
   }
   GST_DEBUG_OBJECT (program, "start");
