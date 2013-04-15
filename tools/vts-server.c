@@ -542,14 +542,11 @@ handle_pipeline_message (GstBus * bus, GstMessage * message, gpointer user_data)
     {
       GError *error;
       gchar *debug;
-      char *s;
 
       gst_message_parse_error (message, &error, &debug);
 
-      s = g_strdup_printf ("Internal Error: %s (%s) from %s\n",
+      GST_DEBUG_OBJECT (program, "Internal Error: %s (%s) from %s\n",
           error->message, debug, GST_MESSAGE_SRC_NAME (message));
-      GST_DEBUG_OBJECT (program, s);
-      g_free (s);
 
       gss_program_stop (program);
     }

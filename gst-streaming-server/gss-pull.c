@@ -277,10 +277,8 @@ handle_pipeline_message (GstBus * bus, GstMessage * message, gpointer user_data)
 
       if (newstate == GST_STATE_PLAYING
           && message->src == GST_OBJECT (stream->pipeline)) {
-        char *s;
-        s = g_strdup_printf ("stream %s started", GSS_OBJECT_NAME (stream));
-        GST_DEBUG_OBJECT (program, s);
-        g_free (s);
+        GST_DEBUG_OBJECT (program, "stream %s started",
+            GSS_OBJECT_NAME (stream));
         gss_program_set_state (program, GSS_PROGRAM_STATE_RUNNING);
       }
     }
@@ -300,14 +298,11 @@ handle_pipeline_message (GstBus * bus, GstMessage * message, gpointer user_data)
     {
       GError *error;
       gchar *debug;
-      char *s;
 
       gst_message_parse_error (message, &error, &debug);
 
-      s = g_strdup_printf ("Internal Error: %s (%s) from %s\n",
+      GST_DEBUG_OBJECT (program, "Internal Error: %s (%s) from %s\n",
           error->message, debug, GST_MESSAGE_SRC_NAME (message));
-      GST_DEBUG_OBJECT (program, s);
-      g_free (s);
 
       program->restart_delay = 5;
       gss_program_stop (program);
