@@ -705,6 +705,15 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
     g_free (s);
   }
 
+  if (GSS_IS_PROGRAM (object)) {
+    GssProgram *program = GSS_PROGRAM (object);
+    GList *g;
+    for (g = program->streams; g; g = g_list_next (g)) {
+      GssStream *stream = g->data;
+      gss_config_dump_object (G_OBJECT (stream), ns, node);
+    }
+  }
+
   g_free (pspecs);
 }
 
@@ -746,9 +755,11 @@ gss_config_save_object (GObject * object)
   g_return_if_fail (G_IS_OBJECT (object));
 
   config = g_object_get_data (object, "GssConfig");
-  if (config) {
-    gss_config_save_config_file (config);
+  if (!config) {
+    GST_ERROR_OBJECT (object, "not attached to config object");
+    return;
   }
+  gss_config_save_config_file (config);
 }
 
 void
@@ -937,6 +948,80 @@ gss_config_create_object (GssConfig * config, GType type, const char *name)
   }
 
   g_free (type_name);
+  g_free (params);
+  g_type_class_unref (object_class);
+
+  return obj;
+}
+
+GObject *
+gss_config_create_object_2 (GssConfig * config, GType parent_type,
+    const char *parent_name, GType type, const char *name)
+{
+  xmlNodePtr root;
+  xmlNodePtr node = NULL;
+  xmlNodePtr n;
+  char *type_name;
+  int n_params;
+  int i;
+  GParameter *params = NULL;
+  GObjectClass *object_class;
+  GObject *obj = NULL;
+
+  object_class = g_type_class_ref (type);
+
+  root = xmlDocGetRootElement (config->doc);
+  if (root) {
+    type_name = get_xml_class_name (g_type_name (parent_type));
+    node = find_node (root, type_name, parent_name);
+    g_free (type_name);
+  }
+  if (node) {
+    type_name = get_xml_class_name (g_type_name (type));
+    node = find_node (node, type_name, name);
+    g_free (type_name);
+  }
+  if (node) {
+
+    n_params = get_num_children (node);
+    params = g_malloc0 (sizeof (GParameter) * n_params);
+
+    n = node->children;
+    n_params = 0;
+    while (n) {
+      if (n->type == XML_ELEMENT_NODE) {
+        GParamSpec *pspec;
+        xmlChar *s;
+
+        s = xmlNodeGetContent (n);
+        GST_DEBUG_OBJECT (config, "creating %s:%s to %s", name, n->name,
+            (char *) s);
+        pspec = g_object_class_find_property (object_class, (char *) n->name);
+        if (pspec) {
+          gboolean ret;
+
+          params[n_params].name = pspec->name;
+          g_value_init (&params[n_params].value, pspec->value_type);
+          ret = gst_value_deserialize (&params[n_params].value, (char *) s);
+          if (ret) {
+            n_params++;
+          } else {
+            GST_WARNING_OBJECT (config,
+                "could not deserialize property %s, value %s", n->name, s);
+          }
+        }
+        xmlFree (s);
+      }
+      n = n->next;
+    }
+
+    obj = g_object_newv (type, n_params, params);
+    for (i = 0; i < n_params; i++) {
+      g_value_unset (&params[i].value);
+    }
+  }
+
+
   g_free (params);
   g_type_class_unref (object_class);
 

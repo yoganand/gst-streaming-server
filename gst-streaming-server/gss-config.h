@@ -76,6 +76,8 @@ void gss_init (void);
 
 GObject *gss_config_create_object (GssConfig *config, GType type,
     const char *name);
+GObject * gss_config_create_object_2 (GssConfig * config, GType parent_type,
+    const char *parent_name, GType type, const char *name);
 void gss_config_load_object (GssConfig *config, GObject *object,
     const char *name);
 
