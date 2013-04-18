@@ -25,7 +25,7 @@ session_url=`curl -s $curlopts -w '%{redirect_url}' $curlcmd https://$host/login
 echo session url $session_url
 
 
-url=$(echo $session_url | sed 's,\?,stream0?,')
+url=$(echo $session_url | sed 's,\?,stream-0?,')
 curl -s $curlopts --data enabled=true --data push-method=icecast $url >/dev/null
 
 
@@ -36,7 +36,7 @@ gst-launch -q \
   theoraenc keyframe-freq=30 keyframe-force=30 ! \
   queue ! \
   oggmux max-delay=100000000 max-page-delay=100000000 name=mux ! \
-  shout2send ip=127.0.0.1 port=8080 mount=stream0 \
+  shout2send ip=127.0.0.1 port=8080 mount=stream-0 \
   audiotestsrc volume=0.1 wave=ticks is-live=true ! \
   vorbisenc ! \
   queue ! \
