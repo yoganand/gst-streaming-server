@@ -992,7 +992,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     if (session == NULL || !session->is_admin ||
         !gss_addr_range_list_check_address (server->admin_arl,
             soup_client_context_get_address (client))) {
-      gss_html_error_404 (server, msg);
+      gss_html_error_401 (server, msg);
       return;
     }
   }

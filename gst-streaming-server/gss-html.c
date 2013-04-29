@@ -53,6 +53,31 @@ gss_html_error_404 (GssServer * server, SoupMessage * msg)
 }
 
 void
+gss_html_error_401 (GssServer * server, SoupMessage * msg)
+{
+  char *content;
+  GString *s;
+  GssTransaction t = { 0 };
+
+  s = g_string_new ("");
+
+  t.s = s;
+  t.server = server;
+  t.msg = msg;
+  gss_html_header (&t);
+  GSS_A ("<h1>Error 401: Unauthorized</h1>\n");
+  GSS_A ("<p>Perhaps you meant to <a href='/login'>log in</a>?</h1>\n");
+  gss_html_footer (&t);
+
+  content = g_string_free (s, FALSE);
+
+  soup_message_set_response (msg, GSS_TEXT_HTML, SOUP_MEMORY_TAKE,
+      content, strlen (content));
+
+  soup_message_set_status (msg, SOUP_STATUS_UNAUTHORIZED);
+}
+
+void
 gss_html_append_image (GString * s, const char *url, int width, int height,
     const char *alt_text)
 {
