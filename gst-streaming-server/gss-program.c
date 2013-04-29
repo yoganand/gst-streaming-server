@@ -357,16 +357,30 @@ gss_program_set_enabled (GssProgram * program, gboolean enabled)
   }
 }
 
+static gboolean
+gss_program_call_start (gpointer priv)
+{
+  gss_program_start ((GssProgram *) priv);
+  return FALSE;
+}
+
 void
 gss_program_idle_start (GssProgram * program)
 {
-  g_idle_add ((GSourceFunc) gss_program_start, program);
+  g_idle_add (gss_program_call_start, program);
+}
+
+static gboolean
+gss_program_call_stop (gpointer priv)
+{
+  gss_program_stop ((GssProgram *) priv);
+  return FALSE;
 }
 
 void
 gss_program_idle_stop (GssProgram * program)
 {
-  g_idle_add ((GSourceFunc) gss_program_stop, program);
+  g_idle_add (gss_program_call_stop, program);
 }
 
 void
