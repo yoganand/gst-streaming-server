@@ -522,10 +522,10 @@ gss_program_add_jpeg_block (GssProgram * program, GssTransaction * t)
           t->id, GSS_OBJECT_NAME (program), t->id, GSS_OBJECT_NAME (program));
       t->id++;
     } else {
-      GSS_P ("<img src='/no-snapshot.png' alt='no snapshot'>\n");
+      GSS_P ("<img src='/no-snapshot.jpg' alt='no snapshot'>\n");
     }
   } else {
-    GSS_P ("<img src='/offline.png' alt='offline'>\n");
+    GSS_P ("<img src='/offline.jpg' alt='offline'>\n");
   }
 }
 
@@ -540,7 +540,7 @@ gss_program_add_video_block (GssProgram * program, GssTransaction * t,
   int flash_only = TRUE;
 
   if (program->state != GSS_PROGRAM_STATE_RUNNING) {
-    GSS_P ("<img src='/offline.png' alt='offline'>\n");
+    GSS_P ("<img src='/offline.jpg' alt='offline'>\n");
     return;
   }
 
@@ -550,7 +550,7 @@ gss_program_add_video_block (GssProgram * program, GssTransaction * t,
           "/%s-snapshot.jpeg", 0, 0, "snapshot image",
           GSS_OBJECT_NAME (program));
     } else {
-      GSS_P ("<img src='/no-snapshot.png' alt='no snapshot'>\n");
+      GSS_P ("<img src='/no-snapshot.jpg' alt='no snapshot'>\n");
     }
   }
 

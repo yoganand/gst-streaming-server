@@ -272,7 +272,7 @@ gss_html_bootstrap_doc (GssTransaction * t)
   GString *s = t->s;
 
   GSS_A ("<div class='hero-unit'>\n");
-  GSS_A ("<img src='/offline.png' alt='offline'>\n");
+  GSS_A ("<img src='/offline.jpg' alt='offline'>\n");
   GSS_A ("<p>Content #1.</p>\n");
   GSS_A
       ("<p><a class='btn btn-primary btn-large'>Learn more &raquo;</a></p>\n");

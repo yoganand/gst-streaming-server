@@ -766,11 +766,11 @@ gss_server_setup_resources (GssServer * server)
       gss_data_glyphicons_halflings_white_png,
       gss_data_glyphicons_halflings_white_png_len);
   gss_server_add_static_resource (server,
-      "/no-snapshot.png", 0, "image/png",
-      gss_data_no_snapshot_png, gss_data_no_snapshot_png_len);
+      "/no-snapshot.jpg", 0, "image/jpeg",
+      gss_data_no_snapshot_jpg, gss_data_no_snapshot_jpg_len);
   gss_server_add_static_resource (server,
-      "/offline.png", 0, "image/png",
-      gss_data_offline_png, gss_data_offline_png_len);
+      "/offline.jpg", 0, "image/jpeg",
+      gss_data_offline_jpg, gss_data_offline_jpg_len);
   gss_server_add_static_resource (server,
       "/sign_in_blue.png", 0, "image/png",
       gss_data_sign_in_blue_png, gss_data_sign_in_blue_png_len);

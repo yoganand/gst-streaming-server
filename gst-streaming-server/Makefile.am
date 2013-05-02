@@ -98,8 +98,8 @@ content_files= \
 	content/glyphicons-halflings.png \
 	content/include.js \
 	content/jquery.js \
-	content/offline.png \
-	content/no-snapshot.png \
+	content/offline.jpg \
+	content/no-snapshot.jpg \
 	content/sign_in_blue.png
 
 EXTRA_DIST = $(content_files)
