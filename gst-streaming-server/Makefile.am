@@ -43,6 +43,8 @@ sources = \
 	gss-program.c \
 	gss-pull.c \
 	gss-push.c \
+	gss-smooth-streaming.c \
+	gss-ism-parser.c \
 	gss-stream.c \
 	gss-transaction.c \
 	gss-user.c \
@@ -81,6 +83,8 @@ gss_include_HEADERS = \
 	gss-pull.h \
 	gss-push.h \
 	gss-resource.h \
+	gss-smooth-streaming.h \
+	gss-ism-parser.h \
 	gss-stream.h \
 	gss-transaction.h \
 	gss-types.h \
