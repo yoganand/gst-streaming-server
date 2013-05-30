@@ -58,6 +58,8 @@ struct _AtomTfhd
   guint8 version;
   guint32 flags;
   guint32 track_id;
+  guint32 default_sample_duration;
+  guint32 default_sample_size;
   guint32 default_sample_flags;
 };
 
@@ -90,6 +92,17 @@ enum TrFlags
   TR_SAMPLE_COMPOSITION_TIME_OFFSETS = 0x0800   /* sample-composition-time-offsets-pre
                                                    sents */
 };
+
+enum TfFlags
+{
+  TF_BASE_DATA_OFFSET = 0x01,   /* base-data-offset-present */
+  TF_SAMPLE_DESCRIPTION_INDEX = 0x02,   /* sample-description-index-present */
+  TF_DEFAULT_SAMPLE_DURATION = 0x08,    /* default-sample-duration-present */
+  TF_DEFAULT_SAMPLE_SIZE = 0x010,       /* default-sample-size-present */
+  TF_DEFAULT_SAMPLE_FLAGS = 0x020,      /* default-sample-flags-present */
+  TF_DURATION_IS_EMPTY = 0x010000       /* sample-composition-time-offsets-presents */
+};
+
 
 struct _AtomParser
 {
@@ -411,6 +424,7 @@ atom_parse (GssISMParser * parser, guint64 base_offset, guint64 parent_size,
       guint8 *data;
       Fragment *fragment = &parser->fragments[parser->n_fragments - 1];
       AtomTrun *trun = &fragment->trun;
+      AtomTfhd *tfhd = &fragment->tfhd;
       int i;
 
       data = g_malloc (size);
@@ -433,12 +447,16 @@ atom_parse (GssISMParser * parser, guint64 base_offset, guint64 parent_size,
       for (i = 0; i < trun->sample_count; i++) {
         if (trun->flags & TR_SAMPLE_DURATION) {
           gst_byte_reader_get_uint32_be (&br, &trun->samples[i].duration);
+        } else {
+          trun->samples[i].duration = tfhd->default_sample_duration;
         }
         if (trun->flags & TR_SAMPLE_SIZE) {
           gst_byte_reader_get_uint32_be (&br, &trun->samples[i].size);
         }
         if (trun->flags & TR_SAMPLE_FLAGS) {
           gst_byte_reader_get_uint32_be (&br, &trun->samples[i].flags);
+        } else {
+          trun->samples[i].flags = tfhd->default_sample_duration;
         }
         if (trun->flags & TR_SAMPLE_COMPOSITION_TIME_OFFSETS) {
           gst_byte_reader_get_uint32_be (&br,
@@ -467,7 +485,18 @@ atom_parse (GssISMParser * parser, guint64 base_offset, guint64 parent_size,
       gst_byte_reader_get_uint8 (&br, &tfhd->version);
       gst_byte_reader_get_uint24_be (&br, &tfhd->flags);
       gst_byte_reader_get_uint32_be (&br, &tfhd->track_id);
-      gst_byte_reader_get_uint32_be (&br, &tfhd->default_sample_flags);
+      if (tfhd->flags & TF_SAMPLE_DESCRIPTION_INDEX) {
+        gst_byte_reader_skip (&br, 4);
+      }
+      if (tfhd->flags & TF_DEFAULT_SAMPLE_DURATION) {
+        gst_byte_reader_get_uint32_be (&br, &tfhd->default_sample_duration);
+      }
+      if (tfhd->flags & TF_DEFAULT_SAMPLE_SIZE) {
+        gst_byte_reader_get_uint32_be (&br, &tfhd->default_sample_size);
+      }
+      if (tfhd->flags & TF_DEFAULT_SAMPLE_FLAGS) {
+        gst_byte_reader_get_uint32_be (&br, &tfhd->default_sample_flags);
+      }
     } else {
 #if 0
       int i;

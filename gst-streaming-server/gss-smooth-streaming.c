@@ -50,7 +50,6 @@ struct _GssISM
 
   int n_audio_levels;
   int n_video_levels;
-  int n_fragments;
 
   GssISMLevel *audio_levels;
   GssISMLevel *video_levels;
@@ -60,6 +59,7 @@ struct _GssISMLevel
 {
   const char *filename;
 
+  int n_fragments;
   int bitrate;
   int video_width;
   int video_height;
@@ -125,6 +125,7 @@ gss_file_fragment_wrote_chunk (SoupMessage * msg, GssFileFragment * ff)
 static void
 gss_file_fragment_finished (SoupMessage * msg, GssFileFragment * ff)
 {
+  GST_ERROR ("done");
   close (ff->fd);
   g_free (ff);
 }
@@ -187,8 +188,8 @@ gss_smooth_streaming_setup (GssServer * server)
     ism = gss_ism_new ();
 
     /* FIXME */
-    ism->max_width = 1280;
-    ism->max_height = 720;
+    ism->max_width = 1024;
+    ism->max_height = 576;
 
     ism->n_video_levels = 1;
     ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
@@ -196,26 +197,31 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
 
     parser = gss_ism_parser_new ();
-    gss_ism_parser_parse_file (parser,
-        "SuperSpeedway/SuperSpeedway_720_2962.ismv");
+    //gss_ism_parser_parse_file (parser,
+    //    "SuperSpeedway/SuperSpeedway_720_2962.ismv");
+    gss_ism_parser_parse_file (parser, "boondocks-408.ismv");
+    //gss_ism_parser_parse_file (parser, "out.ism");
 
     ism->audio_levels[0].fragments =
         gss_ism_parser_get_fragments (parser, 1, &n_fragments);
-    ism->n_fragments = n_fragments;
+    ism->audio_levels[0].n_fragments = n_fragments;
 
-    ism->audio_levels[0].filename = "SuperSpeedway/SuperSpeedway_720_2962.ismv";
+    ism->audio_levels[0].filename = "boondocks-408.ismv";
     ism->audio_levels[0].bitrate = 128000;
 
     ism->video_levels[0].fragments =
         gss_ism_parser_get_fragments (parser, 2, &n_fragments);
-    ism->video_levels[0].filename = "SuperSpeedway/SuperSpeedway_720_2962.ismv";
-    ism->video_levels[0].bitrate = 2962000;
-    ism->video_levels[0].video_width = 1280;
-    ism->video_levels[0].video_height = 720;
+    ism->video_levels[0].n_fragments = n_fragments;
+    ism->video_levels[0].filename = "boondocks-408.ismv";
+    ism->video_levels[0].bitrate = 2500000;
+    ism->video_levels[0].video_width = 1024;
+    ism->video_levels[0].video_height = 576;
 
     ism->duration =
-        ism->video_levels[0].fragments[ism->n_fragments - 1].timestamp +
-        ism->video_levels[0].fragments[ism->n_fragments - 1].duration;
+        ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
+        1].timestamp +
+        ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
+        1].duration;
 
     global_ism = ism;
   }
@@ -246,8 +252,8 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
       ("  <StreamIndex Type=\"video\" Name=\"video\" Chunks=\"%d\" QualityLevels=\"%d\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
       "DisplayWidth=\"%d\" DisplayHeight=\"%d\" "
       "Url=\"content?stream=video&amp;bitrate={bitrate}&amp;start_time={start time}\">\n",
-      ism->n_fragments, ism->n_video_levels, ism->max_width, ism->max_height,
-      ism->max_width, ism->max_height);
+      ism->video_levels[0].n_fragments, ism->n_video_levels, ism->max_width,
+      ism->max_height, ism->max_width, ism->max_height);
   /* also IsLive, LookaheadCount, DVRWindowLength */
 
   for (i = 0; i < ism->n_video_levels; i++) {
@@ -255,7 +261,10 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
     const char *private_data_hex;
 
     private_data_hex =
-        "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525";
+        //    "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525";
+        //    "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb";
+        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb";
+    //    "014d401fffe1001b674d401ff281686b7fe0340032a20000030002ee6b28001e30622c01000568e93b2c80";
     GSS_P ("    <QualityLevel Index=\"%d\" Bitrate=\"%d\" "
         "FourCC=\"H264\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
         "CodecPrivateData=\"%s\" />\n", i, level->bitrate, level->video_width,
@@ -264,7 +273,7 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
   {
     GssISMLevel *level = &ism->video_levels[0];
 
-    for (i = 0; i < ism->n_fragments; i++) {
+    for (i = 0; i < ism->video_levels[0].n_fragments; i++) {
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) level->fragments[i].duration);
     }
@@ -274,19 +283,19 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
   GSS_P ("  <StreamIndex Type=\"audio\" Index=\"0\" Name=\"audio\" "
       "Chunks=\"%d\" QualityLevels=\"%d\" "
       "Url=\"content?stream=audio&amp;bitrate={bitrate}&amp;start_time={start time}\">\n",
-      ism->n_fragments, ism->n_audio_levels);
+      ism->audio_levels[0].n_fragments, ism->n_audio_levels);
   for (i = 0; i < ism->n_video_levels; i++) {
     GssISMLevel *level = &ism->audio_levels[i];
 
     GSS_P ("    <QualityLevel FourCC=\"AACL\" Bitrate=\"%d\" "
-        "SamplingRate=\"44100\" Channels=\"2\" BitsPerSample=\"16\" "
-        "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"1210\" />\n",
+        "SamplingRate=\"48000\" Channels=\"2\" BitsPerSample=\"16\" "
+        "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"119056e500\" />\n",
         level->bitrate);
   }
   {
     GssISMLevel *level = &ism->audio_levels[0];
 
-    for (i = 0; i < ism->n_fragments; i++) {
+    for (i = 0; i < ism->audio_levels[0].n_fragments; i++) {
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) level->fragments[i].duration);
     }
@@ -381,7 +390,10 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
   GssISMLevel *level;
   GssISMFragment *fragment;
 
+  GST_ERROR ("content request");
+
   if (t->query == NULL) {
+    GST_ERROR ("no query");
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
@@ -467,7 +479,7 @@ gss_ism_level_get_fragment (GssISM * ism, GssISMLevel * level,
     guint64 timestamp)
 {
   int i;
-  for (i = 0; i < ism->n_fragments; i++) {
+  for (i = 0; i < level->n_fragments; i++) {
     if (level->fragments[i].timestamp == timestamp) {
       return &level->fragments[i];
     }

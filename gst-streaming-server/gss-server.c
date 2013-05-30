@@ -1040,7 +1040,8 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
 
   soup_message_set_status (msg, SOUP_STATUS_OK);
 
-  if (msg->method == SOUP_METHOD_GET && resource->get_callback) {
+  if ((msg->method == SOUP_METHOD_GET || msg->method == SOUP_METHOD_HEAD)
+      && resource->get_callback) {
     resource->get_callback (transaction);
   } else if (msg->method == SOUP_METHOD_PUT && resource->put_callback) {
     resource->put_callback (transaction);
