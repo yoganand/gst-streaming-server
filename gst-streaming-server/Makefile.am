@@ -40,6 +40,7 @@ sources = \
 	gss-manager.c \
 	gss-resource.c \
 	gss-object.c \
+	gss-playready.c \
 	gss-program.c \
 	gss-pull.c \
 	gss-push.c \
@@ -79,6 +80,7 @@ gss_include_HEADERS = \
 	gss-metrics.h \
 	gss-manager.h \
 	gss-object.h \
+	gss-playready.h \
 	gss-program.h \
 	gss-pull.h \
 	gss-push.h \

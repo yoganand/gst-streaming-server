@@ -32,6 +32,7 @@
 #include "gss-utils.h"
 #include "gss-vod.h"
 #include "gss-smooth-streaming.h"
+#include "gss-playready.h"
 
 #define GST_CAT_DEFAULT gss_debug
 
@@ -777,6 +778,8 @@ gss_server_setup_resources (GssServer * server)
   gss_server_add_static_resource (server,
       "/sign_in_blue.png", 0, "image/png",
       gss_data_sign_in_blue_png, gss_data_sign_in_blue_png_len);
+
+  gss_playready_setup (server);
 }
 
 void
