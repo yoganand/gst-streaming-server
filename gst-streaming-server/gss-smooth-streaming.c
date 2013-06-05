@@ -51,6 +51,11 @@ struct _GssISM
   int n_audio_levels;
   int n_video_levels;
 
+  const char *video_codec_data;
+  const char *audio_codec_data;
+  gboolean playready;
+  int audio_rate;
+
   GssISMLevel *audio_levels;
   GssISMLevel *video_levels;
 };
@@ -176,20 +181,148 @@ gss_file_fragment_serve_file (GssTransaction * t, const char *filename,
 
 }
 
+static void
+gss_file_fragment_serve_file_enc (GssTransaction * t, const char *filename,
+    guint64 offset, guint64 size, guint64 enc_offset)
+{
+  off_t ret;
+  guint8 *data;
+  int fd;
+  ssize_t n;
+  //int eret;
+  //gnutls_cipher_hd_t handle;
+  //gnutls_datum_t key;
+  //gnutls_datum_t iv;
+
+  fd = open (filename, O_RDONLY);
+  if (fd < 0) {
+    GST_WARNING ("file not found %s", filename);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  ret = lseek (fd, offset, SEEK_SET);
+  if (ret < 0) {
+    GST_WARNING ("failed to seek");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  data = g_malloc ((size + 127) & (~127));
+  n = read (fd, data, size);
+  if (n < size) {
+    GST_WARNING ("read failed");
+    g_free (data);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+#if 0
+  key.data = raw_key;
+  key.size = 16;
+
+  iv.data = raw_iv;
+  iv.size = 16;
+
+  gnutls_cipher_init (&handle, GNUTLS_CIPHER_AES_128_CBC, &key, &iv);
+
+  GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
+      enc_offset, size);
+  eret = gnutls_cipher_encrypt (handle, data + enc_offset, size - enc_offset);
+  GST_ERROR ("encrypt returned %d", eret);
+
+  gnutls_cipher_deinit (handle);
+#endif
+#if 0
+  {
+    unsigned char raw_key[] = {
+      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    unsigned char raw_iv[] = {
+      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    unsigned char ecount_buf[16] = { 0 };
+    unsigned int num = 0;
+    AES_KEY key;
+
+    AES_set_encrypt_key (raw_key, 16 * 8, &key);
+
+    GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
+        enc_offset, size);
+
+    AES_ctr128_encrypt (data + enc_offset, data + enc_offset,
+        size - enc_offset, &key, raw_iv, ecount_buf, &num);
+    GST_ERROR ("num %d", num);
+  }
+#endif
+
+  soup_message_set_status (t->msg, SOUP_STATUS_OK);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, data,
+      size);
+}
+
+/* FIXME should be extracted from file */
+typedef struct _ISMInfo ISMInfo;
+struct _ISMInfo
+{
+  const char *filename;
+  const char *mount;
+  int width;
+  int height;
+  gboolean playready;
+  int video_bitrate;
+  const char *video_codec_data;
+  int audio_bitrate;
+  int audio_rate;
+  const char *audio_codec_data;
+};
+
+ISMInfo ism_files[] = {
+  {
+        "SuperSpeedway_720_2962.ismv",
+        "SuperSpeedwayPR",
+        1280, 720, TRUE,
+        2962000,
+        "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
+        128000, 44100, "1210",
+      },
+  {
+        "SuperSpeedway/SuperSpeedway_720_2962.ismv",
+        "SuperSpeedway",
+        1280, 720, FALSE,
+        2962000,
+        "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
+        128000, 44100, "1210",
+      },
+  {
+        "boondocks-408.ismv",
+        "boondocks",
+        1024, 576, FALSE,
+        2500000,
+        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb",
+        128000, 48000, "1210",
+      },
+};
+
+
 void
 gss_smooth_streaming_setup (GssServer * server)
 {
+  int i;
 
-  {
+  for (i = 0; i < 3; i++) {
+    ISMInfo *info = &ism_files[i];
     GssISM *ism;
     GssISMParser *parser;
     int n_fragments;
+    char *s;
 
     ism = gss_ism_new ();
 
     /* FIXME */
-    ism->max_width = 1024;
-    ism->max_height = 576;
+    ism->max_width = info->width;
+    ism->max_height = info->height;
 
     ism->n_video_levels = 1;
     ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
@@ -197,25 +330,22 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
 
     parser = gss_ism_parser_new ();
-    //gss_ism_parser_parse_file (parser,
-    //    "SuperSpeedway/SuperSpeedway_720_2962.ismv");
-    gss_ism_parser_parse_file (parser, "boondocks-408.ismv");
-    //gss_ism_parser_parse_file (parser, "out.ism");
+    gss_ism_parser_parse_file (parser, info->filename);
 
     ism->audio_levels[0].fragments =
         gss_ism_parser_get_fragments (parser, 1, &n_fragments);
     ism->audio_levels[0].n_fragments = n_fragments;
 
-    ism->audio_levels[0].filename = "boondocks-408.ismv";
-    ism->audio_levels[0].bitrate = 128000;
+    ism->audio_levels[0].filename = g_strdup (info->filename);
+    ism->audio_levels[0].bitrate = info->audio_bitrate;
 
     ism->video_levels[0].fragments =
         gss_ism_parser_get_fragments (parser, 2, &n_fragments);
     ism->video_levels[0].n_fragments = n_fragments;
-    ism->video_levels[0].filename = "boondocks-408.ismv";
-    ism->video_levels[0].bitrate = 2500000;
-    ism->video_levels[0].video_width = 1024;
-    ism->video_levels[0].video_height = 576;
+    ism->video_levels[0].filename = g_strdup (info->filename);
+    ism->video_levels[0].bitrate = info->video_bitrate;
+    ism->video_levels[0].video_width = info->width;
+    ism->video_levels[0].video_height = info->height;
 
     ism->duration =
         ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
@@ -223,15 +353,22 @@ gss_smooth_streaming_setup (GssServer * server)
         ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
         1].duration;
 
-    global_ism = ism;
-  }
+    ism->video_codec_data = info->video_codec_data;
+    ism->audio_codec_data = info->audio_codec_data;
+    ism->audio_rate = info->audio_rate;
+    ism->playready = info->playready;
 
-  gss_server_add_resource (server, "/SuperSpeedway/Manifest",
-      0, "text/xml;charset=utf-8",
-      gss_smooth_streaming_resource_get_manifest, NULL, NULL, global_ism);
-  gss_server_add_resource (server, "/SuperSpeedway/content",
-      0, "video/mp4",
-      gss_smooth_streaming_resource_get_content, NULL, NULL, global_ism);
+    global_ism = ism;
+
+    s = g_strdup_printf ("/%s/Manifest", info->mount);
+    gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
+        gss_smooth_streaming_resource_get_manifest, NULL, NULL, global_ism);
+    g_free (s);
+    s = g_strdup_printf ("/%s/content", info->mount);
+    gss_server_add_resource (server, s, 0, "video/mp4",
+        gss_smooth_streaming_resource_get_content, NULL, NULL, global_ism);
+    g_free (s);
+  }
 }
 
 static void
@@ -258,17 +395,11 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 
   for (i = 0; i < ism->n_video_levels; i++) {
     GssISMLevel *level = &ism->video_levels[i];
-    const char *private_data_hex;
 
-    private_data_hex =
-        //    "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525";
-        //    "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb";
-        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb";
-    //    "014d401fffe1001b674d401ff281686b7fe0340032a20000030002ee6b28001e30622c01000568e93b2c80";
     GSS_P ("    <QualityLevel Index=\"%d\" Bitrate=\"%d\" "
         "FourCC=\"H264\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
         "CodecPrivateData=\"%s\" />\n", i, level->bitrate, level->video_width,
-        level->video_height, private_data_hex);
+        level->video_height, ism->video_codec_data);
   }
   {
     GssISMLevel *level = &ism->video_levels[0];
@@ -288,9 +419,9 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
     GssISMLevel *level = &ism->audio_levels[i];
 
     GSS_P ("    <QualityLevel FourCC=\"AACL\" Bitrate=\"%d\" "
-        "SamplingRate=\"48000\" Channels=\"2\" BitsPerSample=\"16\" "
-        "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"119056e500\" />\n",
-        level->bitrate);
+        "SamplingRate=\"%d\" Channels=\"2\" BitsPerSample=\"16\" "
+        "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"%s\" />\n",
+        level->bitrate, ism->audio_rate, ism->audio_codec_data);
   }
   {
     GssISMLevel *level = &ism->audio_levels[0];
@@ -302,7 +433,7 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
   }
 
   GSS_A ("  </StreamIndex>\n");
-  if (0) {
+  if (ism->playready) {
     GSS_A ("<Protection>\n");
     GSS_A
         ("  <ProtectionHeader SystemID=\"9a04f079-9840-4286-ab92-e65be0885f95\">");
