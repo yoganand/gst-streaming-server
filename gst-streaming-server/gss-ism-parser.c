@@ -257,10 +257,12 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
       gss_ism_parse_mdat (parser, parser->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'f', 'r', 'a')) {
       gss_ism_parse_mfra (parser, parser->offset, size);
+    } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'v')) {
+      /* ignore moov atom */
     } else {
       GST_ERROR ("unknown atom %" GST_FOURCC_FORMAT
-          " at offset %08x, size %d", GST_FOURCC_ARGS (atom),
-          parser->offset, size);
+          " at offset %" G_GINT64_MODIFIER "x, size %d",
+          GST_FOURCC_ARGS (atom), parser->offset, size);
     }
 
     parser->offset += size;
@@ -329,9 +331,11 @@ gss_ism_parse_moof (GssISMParser * parser, guint64 offset, guint64 size)
 
   g_free (data);
 
-  g_print ("frag: track %d duration %ld\n",
+#if 0
+  g_print ("frag: track %d duration %" G_GUINT64_FORMAT "\n",
       parser->current_fragment->tfhd.track_id,
       parser->current_fragment->duration);
+#endif
 }
 
 static void

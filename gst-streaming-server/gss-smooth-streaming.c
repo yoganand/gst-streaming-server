@@ -329,7 +329,6 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
           "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
           "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
           "</DATA>" "</WRMHEADER>", la_url);
-      g_print ("%s\n", wrmheader);
       len = strlen (wrmheader);
       utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
 
@@ -390,7 +389,7 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
   GssISMLevel *level;
   GssISMFragment *fragment;
 
-  GST_ERROR ("content request");
+  //GST_ERROR ("content request");
 
   if (t->query == NULL) {
     GST_ERROR ("no query");
@@ -416,20 +415,19 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
 
   level = gss_ism_get_level (ism, (stream[0] == 'v'), bitrate);
   if (level == NULL) {
-    GST_ERROR ("no level for %s, %lld", stream, bitrate);
+    GST_ERROR ("no level for %s, %" G_GUINT64_FORMAT, stream, bitrate);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
 
   fragment = gss_ism_level_get_fragment (ism, level, start_time);
   if (fragment == NULL) {
-    GST_ERROR ("no fragment for %lld", start_time);
+    GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
-
-  GST_ERROR ("frag %s %lld %lld", level->filename, fragment->offset,
-      fragment->size);
+  //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
+  //    level->filename, fragment->offset, fragment->size);
   gss_file_fragment_serve_file (t, level->filename, fragment->offset,
       fragment->size);
 }
