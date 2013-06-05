@@ -45,6 +45,11 @@ typedef struct _AtomMfhd AtomMfhd;
 typedef struct _AtomTfhd AtomTfhd;
 typedef struct _AtomTrun AtomTrun;
 typedef struct _AtomTrunSample AtomTrunSample;
+typedef struct _AtomUUIDProtectionHeader AtomUUIDProtectionHeader;
+typedef struct _AtomUUIDSampleEncryption AtomUUIDSampleEncryption;
+typedef struct _AtomUUIDSampleEncryptionSample AtomUUIDSampleEncryptionSample;
+typedef struct _AtomUUIDSampleEncryptionSampleEntry
+    AtomUUIDSampleEncryptionSampleEntry;
 
 struct _AtomMfhd
 {
@@ -80,6 +85,45 @@ struct _AtomTrunSample
   guint32 size;
   guint32 flags;
   guint32 composition_time_offset;
+};
+
+
+/* ProtectionSystemSpecificHeaderBox */
+/* 0xd08a4f18-10f3-4a82-b6c8-32d8aba183d3 */
+struct _AtomUUIDProtectionHeader
+{
+  guint8 version;
+  guint32 flags;
+  guint8 system_id[16];
+  guint32 data_size;
+  guint8 *data;
+};
+
+/* SampleEncryptionBox */
+/* A2394F52-5A9B-4f14-A244-6C427C648DF4 */
+struct _AtomUUIDSampleEncryption
+{
+  guint8 version;
+  guint32 flags;
+  guint32 algorithm_id;
+  guint8 iv_size;
+  guint8 kid[16];
+  guint32 sample_count;
+  AtomUUIDSampleEncryptionSample *samples;
+};
+
+#define MAX_IV_SIZE 16
+struct _AtomUUIDSampleEncryptionSample
+{
+  guint8 iv[MAX_IV_SIZE];
+  guint16 num_entries;
+  AtomUUIDSampleEncryptionSampleEntry *entries;
+};
+
+struct _AtomUUIDSampleEncryptionSampleEntry
+{
+  guint16 bytes_of_clear_data;
+  guint32 bytes_of_encrypted_data;
 };
 
 enum TrFlags
