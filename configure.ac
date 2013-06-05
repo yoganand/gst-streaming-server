@@ -145,6 +145,14 @@ fi
 AC_SUBST(JSON_GLIB_CFLAGS)
 AC_SUBST(JSON_GLIB_LIBS)
 
+PKG_CHECK_MODULES(OPENSSL, openssl, HAVE_OPENSSL=yes, HAVE_OPENSSL=no)
+#if test "$HAVE_OPENSSL" != yes ; then
+#  echo openssl needed to build
+#  exit 1
+#fi
+AC_SUBST(OPENSSL_CFLAGS)
+AC_SUBST(OPENSSL_LIBS)
+
 AM_CONDITIONAL(ENABLE_STATIC_LIB, [false])
 
 GST_ALL_LDFLAGS="-no-undefined"
