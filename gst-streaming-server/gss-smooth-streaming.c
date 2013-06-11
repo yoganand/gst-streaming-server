@@ -28,6 +28,7 @@
 #include "gss-soup.h"
 #include "gss-content.h"
 #include "gss-ism-parser.h"
+#include "gss-playready.h"
 #include "gss-utils.h"
 
 #include <string.h>
@@ -61,6 +62,10 @@ struct _GssISM
   GssISMLevel *video_levels;
 
   gboolean needs_encryption;
+
+  guint8 *kid;
+  gsize kid_len;
+  guint8 *content_key;
 };
 
 struct _GssISMLevel
@@ -184,12 +189,18 @@ gss_file_fragment_serve_file (GssTransaction * t, const char *filename,
 
 }
 
-#if 0
-static guint8 dumb_aes128_key[16] = {
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-};
-#endif
+static void
+gss_ism_generate_content_key (GssISM * ism)
+{
+  guint8 *seed;
+
+  seed = gss_playready_get_default_key_seed ();
+
+  ism->content_key = gss_playready_generate_key (seed, 30, ism->kid,
+      ism->kid_len);
+
+  g_free (seed);
+}
 
 static void
 gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
@@ -204,11 +215,6 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
   guint64 *init_vectors;
   guint64 iv;
   int i;
-#if 0
-  int *sample_sizes;
-  int sample_offset;
-#endif
-  //int eret;
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
@@ -233,8 +239,7 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
     return;
   }
 
-  /* FIXME needs to be crypto-random */
-  iv = 0x0123456789abcdef;
+  gss_utils_get_random_bytes ((guint8 *) & iv, 8);
 
   init_vectors = g_malloc (fragment->n_samples * sizeof (guint64));
   for (i = 0; i < fragment->n_samples; i++) {
@@ -243,33 +248,10 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
   gss_ism_fragment_set_sample_encryption (fragment, fragment->n_samples,
       init_vectors, (fragment->track_id == 2));
 
-  gss_ism_encrypt_samples (fragment, mdat_data);
-#if 0
-  sample_sizes = gss_ism_fragment_get_sample_sizes (fragment);
-  sample_offset = 8;
-
-  for (i = 0; i < fragment->n_samples; i++) {
-    unsigned char raw_iv[16];
-    unsigned char ecount_buf[16] = { 0 };
-    unsigned int num = 0;
-    AES_KEY key;
-
-    memset (raw_iv, 0, 16);
-    GST_WRITE_UINT64_BE (raw_iv, init_vectors[i]);
-
-    AES_set_encrypt_key (dumb_aes128_key, 16 * 8, &key);
-
-    //GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
-    //    enc_offset, size);
-
-    AES_ctr128_encrypt (mdat_data + sample_offset,
-        mdat_data + sample_offset, sample_sizes[i],
-        &key, raw_iv, ecount_buf, &num);
-    sample_offset += sample_sizes[i];
-    //GST_ERROR ("num %d", num);
+  if (ism->content_key == NULL) {
+    gss_ism_generate_content_key (ism);
   }
-  g_free (sample_sizes);
-#endif
+  gss_ism_encrypt_samples (fragment, mdat_data, ism->content_key);
   g_free (init_vectors);
 
   gss_ism_fragment_serialize (fragment, &moof_data, &moof_size);
@@ -358,6 +340,7 @@ gss_smooth_streaming_setup (GssServer * server)
     /* FIXME */
     ism->max_width = info->width;
     ism->max_height = info->height;
+    ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
 
     ism->n_video_levels = 1;
     ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
@@ -481,10 +464,12 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
       int len;
       guchar *content;
       const char *la_url;
+      gchar *kid_base64;
 
       la_url = "http://192.168.83.157:8080/rightsmanager.asmx";
       //la_url = "http://playready.directtaps.net/pr/svc/rightsmanager.asmx";
 
+      kid_base64 = g_base64_encode (ism->kid, ism->kid_len);
       /* this all needs to be on one line, to satisfy clients */
       /* Note: DS_ID is ignored by Roku */
       /* Roku checks CHECKSUM if it exists */
@@ -492,13 +477,13 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
           g_strdup_printf
           ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
           "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
-          "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>"
-          "<KID>AmfjCTOPbEOl3WD/5mcecA==</KID>"
+          "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
           //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
           "<CUSTOMATTRIBUTES>"
           "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
           "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
-          "</DATA>" "</WRMHEADER>", la_url);
+          "</DATA>" "</WRMHEADER>", kid_base64, la_url);
+      g_free (kid_base64);
       len = strlen (wrmheader);
       utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
 

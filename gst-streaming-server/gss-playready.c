@@ -36,10 +36,6 @@ done (SoupSession * session, SoupMessage * msg, gpointer user_data)
 {
   struct _Request *request = user_data;
 
-
-  GST_ERROR ("status: %d", msg->status_code);
-  GST_ERROR ("response: %s", msg->response_body->data);
-
   soup_message_body_append (request->request_message->response_body,
       SOUP_MEMORY_COPY, msg->response_body->data, msg->response_body->length);
 
@@ -49,51 +45,24 @@ done (SoupSession * session, SoupMessage * msg, gpointer user_data)
   g_free (request);
 }
 
-static const guint8 content_key[16] = {
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-};
-
-
+/* This resource proxys requests to the Microsoft PlayReady demo
+ * server at http://playready.directtaps.net/pr/svc/rightsmanager.asmx
+ * Normally, you'd have clients send requests directly to your PlayReady
+ * license server.  */
 static void
 playready_post_resource (GssTransaction * t)
 {
-  //GssServer *server = GSS_SERVER (t->resource->priv);
-  GHashTable *hash;
-  //gboolean ret = FALSE;
   SoupMessage *message;
   struct _Request *request;
   char *url;
-  char *base64_key;
 
-  hash = gss_config_get_post_hash (t);
-  if (hash) {
-    GST_ERROR ("got hash");
-    gss_utils_dump_hash (hash);
-    g_hash_table_unref (hash);
-  } else {
-    GST_ERROR ("no hash: %s", t->msg->request_body->data);
-  }
-
-  //base64_key = g_base64_encode (content_key, 16);
-  base64_key = g_strdup ("eNqVnXrElmo2NSsn7IXeEA==");
-  //base64_key = g_strdup ("FRDBoj7X!LuEDVjIvK0abQ281xY=");
-  GST_ERROR ("base64_key %s", base64_key);
-#if 0
-  url = g_strdup_printf ("http://playready.directtaps.net/pr/svc/"
-      //"rightsmanager.asmx?ContentKey=%s", base64_key);
-      "rightsmanager.asmx?KeySeed=XVBovsmzhP9gRIZxWfFta3VVRPzVEWmJsazEJ46I");
-#else
-  url = g_strdup_printf ("http://playready.directtaps.net/pr/svc/"
-      "rightsmanager.asmx"
-      "?UncompressedDigitalVideoOPL=300"
-      "&CompressedDigitalVideoOPL=300"
-      "&UncompressedDigitalAudioOPL=300"
-      "&CompressedDigitalAudioOPL=300" "&AnalogVideoOPL=300");
-#endif
+  url = g_strdup_printf
+      ("http://playready.directtaps.net/pr/svc/rightsmanager.asmx"
+      "?UncompressedDigitalVideoOPL=300" "&CompressedDigitalVideoOPL=300"
+      "&UncompressedDigitalAudioOPL=300" "&CompressedDigitalAudioOPL=300"
+      "&AnalogVideoOPL=300");
   message = soup_message_new (SOUP_METHOD_POST, url);
   g_free (url);
-  g_free (base64_key);
   soup_message_body_append (message->request_body, SOUP_MEMORY_COPY,
       t->msg->request_body->data, t->msg->request_body->length);
   soup_message_headers_replace (message->request_headers,
@@ -131,6 +100,10 @@ gss_playready_setup (GssServer * server)
 }
 
 
+/* This is the key seed used by the demo Playready server at
+ * http://playready.directtaps.net/pr/svc/rightsmanager.asmx
+ * As it is public, it is completely useless as a *private*
+ * key seed.  */
 guint8 *
 gss_playready_get_default_key_seed (void)
 {
@@ -143,6 +116,13 @@ gss_playready_get_default_key_seed (void)
   return g_memdup (default_seed, 30);
 }
 
+/*
+ * Description of this algorithm is in "PlayReady Header Object",
+ * available at:
+ *   http://www.microsoft.com/playready/documents/
+ * Direct link:
+ *   http://download.microsoft.com/download/2/0/2/202E5BD8-36C6-4DB8-9178-12472F8B119E/PlayReady%20Header%20Object%204-15-2013.docx
+ */
 guint8 *
 gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
     guint8 * kid, int kid_len)
@@ -161,29 +141,16 @@ gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
   hash_b = g_malloc (size);
   hash_c = g_malloc (size);
 
-  //
-  // Create sha_A_Output buffer. It is the SHA of the truncatedKeySeed and
-  // the keyIdAsBytes
-  //
   g_checksum_update (checksum, key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
   g_checksum_get_digest (checksum, hash_a, &size);
 
-  //
-  // Create sha_B_Output buffer. It is the SHA of the truncatedKeySeed, the
-  // keyIdAsBytes, and the truncatedKeySeed again.
-  //
   g_checksum_reset (checksum);
   g_checksum_update (checksum, key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
   g_checksum_update (checksum, key_seed, 30);
   g_checksum_get_digest (checksum, hash_b, &size);
 
-  //
-  // Create sha_C_Output buffer. It is the SHA of the truncatedKeySeed,
-  // the keyIdAsBytes, the truncatedKeySeed again, and the keyIdAsBytes
-  // again.
-  //
   g_checksum_reset (checksum);
   g_checksum_update (checksum, key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);

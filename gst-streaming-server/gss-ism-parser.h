@@ -54,7 +54,8 @@ void gss_ism_fragment_set_sample_encryption (GssISMFragment *fragment,
 void gss_ism_fragment_serialize (GssISMFragment *fragment, guint8 **data,
     int *size);
 int * gss_ism_fragment_get_sample_sizes (GssISMFragment *fragment);
-void gss_ism_encrypt_samples (GssISMFragment *fragment, guint8 *mdat_data);
+void gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
+    guint8 *content_key);
 
 G_END_DECLS
 

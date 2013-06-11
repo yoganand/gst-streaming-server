@@ -419,14 +419,14 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
       if (memcmp (uuid, uuid_xmp_data, 16) == 0) {
 
       } else {
-        GST_ERROR
-            ("UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+        GST_WARNING ("unknown UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x-%02x%02x%02x%02x%02x%02x\n",
             uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
             uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
             uuid[14], uuid[15]);
       }
     } else {
-      GST_ERROR ("unknown atom %" GST_FOURCC_FORMAT
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " at offset %" G_GINT64_MODIFIER "x, size %d",
           GST_FOURCC_ARGS (atom), parser->offset, size);
     }
@@ -468,7 +468,19 @@ parser_read (GssISMParser * parser, guint8 * buffer, int offset, int n_bytes)
 static void
 gss_ism_parse_ftyp (GssISMParser * parser, guint64 offset, guint64 size)
 {
-  GST_ERROR ("ftyp");
+  GstByteReader br;
+  guint8 *data;
+  guint32 atom = 0;
+
+  data = g_malloc (size);
+  parser_read (parser, data, parser->offset, size);
+
+  gst_byte_reader_init (&br, data + 8, size - 8);
+
+  gst_byte_reader_get_uint32_le (&br, &atom);
+  if (atom != GST_MAKE_FOURCC ('i', 's', 'm', 'l')) {
+    GST_ERROR ("not isml file");
+  }
 }
 
 static void
@@ -502,14 +514,14 @@ gss_ism_parse_moof (GssISMParser * parser, AtomMoof * moof, GstByteReader * br)
       if (memcmp (uuid, uuid_xmp_data, 16) == 0) {
 
       } else {
-        GST_ERROR
-            ("UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+        GST_WARNING ("unknown UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x-%02x%02x%02x%02x%02x%02x\n",
             uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
             uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
             uuid[14], uuid[15]);
       }
     } else {
-      GST_ERROR ("unknown atom %" GST_FOURCC_FORMAT
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " inside moof at offset %" G_GINT64_MODIFIER "x, size %d",
           GST_FOURCC_ARGS (atom), parser->offset, size);
     }
@@ -545,14 +557,14 @@ gss_ism_parse_traf (GssISMParser * parser, AtomTraf * traf, GstByteReader * br)
         gss_ism_parse_sample_encryption (parser, &traf->sample_encryption,
             &sbr);
       } else {
-        GST_ERROR
-            ("UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+        GST_WARNING ("unknown UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x-%02x%02x%02x%02x%02x%02x\n",
             uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
             uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
             uuid[14], uuid[15]);
       }
     } else {
-      GST_ERROR ("unknown atom %" GST_FOURCC_FORMAT
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " inside moof at offset %" G_GINT64_MODIFIER "x, size %d",
           GST_FOURCC_ARGS (atom), parser->offset, size);
     }
@@ -622,12 +634,6 @@ gss_ism_parse_trun (GssISMParser * parser, AtomTrun * trun, GstByteReader * br)
       gst_byte_reader_get_uint32_be (br,
           &trun->samples[i].composition_time_offset);
     }
-#if 0
-    g_print ("trun %d %d %d %d\n",
-        trun->samples[i].duration,
-        trun->samples[i].size,
-        trun->samples[i].flags, trun->samples[i].composition_time_offset);
-#endif
   }
 }
 
@@ -688,11 +694,11 @@ gss_ism_parse_sample_encryption (GssISMParser * parser,
 
   gst_byte_reader_get_uint8 (br, &se->version);
   gst_byte_reader_get_uint24_be (br, &se->flags);
-  GST_ERROR ("flags %08x", se->flags);
+  GST_DEBUG ("flags %08x", se->flags);
   if (se->flags & 0x0001) {
     gst_byte_reader_get_uint24_be (br, &se->algorithm_id);
     gst_byte_reader_get_uint8 (br, &se->iv_size);
-    GST_ERROR ("iv size %d", se->iv_size);
+    GST_DEBUG ("iv size %d", se->iv_size);
     gst_byte_reader_skip (br, 16);
   }
   gst_byte_reader_get_uint32_be (br, &se->sample_count);
@@ -959,41 +965,17 @@ gss_ism_fragment_get_sample_sizes (GssISMFragment * fragment)
   return s;
 }
 
-#if 0
-static guint8 dumb_aes128_key[16] = {
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-};
-#endif
-
 void
-gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data)
+gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
+    guint8 * content_key)
 {
   AtomMoof *moof = fragment->moof;
   AtomTrun *trun = &((AtomMoof *) fragment->moof)->traf.trun;
   AtomUUIDSampleEncryption *se = &moof->traf.sample_encryption;
   guint64 sample_offset;
   int i;
-  guint8 *content_key;
 
   sample_offset = 8;
-
-  {
-    guint8 *kid;
-    gsize kid_len;
-    guint8 *seed;
-
-    kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &kid_len);
-    seed = gss_playready_get_default_key_seed ();
-
-    GST_ERROR ("kid len %" G_GSIZE_FORMAT, kid_len);
-
-    content_key = gss_playready_generate_key (seed, 30, kid, kid_len);
-
-    g_free (kid);
-    g_free (seed);
-  }
-
 
   for (i = 0; i < fragment->n_samples; i++) {
     unsigned char raw_iv[16];
@@ -1005,9 +987,6 @@ gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data)
     GST_WRITE_UINT64_BE (raw_iv, se->samples[i].iv);
 
     AES_set_encrypt_key (content_key, 16 * 8, &key);
-
-    //GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
-    //    enc_offset, size);
 
     if (se->samples[i].num_entries == 0) {
       AES_ctr128_encrypt (mdat_data + sample_offset,
@@ -1027,8 +1006,5 @@ gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data)
       }
     }
     sample_offset += trun->samples[i].size;
-    //GST_ERROR ("num %d", num);
   }
-
-  g_free (content_key);
 }

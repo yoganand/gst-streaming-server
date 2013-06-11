@@ -959,9 +959,12 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   GssTransaction *transaction;
   GssSession *session;
 
+  //GST_ERROR ("%s %s", msg->method, path);
+
   resource = g_hash_table_lookup (server->resources, path);
 
   if (!resource) {
+    GST_ERROR ("404 %s %s", msg->method, path);
     gss_html_error_404 (server, msg);
     return;
   }
