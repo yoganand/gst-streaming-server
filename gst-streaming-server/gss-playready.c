@@ -75,14 +75,21 @@ playready_post_resource (GssTransaction * t)
     GST_ERROR ("no hash: %s", t->msg->request_body->data);
   }
 
-  base64_key = g_base64_encode (content_key, 16);
+  //base64_key = g_base64_encode (content_key, 16);
+  base64_key = g_strdup ("eNqVnXrElmo2NSsn7IXeEA==");
+  //base64_key = g_strdup ("FRDBoj7X!LuEDVjIvK0abQ281xY=");
   GST_ERROR ("base64_key %s", base64_key);
 #if 0
   url = g_strdup_printf ("http://playready.directtaps.net/pr/svc/"
-      "rightsmanager.asmx?ContentKey=%s", base64_key);
+      //"rightsmanager.asmx?ContentKey=%s", base64_key);
+      "rightsmanager.asmx?KeySeed=XVBovsmzhP9gRIZxWfFta3VVRPzVEWmJsazEJ46I");
 #else
   url = g_strdup_printf ("http://playready.directtaps.net/pr/svc/"
-      "rightsmanager.asmx");
+      "rightsmanager.asmx"
+      "?UncompressedDigitalVideoOPL=300"
+      "&CompressedDigitalVideoOPL=300"
+      "&UncompressedDigitalAudioOPL=300"
+      "&CompressedDigitalAudioOPL=300" "&AnalogVideoOPL=300");
 #endif
   message = soup_message_new (SOUP_METHOD_POST, url);
   g_free (url);
@@ -121,4 +128,79 @@ gss_playready_setup (GssServer * server)
   gss_server_add_resource (server, "/rightsmanager.asmx",
       0, "text/xml", playready_get_resource, NULL,
       playready_post_resource, server);
+}
+
+
+guint8 *
+gss_playready_get_default_key_seed (void)
+{
+  guint8 default_seed[30] = { 0x5D, 0x50, 0x68, 0xBE, 0xC9, 0xB3, 0x84,
+    0xFF, 0x60, 0x44, 0x86, 0x71, 0x59, 0xF1, 0x6D, 0x6B, 0x75,
+    0x55, 0x44, 0xFC, 0xD5, 0x11, 0x69, 0x89, 0xB1, 0xAC, 0xC4,
+    0x27, 0x8E, 0x88
+  };
+
+  return g_memdup (default_seed, 30);
+}
+
+guint8 *
+gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
+    guint8 * kid, int kid_len)
+{
+  GChecksum *checksum;
+  guint8 *hash_a;
+  guint8 *hash_b;
+  guint8 *hash_c;
+  guint8 *key;
+  gsize size;
+  int i;
+
+  checksum = g_checksum_new (G_CHECKSUM_SHA256);
+  size = g_checksum_type_get_length (G_CHECKSUM_SHA256);
+  hash_a = g_malloc (size);
+  hash_b = g_malloc (size);
+  hash_c = g_malloc (size);
+
+  //
+  // Create sha_A_Output buffer. It is the SHA of the truncatedKeySeed and
+  // the keyIdAsBytes
+  //
+  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, kid, kid_len);
+  g_checksum_get_digest (checksum, hash_a, &size);
+
+  //
+  // Create sha_B_Output buffer. It is the SHA of the truncatedKeySeed, the
+  // keyIdAsBytes, and the truncatedKeySeed again.
+  //
+  g_checksum_reset (checksum);
+  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, kid, kid_len);
+  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_get_digest (checksum, hash_b, &size);
+
+  //
+  // Create sha_C_Output buffer. It is the SHA of the truncatedKeySeed,
+  // the keyIdAsBytes, the truncatedKeySeed again, and the keyIdAsBytes
+  // again.
+  //
+  g_checksum_reset (checksum);
+  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, kid, kid_len);
+  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, kid, kid_len);
+  g_checksum_get_digest (checksum, hash_c, &size);
+
+  key = g_malloc (16);
+  for (i = 0; i < 16; i++) {
+    key[i] = hash_a[i] ^ hash_a[i + 16] ^ hash_b[i] ^ hash_b[i + 16] ^
+        hash_c[i] ^ hash_c[i + 16];
+  }
+
+  g_checksum_free (checksum);
+  g_free (hash_a);
+  g_free (hash_b);
+  g_free (hash_c);
+
+  return key;
 }

@@ -26,6 +26,9 @@
 G_BEGIN_DECLS
 
 void gss_playready_setup (GssServer * server);
+guint8 * gss_playready_generate_key (guint8 *key_seed, int key_seed_len,
+    guint8 *kid, int kid_len);
+guint8 * gss_playready_get_default_key_seed (void);
 
 G_END_DECLS
 

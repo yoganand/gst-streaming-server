@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <openssl/aes.h>
 
 
 typedef struct _GssISM GssISM;
@@ -58,6 +59,8 @@ struct _GssISM
 
   GssISMLevel *audio_levels;
   GssISMLevel *video_levels;
+
+  gboolean needs_encryption;
 };
 
 struct _GssISMLevel
@@ -92,6 +95,7 @@ struct _GssFileFragment
   GssServer *server;
   SoupMessage *msg;
   SoupClientContext *client;
+  guint64 initialization_vector;
 
   int fd;
   guint64 offset;
@@ -130,7 +134,6 @@ gss_file_fragment_wrote_chunk (SoupMessage * msg, GssFileFragment * ff)
 static void
 gss_file_fragment_finished (SoupMessage * msg, GssFileFragment * ff)
 {
-  GST_ERROR ("done");
   close (ff->fd);
   g_free (ff);
 }
@@ -181,85 +184,101 @@ gss_file_fragment_serve_file (GssTransaction * t, const char *filename,
 
 }
 
+#if 0
+static guint8 dumb_aes128_key[16] = {
+  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+};
+#endif
+
 static void
-gss_file_fragment_serve_file_enc (GssTransaction * t, const char *filename,
-    guint64 offset, guint64 size, guint64 enc_offset)
+gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
+    GssISMLevel * level, GssISMFragment * fragment)
 {
+  guint8 *mdat_data;
+  guint8 *moof_data;
+  int moof_size;
   off_t ret;
-  guint8 *data;
   int fd;
   ssize_t n;
+  guint64 *init_vectors;
+  guint64 iv;
+  int i;
+#if 0
+  int *sample_sizes;
+  int sample_offset;
+#endif
   //int eret;
-  //gnutls_cipher_hd_t handle;
-  //gnutls_datum_t key;
-  //gnutls_datum_t iv;
 
-  fd = open (filename, O_RDONLY);
+  fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
-    GST_WARNING ("file not found %s", filename);
+    GST_WARNING ("file not found %s", level->filename);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
 
-  ret = lseek (fd, offset, SEEK_SET);
+  ret = lseek (fd, fragment->mdat_offset, SEEK_SET);
   if (ret < 0) {
     GST_WARNING ("failed to seek");
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
 
-  data = g_malloc ((size + 127) & (~127));
-  n = read (fd, data, size);
-  if (n < size) {
+  mdat_data = g_malloc (fragment->mdat_size);
+  n = read (fd, mdat_data, fragment->mdat_size);
+  if (n < fragment->mdat_size) {
     GST_WARNING ("read failed");
-    g_free (data);
+    g_free (mdat_data);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
+
+  /* FIXME needs to be crypto-random */
+  iv = 0x0123456789abcdef;
+
+  init_vectors = g_malloc (fragment->n_samples * sizeof (guint64));
+  for (i = 0; i < fragment->n_samples; i++) {
+    init_vectors[i] = iv + i;
+  }
+  gss_ism_fragment_set_sample_encryption (fragment, fragment->n_samples,
+      init_vectors, (fragment->track_id == 2));
+
+  gss_ism_encrypt_samples (fragment, mdat_data);
 #if 0
-  key.data = raw_key;
-  key.size = 16;
+  sample_sizes = gss_ism_fragment_get_sample_sizes (fragment);
+  sample_offset = 8;
 
-  iv.data = raw_iv;
-  iv.size = 16;
-
-  gnutls_cipher_init (&handle, GNUTLS_CIPHER_AES_128_CBC, &key, &iv);
-
-  GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
-      enc_offset, size);
-  eret = gnutls_cipher_encrypt (handle, data + enc_offset, size - enc_offset);
-  GST_ERROR ("encrypt returned %d", eret);
-
-  gnutls_cipher_deinit (handle);
-#endif
-#if 0
-  {
-    unsigned char raw_key[] = {
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-    };
-    unsigned char raw_iv[] = {
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-    };
+  for (i = 0; i < fragment->n_samples; i++) {
+    unsigned char raw_iv[16];
     unsigned char ecount_buf[16] = { 0 };
     unsigned int num = 0;
     AES_KEY key;
 
-    AES_set_encrypt_key (raw_key, 16 * 8, &key);
+    memset (raw_iv, 0, 16);
+    GST_WRITE_UINT64_BE (raw_iv, init_vectors[i]);
 
-    GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
-        enc_offset, size);
+    AES_set_encrypt_key (dumb_aes128_key, 16 * 8, &key);
 
-    AES_ctr128_encrypt (data + enc_offset, data + enc_offset,
-        size - enc_offset, &key, raw_iv, ecount_buf, &num);
-    GST_ERROR ("num %d", num);
+    //GST_ERROR ("enc offset %" G_GUINT64_FORMAT " size %" G_GUINT64_FORMAT,
+    //    enc_offset, size);
+
+    AES_ctr128_encrypt (mdat_data + sample_offset,
+        mdat_data + sample_offset, sample_sizes[i],
+        &key, raw_iv, ecount_buf, &num);
+    sample_offset += sample_sizes[i];
+    //GST_ERROR ("num %d", num);
   }
+  g_free (sample_sizes);
 #endif
+  g_free (init_vectors);
+
+  gss_ism_fragment_serialize (fragment, &moof_data, &moof_size);
 
   soup_message_set_status (t->msg, SOUP_STATUS_OK);
-  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, data,
-      size);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, moof_data,
+      moof_size);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
+      fragment->mdat_size);
 }
 
 /* FIXME should be extracted from file */
@@ -300,8 +319,24 @@ ISMInfo ism_files[] = {
         "boondocks",
         1024, 576, FALSE,
         2500000,
-        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000468e923cb",
-        128000, 48000, "1210",
+        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000568e93b2c8b",
+        128000, 48000, "119056e500",
+      },
+  {
+        "boondocks-411.ismv",
+        "boondocksHD",
+        1920, 1080, FALSE,
+        5000000,
+        "0164002affe1001a6764002aace501e0089f970110000003001773594000f183116001000568e93b2c8b",
+        128000, 48000, "119056e500",
+      },
+  {
+        "boondocks-411.ismv",
+        "boondocksHD-DRM",
+        1920, 1080, TRUE,
+        5000000,
+        "0164002affe1001a6764002aace501e0089f970110000003001773594000f183116001000568e93b2c8b",
+        128000, 48000, "119056e500",
       },
 };
 
@@ -311,7 +346,7 @@ gss_smooth_streaming_setup (GssServer * server)
 {
   int i;
 
-  for (i = 0; i < 3; i++) {
+  for (i = 0; i < 5; i++) {
     ISMInfo *info = &ism_files[i];
     GssISM *ism;
     GssISMParser *parser;
@@ -357,6 +392,7 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->audio_codec_data = info->audio_codec_data;
     ism->audio_rate = info->audio_rate;
     ism->playready = info->playready;
+    ism->needs_encryption = (i == 4);
 
     global_ism = ism;
 
@@ -446,17 +482,20 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
       guchar *content;
       const char *la_url;
 
-      la_url = "http://localhost:8080/rightsmanager.asmx";
+      la_url = "http://192.168.83.157:8080/rightsmanager.asmx";
       //la_url = "http://playready.directtaps.net/pr/svc/rightsmanager.asmx";
 
       /* this all needs to be on one line, to satisfy clients */
+      /* Note: DS_ID is ignored by Roku */
+      /* Roku checks CHECKSUM if it exists */
       wrmheader =
           g_strdup_printf
           ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
           "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
           "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>"
           "<KID>AmfjCTOPbEOl3WD/5mcecA==</KID>"
-          "<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>" "<CUSTOMATTRIBUTES>"
+          //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
+          "<CUSTOMATTRIBUTES>"
           "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
           "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
           "</DATA>" "</WRMHEADER>", la_url);
@@ -556,8 +595,13 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
   }
   //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
   //    level->filename, fragment->offset, fragment->size);
-  gss_file_fragment_serve_file (t, level->filename, fragment->offset,
-      fragment->size);
+
+  if (ism->needs_encryption) {
+    gss_ism_encrypt_and_send_chunk (t, ism, level, fragment);
+  } else {
+    gss_file_fragment_serve_file (t, level->filename, fragment->moof_offset,
+        fragment->moof_size + fragment->mdat_size);
+  }
 }
 
 GssISM *

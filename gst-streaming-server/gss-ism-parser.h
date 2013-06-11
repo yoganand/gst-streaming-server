@@ -29,10 +29,15 @@ typedef struct _GssISMParser GssISMParser;
 
 typedef struct _GssISMFragment GssISMFragment;
 struct _GssISMFragment {
-  guint64 offset;
-  guint64 size;
+  int track_id;
+  guint64 moof_offset;
+  guint64 moof_size;
+  guint64 mdat_offset;
+  guint64 mdat_size;
   guint64 timestamp;
   guint64 duration;
+  int n_samples;
+  void *moof;
 };
 
 
@@ -43,6 +48,13 @@ GssISMFragment * gss_ism_parser_get_fragments (GssISMParser *parser, int track_i
     int *n_fragments);
 int gss_ism_parser_get_n_fragments (GssISMParser *parser, int track_id);
 void gss_ism_parser_free (GssISMParser *parser);
+
+void gss_ism_fragment_set_sample_encryption (GssISMFragment *fragment,
+    int n_samples, guint64 *init_vectors, gboolean is_h264);
+void gss_ism_fragment_serialize (GssISMFragment *fragment, guint8 **data,
+    int *size);
+int * gss_ism_fragment_get_sample_sizes (GssISMFragment *fragment);
+void gss_ism_encrypt_samples (GssISMFragment *fragment, guint8 *mdat_data);
 
 G_END_DECLS
 
