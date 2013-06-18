@@ -48,6 +48,7 @@ sources = \
 	gss-push.c \
 	gss-smooth-streaming.c \
 	gss-ism-parser.c \
+	gss-iso-atoms.h \
 	gss-stream.c \
 	gss-transaction.c \
 	gss-user.c \
