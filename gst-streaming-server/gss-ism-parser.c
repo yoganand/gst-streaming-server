@@ -44,19 +44,67 @@ typedef struct _Fragment Fragment;
 
 typedef struct _GssISMParser GssISMParser;
 
-typedef struct _AtomMoof AtomMoof;
+/* Atom definitions */
+
 typedef struct _AtomMfhd AtomMfhd;
 typedef struct _AtomTfhd AtomTfhd;
 typedef struct _AtomTrun AtomTrun;
-typedef struct _AtomSdtp AtomSdtp;
-typedef struct _AtomTraf AtomTraf;
 typedef struct _AtomTrunSample AtomTrunSample;
-typedef struct _AtomUUIDProtectionHeader AtomUUIDProtectionHeader;
+typedef struct _AtomSdtp AtomSdtp;
 typedef struct _AtomUUIDSampleEncryption AtomUUIDSampleEncryption;
 typedef struct _AtomUUIDSampleEncryptionSample AtomUUIDSampleEncryptionSample;
 typedef struct _AtomUUIDSampleEncryptionSampleEntry
     AtomUUIDSampleEncryptionSampleEntry;
+typedef struct _AtomTraf AtomTraf;
+typedef struct _AtomMoof AtomMoof;
+
+typedef struct _AtomMvhd AtomMvhd;
+typedef struct _AtomIods AtomIods;
+typedef struct _AtomTrak AtomTrak;
+typedef struct _AtomTkhd AtomTkhd;
+typedef struct _AtomTref AtomTref;
+typedef struct _AtomMdia AtomMdia;
+typedef struct _AtomMdhd AtomMdhd;
+typedef struct _AtomHdlr AtomHdlr;
+typedef struct _AtomMinf AtomMinf;
+typedef struct _AtomVmhd AtomVmhd;
+typedef struct _AtomSmhd AtomSmhd;
+typedef struct _AtomHmhd AtomHmhd;
+typedef struct _AtomDinf AtomDinf;
+typedef struct _AtomUrl_ AtomUrl_;
+typedef struct _AtomUrn_ AtomUrn_;
+typedef struct _AtomDrefEntry AtomDrefEntry;
+typedef struct _AtomDref AtomDref;
+typedef struct _AtomStbl AtomStbl;
+typedef struct _AtomSttsEntry AtomSttsEntry;
+typedef struct _AtomStts AtomStts;
+typedef struct _AtomCttsEntry AtomCttsEntry;
+typedef struct _AtomCtts AtomCtts;
+typedef struct _AtomEsds AtomEsds;
+typedef struct _AtomMp4v AtomMp4v;
+typedef struct _AtomMp4a AtomMp4a;
+typedef struct _AtomMp4s AtomMp4s;
+typedef struct _AtomStsd AtomStsd;
+typedef struct _AtomStsz AtomStsz;
+typedef struct _AtomStscEntry AtomStscEntry;
+typedef struct _AtomStsc AtomStsc;
+typedef struct _AtomStco AtomStco;
+typedef struct _AtomCo64 AtomCo64;
+typedef struct _AtomStss AtomStss;
+typedef struct _AtomStshEntry AtomStshEntry;
+typedef struct _AtomStsh AtomStsh;
+typedef struct _AtomStdp AtomStdp;
+typedef struct _AtomEdts AtomEdts;
+typedef struct _AtomElstEntry AtomElstEntry;
+typedef struct _AtomElst AtomElst;
+typedef struct _AtomUdta AtomUdta;
+typedef struct _AtomCprt AtomCprt;
+typedef struct _AtomUUIDProtectionHeader AtomUUIDProtectionHeader;
 typedef struct _AtomMoov AtomMoov;
+typedef struct _AtomParser AtomParser;
+
+typedef struct _AtomMvex AtomMvex;
+
 
 struct _AtomMfhd
 {
@@ -170,6 +218,320 @@ struct _AtomMoof
   AtomTraf traf;
 };
 
+/* From ISO/IEC 14496-1:2002 */
+
+struct _AtomMvhd
+{
+  guint8 version;
+  guint32 flags;
+  guint64 creation_time;
+  guint64 modification_time;
+  guint32 timescale;
+  guint64 duration;
+  guint32 next_track_id;
+};
+
+struct _AtomIods
+{
+  guint8 version;
+  guint32 flags;
+  /* object descriptor */
+};
+
+struct _AtomTkhd
+{
+  guint8 version;
+  guint32 flags;
+  guint64 creation_time;
+  guint64 modification_time;
+  guint32 track_id;
+  guint64 duration;
+  gboolean track_is_audio;
+  gboolean track_is_visual;
+
+};
+
+struct _AtomTref
+{
+  /* contains other stuff */
+
+  guint32 *track_ids;
+};
+
+struct _AtomMdia
+{
+  /* container */
+};
+
+struct _AtomMdhd
+{
+  guint8 version;
+  guint32 flags;
+  guint64 creation_time;
+  guint64 modification_time;
+  guint32 timescale;
+  guint64 duration;
+  char language_code[4];
+};
+
+struct _AtomHdlr
+{
+  guint8 verion;
+  guint32 flags;
+  guint32 handler_type;
+  char *name;
+};
+
+struct _AtomMinf
+{
+  /* container */
+};
+
+struct _AtomVmhd
+{
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomSmhd
+{
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomHmhd
+{
+  guint8 version;
+  guint32 flags;
+  guint16 maxPDUsize;
+  guint16 avgPDUsize;
+  guint32 maxbitrate;
+  guint32 avgbitrate;
+};
+
+struct _AtomDinf
+{
+  /* container */
+};
+
+struct _AtomUrl_
+{
+  guint8 version;
+  guint32 flags;
+  char *location;
+};
+
+struct _AtomUrn_
+{
+  guint8 version;
+  guint32 flags;
+  char *name;
+  char *location;
+};
+
+struct _AtomDrefEntry
+{
+  guint8 entry_version;
+  guint32 entry_flags;
+  struct _AtomUrn_ urn_;
+  struct _AtomUrl_ url_;
+};
+
+struct _AtomDref
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomDrefEntry *entries;
+};
+
+struct _AtomStbl
+{
+  /* container */
+};
+
+struct _AtomSttsEntry
+{
+  guint32 sample_count;
+  gint32 sample_delta;
+};
+
+struct _AtomStts
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomSttsEntry *entries;
+};
+
+struct _AtomCttsEntry
+{
+  guint32 sample_count;
+  guint32 sample_offset;
+};
+
+struct _AtomCtts
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomCttsEntry *entries;
+};
+
+struct _AtomEsds
+{
+  /* ES descriptor */
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomMp4v
+{
+  guint16 data_reference_index;
+  guint16 width;
+  guint16 height;
+  struct _AtomEsds es;
+};
+
+struct _AtomMp4a
+{
+  guint16 data_reference_index;
+  guint16 channels;
+  guint16 bits_per_sample;
+  guint16 time_scale;
+  struct _AtomEsds es;
+};
+
+struct _AtomMp4s
+{
+  guint16 data_reference_index;
+  struct _AtomEsds es;
+};
+
+struct _AtomStsd
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  //AtomStsdEntry *entries;
+
+};
+
+struct _AtomStsz
+{
+  guint8 version;
+  guint32 flags;
+  guint32 sample_size;
+  guint32 sample_count;
+  guint32 *entry_sizes;
+};
+
+struct _AtomStscEntry
+{
+  guint32 first_chunk;
+  guint32 samples_per_chunk;
+  guint32 sample_description_index;
+};
+
+struct _AtomStsc
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomStscEntry *entries;
+};
+
+struct _AtomStco
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  guint32 *chunk_offsets;
+};
+
+struct _AtomCo64
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  guint64 *chunk_offsets;
+};
+
+struct _AtomStss
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  guint32 *sample_numbers;
+};
+
+struct _AtomStshEntry
+{
+  guint32 shadowed_sample_number;
+  guint32 sync_sample_number;
+};
+
+struct _AtomStsh
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomStshEntry *entries;
+};
+
+struct _AtomStdp
+{
+  guint8 version;
+  guint32 flags;
+  guint16 *priorities;
+};
+
+struct _AtomEdts
+{
+  /* container */
+};
+
+struct _AtomElstEntry
+{
+  guint64 segment_duration;
+  gint64 media_time;
+  gint16 media_rate;
+};
+
+struct _AtomElst
+{
+  guint8 version;
+  guint32 flags;
+  guint32 entry_count;
+  struct _AtomElstEntry entries;
+};
+
+struct _AtomUdta
+{
+  /* container */
+};
+
+struct _AtomCprt
+{
+  guint8 version;
+  guint32 flags;
+  char language[4];
+  char *notice;
+};
+
+struct _AtomTrak
+{
+  /* container */
+
+  AtomTkhd tkhd;
+  AtomTref tref;
+  AtomMdia mdia;
+};
+
+struct _AtomMvex
+{
+};
+
 /* ProtectionSystemSpecificHeaderBox */
 /* 0xd08a4f18-10f3-4a82-b6c8-32d8aba183d3 */
 const guint8 uuid_protection_header[16] = {
@@ -212,6 +574,10 @@ struct _AtomMoov
   guint8 version;
   guint32 flags;
 
+  AtomMvhd mvhd;
+  AtomTrak trak;
+  AtomUdta udta;
+  AtomMvex mvex;
 };
 
 
@@ -795,6 +1161,116 @@ gss_ism_fragment_set_sample_encryption (GssISMFragment * fragment,
 }
 
 static void
+gss_ism_parse_mvhd (GssISMParser * parser, AtomMvhd * mvhd, GstByteReader * br)
+{
+  int i;
+  guint32 tmp = 0;
+  guint16 tmp16 = 0;
+
+  gst_byte_reader_get_uint8 (br, &mvhd->version);
+  gst_byte_reader_get_uint24_be (br, &mvhd->flags);
+  if (mvhd->version == 1) {
+    gst_byte_reader_get_uint64_be (br, &mvhd->creation_time);
+    gst_byte_reader_get_uint64_be (br, &mvhd->modification_time);
+    gst_byte_reader_get_uint32_be (br, &mvhd->timescale);
+    gst_byte_reader_get_uint64_be (br, &mvhd->duration);
+  } else {
+    gst_byte_reader_get_uint32_be (br, &tmp);
+    mvhd->creation_time = tmp;
+    gst_byte_reader_get_uint32_be (br, &tmp);
+    mvhd->modification_time = tmp;
+    gst_byte_reader_get_uint32_be (br, &mvhd->timescale);
+    gst_byte_reader_get_uint32_be (br, &tmp);
+    tmp = mvhd->duration;
+  }
+
+  gst_byte_reader_get_uint32_be (br, &tmp);
+  //g_assert (tmp == 0x00010000);
+  gst_byte_reader_get_uint16_be (br, &tmp16);
+  //g_assert (tmp16 == 0x0100);
+  gst_byte_reader_get_uint16_be (br, &tmp16);
+  // tmp16 reserved should be 0
+  for (i = 0; i < 9; i++) {
+    gst_byte_reader_get_uint32_be (br, &tmp);
+    // pre-defined
+  }
+  for (i = 0; i < 6; i++) {
+    gst_byte_reader_get_uint32_be (br, &tmp);
+    // reserved (should be 0)
+  }
+
+  gst_byte_reader_get_uint32_be (br, &mvhd->next_track_id);
+}
+
+static void
+gss_ism_parse_tkhd (GssISMParser * parser, AtomTkhd * tkhd, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_tref (GssISMParser * parser, AtomTref * tref, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_mdia (GssISMParser * parser, AtomMdia * mdia, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_trak (GssISMParser * parser, AtomTrak * trak, GstByteReader * br)
+{
+  while (gst_byte_reader_get_remaining (br) >= 8) {
+    guint32 size = 0;
+    guint32 atom = 0;
+    GstByteReader sbr;
+
+    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_le (br, &atom);
+
+    gst_byte_reader_init_sub (&sbr, br, size - 8);
+    if (atom == GST_MAKE_FOURCC ('t', 'k', 'h', 'd')) {
+      gss_ism_parse_tkhd (parser, &trak->tkhd, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'e', 'f')) {
+      gss_ism_parse_tref (parser, &trak->tref, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('m', 'd', 'i', 'a')) {
+      gss_ism_parse_mdia (parser, &trak->mdia, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('m', 'd', 'i', 'a')) {
+      gss_ism_parse_mdia (parser, &trak->mdia, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
+      const guint8 *uuid = NULL;
+
+      gst_byte_reader_get_data (&sbr, 16, &uuid);
+
+      if (0) {
+      } else {
+        GST_WARNING ("unknown UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+            uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
+            uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
+            uuid[14], uuid[15]);
+      }
+    } else {
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
+          " inside moof at offset %" G_GINT64_MODIFIER "x, size %d",
+          GST_FOURCC_ARGS (atom), parser->offset, size);
+    }
+
+    gst_byte_reader_skip (br, size - 8);
+  }
+}
+
+static void
+gss_ism_parse_udta (GssISMParser * parser, AtomUdta * udta, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_mvex (GssISMParser * parser, AtomMvex * mvex, GstByteReader * br)
+{
+}
+
+static void
 gss_ism_parse_moov (GssISMParser * parser, AtomMoov * moov, GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -807,13 +1283,13 @@ gss_ism_parse_moov (GssISMParser * parser, AtomMoov * moov, GstByteReader * br)
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('m', 'v', 'h', 'd')) {
-
+      gss_ism_parse_mvhd (parser, &moov->mvhd, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'a', 'k')) {
-
+      gss_ism_parse_trak (parser, &moov->trak, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'd', 't', 'a')) {
-
+      gss_ism_parse_udta (parser, &moov->udta, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('m', 'v', 'e', 'x')) {
-
+      gss_ism_parse_mvex (parser, &moov->mvex, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
