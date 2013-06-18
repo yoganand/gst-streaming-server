@@ -87,8 +87,6 @@ GssISMLevel *gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate);
 GssISMFragment *gss_ism_level_get_fragment (GssISM * ism, GssISMLevel * level,
     guint64 timestamp);
 
-GssISM *global_ism;
-
 
 static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
@@ -320,6 +318,14 @@ ISMInfo ism_files[] = {
         "0164002affe1001a6764002aace501e0089f970110000003001773594000f183116001000568e93b2c8b",
         128000, 48000, "119056e500",
       },
+  {
+        "drwho-406.mp4",
+        "Dr Who MP4",
+        716, 416, TRUE,
+        1445090,
+        "014d401fffe1001b674d401ff281686b7fe0340032a20000030002ee6b28001e30622c01000568e93b2c80",
+        128000, 48000, "119056e500",
+      },
 };
 
 
@@ -328,7 +334,7 @@ gss_smooth_streaming_setup (GssServer * server)
 {
   int i;
 
-  for (i = 0; i < 5; i++) {
+  for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
     ISMInfo *info = &ism_files[i];
     GssISM *ism;
     GssISMParser *parser;
@@ -377,15 +383,13 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->playready = info->playready;
     ism->needs_encryption = (i == 4);
 
-    global_ism = ism;
-
     s = g_strdup_printf ("/%s/Manifest", info->mount);
     gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
-        gss_smooth_streaming_resource_get_manifest, NULL, NULL, global_ism);
+        gss_smooth_streaming_resource_get_manifest, NULL, NULL, ism);
     g_free (s);
     s = g_strdup_printf ("/%s/content", info->mount);
     gss_server_add_resource (server, s, 0, "video/mp4",
-        gss_smooth_streaming_resource_get_content, NULL, NULL, global_ism);
+        gss_smooth_streaming_resource_get_content, NULL, NULL, ism);
     g_free (s);
   }
 }
