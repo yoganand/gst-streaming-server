@@ -64,7 +64,6 @@ typedef struct _AtomStsz AtomStsz;
 typedef struct _AtomStscEntry AtomStscEntry;
 typedef struct _AtomStsc AtomStsc;
 typedef struct _AtomStco AtomStco;
-typedef struct _AtomCo64 AtomCo64;
 typedef struct _AtomStss AtomStss;
 typedef struct _AtomStshEntry AtomStshEntry;
 typedef struct _AtomStsh AtomStsh;
@@ -214,6 +213,7 @@ struct _AtomIods
 
 struct _AtomTkhd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint64 creation_time;
@@ -227,6 +227,7 @@ struct _AtomTkhd
 
 struct _AtomTref
 {
+  gboolean present;
   /* contains other stuff */
 
   guint32 *track_ids;
@@ -234,11 +235,13 @@ struct _AtomTref
 
 struct _AtomMdia
 {
+  gboolean present;
   /* container */
 };
 
 struct _AtomMdhd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint64 creation_time;
@@ -250,7 +253,8 @@ struct _AtomMdhd
 
 struct _AtomHdlr
 {
-  guint8 verion;
+  gboolean present;
+  guint8 version;
   guint32 flags;
   guint32 handler_type;
   char *name;
@@ -258,23 +262,27 @@ struct _AtomHdlr
 
 struct _AtomMinf
 {
+  gboolean present;
   /* container */
 };
 
 struct _AtomVmhd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
 };
 
 struct _AtomSmhd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
 };
 
 struct _AtomHmhd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint16 maxPDUsize;
@@ -285,11 +293,13 @@ struct _AtomHmhd
 
 struct _AtomDinf
 {
+  gboolean present;
   /* container */
 };
 
 struct _AtomUrl_
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   char *location;
@@ -297,6 +307,7 @@ struct _AtomUrl_
 
 struct _AtomUrn_
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   char *name;
@@ -312,6 +323,7 @@ struct _AtomDrefEntry {
 
 struct _AtomDref
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -331,6 +343,7 @@ struct _AtomSttsEntry
 
 struct _AtomStts
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -345,6 +358,7 @@ struct _AtomCttsEntry
 
 struct _AtomCtts
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -353,6 +367,7 @@ struct _AtomCtts
 
 struct _AtomEsds
 {
+  gboolean present;
   /* ES descriptor */
   guint8 version;
   guint32 flags;
@@ -360,6 +375,7 @@ struct _AtomEsds
 
 struct _AtomMp4v
 {
+  gboolean present;
   guint16 data_reference_index;
   guint16 width;
   guint16 height;
@@ -368,6 +384,7 @@ struct _AtomMp4v
 
 struct _AtomMp4a
 {
+  gboolean present;
   guint16 data_reference_index;
   guint16 channels;
   guint16 bits_per_sample;
@@ -377,12 +394,14 @@ struct _AtomMp4a
 
 struct _AtomMp4s
 {
+  gboolean present;
   guint16 data_reference_index;
   struct _AtomEsds es;
 };
 
 struct _AtomStsd
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -392,15 +411,17 @@ struct _AtomStsd
 
 struct _AtomStsz
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 sample_size;
   guint32 sample_count;
-  guint32 *entry_sizes;
+  guint32 *sample_sizes;
 };
 
 struct _AtomStscEntry
 {
+  gboolean present;
   guint32 first_chunk;
   guint32 samples_per_chunk;
   guint32 sample_description_index;
@@ -408,22 +429,17 @@ struct _AtomStscEntry
 
 struct _AtomStsc
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
   struct _AtomStscEntry *entries;
 };
 
+/* This is for both stco and co64 */
 struct _AtomStco
 {
-  guint8 version;
-  guint32 flags;
-  guint32 entry_count;
-  guint32 *chunk_offsets;
-};
-
-struct _AtomCo64
-{
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -432,6 +448,7 @@ struct _AtomCo64
 
 struct _AtomStss
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -440,12 +457,14 @@ struct _AtomStss
 
 struct _AtomStshEntry
 {
+  gboolean present;
   guint32 shadowed_sample_number;
   guint32 sync_sample_number;
 };
 
 struct _AtomStsh
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -454,6 +473,7 @@ struct _AtomStsh
 
 struct _AtomStdp
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint16 *priorities;
@@ -473,6 +493,7 @@ struct _AtomElstEntry
 
 struct _AtomElst
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
@@ -481,11 +502,13 @@ struct _AtomElst
 
 struct _AtomUdta
 {
+  gboolean present;
   /* container */
 };
 
 struct _AtomCprt
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   char language[4];
