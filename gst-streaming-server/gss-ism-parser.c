@@ -47,6 +47,27 @@ typedef struct _Movie Movie;
 
 typedef struct _GssISMParser GssISMParser;
 
+/* XMP data */
+/* be7acfcb-97a9-42e8-9c71-999491e3afac */
+const guint8 uuid_xmp_data[] = { 0xbe, 0x7a, 0xcf, 0xcb, 0x97, 0xa9, 0x42,
+  0xe8, 0x9c, 0x71, 0x99, 0x94, 0x91, 0xe3, 0xaf, 0xac
+};
+
+/* SampleEncryptionBox */
+/* A2394F52-5A9B-4f14-A244-6C427C648DF4 */
+const guint8 uuid_sample_encryption[16] = {
+  0xa2, 0x39, 0x4f, 0x52, 0x5a, 0x9b, 0x4f, 0x14,
+  0xa2, 0x44, 0x6c, 0x42, 0x7c, 0x64, 0x8d, 0xf4
+};
+
+/* ProtectionSystemSpecificHeaderBox */
+/* 0xd08a4f18-10f3-4a82-b6c8-32d8aba183d3 */
+const guint8 uuid_protection_header[16] = {
+  0xd0, 0x8a, 0x4f, 0x18, 0x10, 0xf3, 0x4a, 0x82,
+  0xb6, 0xc8, 0x32, 0xd8, 0xab, 0xa1, 0x83, 0xd3
+};
+
+
 typedef enum
 {
   GSS_ISOM_FTYP_ISML = (1 << 0),
@@ -55,12 +76,20 @@ typedef enum
   GSS_ISOM_FTYP_PIFF = (1 << 3),
   GSS_ISOM_FTYP_ISO2 = (1 << 4),
   GSS_ISOM_FTYP_ISOM = (1 << 5),
+  GSS_ISOM_FTYP_QT__ = (1 << 6),
 } GssIsomFtyp;
 
 struct _Movie
 {
   int n_tracks;
   Track **tracks;
+
+  AtomMvhd mvhd;
+  AtomUdta udta;
+  AtomMvex mvex;
+  AtomMeta meta;
+  AtomSkip skip;
+  AtomIods iods;
 };
 
 struct _Track
@@ -96,12 +125,6 @@ struct _Track
   AtomStdp stdp;
 };
 
-struct _AtomParser
-{
-  guint64 offset;
-  guint64 size;
-};
-
 struct _Fragment
 {
   guint64 moof_offset;
@@ -112,7 +135,8 @@ struct _Fragment
   guint64 duration;
   guint64 start_timestamp;
 
-  AtomMoof *moof;
+  AtomMfhd mfhd;
+  AtomTraf traf;
 };
 
 struct _GssISMParser
@@ -126,20 +150,32 @@ struct _GssISMParser
   gboolean is_isml;
   gboolean is_mp42;
 
-  Fragment *fragments;
+  Fragment **fragments;
   int n_fragments;
   int n_fragments_alloc;
 
   Fragment *current_fragment;
 
   void *moov;
+
+  Movie *movie;
+
+  guint8 *data;
+  guint64 data_offset;
+  guint64 data_size;
 };
 
-static gboolean parser_read (GssISMParser * parser, guint8 * buffer, int offset,
-    int n_bytes);
+Movie *gss_ism_movie_new (void);
+void gss_ism_movie_free (Movie * movie);
+
+Fragment *gss_ism_fragment_new (void);
+void gss_ism_fragment_free (Fragment * fragment);
+
+static gboolean parser_read (GssISMParser * parser, guint8 * buffer,
+    guint64 offset, guint64 n_bytes);
 static void gss_ism_parse_ftyp (GssISMParser * parser, guint64 offset,
     guint64 size);
-static void gss_ism_parse_moof (GssISMParser * parser, AtomMoof * moof,
+static void gss_ism_parse_moof (GssISMParser * parser, Fragment * fragment,
     GstByteReader * br);
 static void gss_ism_parse_traf (GssISMParser * parser, AtomTraf * traf,
     GstByteReader * br);
@@ -155,11 +191,11 @@ static void gss_ism_parse_mfra (GssISMParser * parser, guint64 offset,
     guint64 size);
 static void gss_ism_parse_sample_encryption (GssISMParser * parser,
     AtomUUIDSampleEncryption * se, GstByteReader * br);
-static void gss_ism_parse_moov (GssISMParser * parser, AtomMoov * moov,
+static void gss_ism_parse_moov (GssISMParser * parser, Movie * movie,
     GstByteReader * br);
-static void gss_ism_fixup_moof (AtomMoof * moof);
+static void gss_ism_fixup_moof (Fragment * fragment);
 
-static guint64 gss_ism_moof_get_duration (AtomMoof * moof);
+static guint64 gss_ism_moof_get_duration (Fragment * fragment);
 
 
 GssISMParser *
@@ -198,17 +234,17 @@ gss_ism_parser_get_fragments (GssISMParser * parser, int track_id,
 
   ts = 0;
   for (i = 0; i < parser->n_fragments; i++) {
-    if (parser->fragments[i].moof->traf.tfhd.track_id == track_id) {
+    if (parser->fragments[i]->traf.tfhd.track_id == track_id) {
       fragments[frag_i].track_id = track_id;
-      fragments[frag_i].moof_offset = parser->fragments[i].moof_offset;
-      fragments[frag_i].moof_size = parser->fragments[i].moof_size;
-      fragments[frag_i].mdat_offset = parser->fragments[i].mdat_offset;
-      fragments[frag_i].mdat_size = parser->fragments[i].mdat_size;
+      fragments[frag_i].moof_offset = parser->fragments[i]->moof_offset;
+      fragments[frag_i].moof_size = parser->fragments[i]->moof_size;
+      fragments[frag_i].mdat_offset = parser->fragments[i]->mdat_offset;
+      fragments[frag_i].mdat_size = parser->fragments[i]->mdat_size;
       fragments[frag_i].timestamp = ts;
-      fragments[frag_i].duration = parser->fragments[i].duration;
-      fragments[frag_i].moof = parser->fragments[i].moof;
+      fragments[frag_i].duration = parser->fragments[i]->duration;
+      fragments[frag_i].moof = parser->fragments[i];
       fragments[frag_i].n_samples =
-          parser->fragments[i].moof->traf.trun.sample_count;
+          parser->fragments[i]->traf.trun.sample_count;
       ts += fragments[frag_i].duration;
       frag_i++;
     }
@@ -227,7 +263,7 @@ gss_ism_parser_get_n_fragments (GssISMParser * parser, int track_id)
 
   n = 0;
   for (i = 0; i < parser->n_fragments; i++) {
-    if (parser->fragments[i].moof->traf.tfhd.track_id == track_id) {
+    if (parser->fragments[i]->traf.tfhd.track_id == track_id) {
       n++;
     }
   }
@@ -235,6 +271,18 @@ gss_ism_parser_get_n_fragments (GssISMParser * parser, int track_id)
   return n;
 }
 
+void
+gss_ism_parser_load_chunk (GssISMParser * parser, guint64 offset, guint64 size)
+{
+  if (parser->data) {
+    g_free (parser->data);
+  }
+  parser->data = g_malloc (size);
+  parser->data_offset = offset;
+  parser->data_size = size;
+
+  parser_read (parser, parser->data, parser->data_offset, parser->data_size);
+}
 
 gboolean
 gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
@@ -252,73 +300,89 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
     ret = fstat (parser->fd, &sb);
     if (ret < 0) {
       GST_ERROR ("stat failed");
-      exit (1);
+      close (parser->fd);
+      parser->fd = -1;
+      return FALSE;
     }
     parser->file_size = sb.st_size;
   }
 
   parser->offset = 0;
   while (!parser->error && parser->offset < parser->file_size) {
-    guint8 buffer[32];
-    guint32 size;
-    guint32 atom;
+    guint8 buffer[16];
+    guint64 size = 0;
+    guint32 size32 = 0;
+    guint32 atom = 0;
+    GstByteReader br;
 
-    parser_read (parser, buffer, parser->offset, 32);
+    parser_read (parser, buffer, parser->offset, 16);
+    gst_byte_reader_init (&br, buffer, 16);
 
-    size = GST_READ_UINT32_BE (buffer);
-    atom = GST_READ_UINT32_LE (buffer + 4);
+    gst_byte_reader_get_uint32_be (&br, &size32);
+    gst_byte_reader_get_uint32_le (&br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (&br, &size);
+    } else if (size32 == 0) {
+      size = parser->file_size - parser->offset;
+    } else {
+      size = size32;
+    }
+
     if (atom == GST_MAKE_FOURCC ('f', 't', 'y', 'p')) {
+      gss_ism_parser_load_chunk (parser, parser->offset, size);
+
       gss_ism_parse_ftyp (parser, parser->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'f')) {
       GstByteReader br;
-      guint8 *data;
-      AtomMoof *moof;
+      Fragment *fragment;
 
-      data = g_malloc (size);
-      parser_read (parser, data, parser->offset, size);
-      gst_byte_reader_init (&br, data + 8, size - 8);
+      gss_ism_parser_load_chunk (parser, parser->offset, size);
+      gst_byte_reader_init (&br, parser->data + 8, size - 8);
 
-      moof = g_malloc0 (sizeof (AtomMoof));
-      gss_ism_parse_moof (parser, moof, &br);
-
-      gss_ism_fixup_moof (moof);
+      fragment = gss_ism_fragment_new ();
+      gss_ism_parse_moof (parser, fragment, &br);
+      gss_ism_fixup_moof (fragment);
 
       if (parser->n_fragments == parser->n_fragments_alloc) {
         parser->n_fragments_alloc += 100;
         parser->fragments = g_realloc (parser->fragments,
-            parser->n_fragments_alloc * sizeof (Fragment));
+            parser->n_fragments_alloc * sizeof (Fragment *));
       }
-      parser->current_fragment = &parser->fragments[parser->n_fragments];
+      parser->fragments[parser->n_fragments] = fragment;
       parser->n_fragments++;
+      parser->current_fragment = fragment;
 
-      parser->current_fragment->duration = gss_ism_moof_get_duration (moof);
-      parser->current_fragment->moof_offset = parser->offset;
-      parser->current_fragment->moof_size = size;
-      parser->current_fragment->moof = moof;
+      fragment->duration = gss_ism_moof_get_duration (fragment);
+      fragment->moof_offset = parser->offset;
+      fragment->moof_size = size;
     } else if (atom == GST_MAKE_FOURCC ('m', 'd', 'a', 't')) {
       if (parser->is_isml && parser->current_fragment == NULL) {
         GST_ERROR ("mdat with no moof, broken file");
         parser->error = TRUE;
+        close (parser->fd);
+        parser->fd = -1;
         return FALSE;
       }
 
-      parser->current_fragment->mdat_offset = parser->offset;
-      parser->current_fragment->mdat_size = size;
+      if (parser->is_isml) {
+        parser->current_fragment->mdat_offset = parser->offset;
+        parser->current_fragment->mdat_size = size;
+      }
     } else if (atom == GST_MAKE_FOURCC ('m', 'f', 'r', 'a')) {
       gss_ism_parse_mfra (parser, parser->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'v')) {
       GstByteReader br;
       guint8 *data;
-      AtomMoov *moov;
+      Movie *movie;
 
       data = g_malloc (size);
       parser_read (parser, data, parser->offset, size);
       gst_byte_reader_init (&br, data + 8, size - 8);
 
-      moov = g_malloc0 (sizeof (AtomMoov));
-      gss_ism_parse_moov (parser, moov, &br);
+      movie = gss_ism_movie_new ();
+      gss_ism_parse_moov (parser, movie, &br);
 
-      parser->moov = moov;
+      parser->movie = movie;
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -335,6 +399,8 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
       }
     } else if (atom == GST_MAKE_FOURCC ('f', 'r', 'e', 'e')) {
       /* ignore */
+    } else if (atom == GST_MAKE_FOURCC ('w', 'i', 'd', 'e')) {
+      /* ignore */
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " at offset %" G_GINT64_MODIFIER "x, size %d",
@@ -346,9 +412,13 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
 
   if (parser->error) {
     GST_ERROR ("parser error");
+    close (parser->fd);
+    parser->fd = -1;
     return FALSE;
   }
 
+  close (parser->fd);
+  parser->fd = -1;
   return TRUE;
 }
 
@@ -369,7 +439,7 @@ gss_ism_movie_new (void)
 {
   Movie *movie;
   movie = g_malloc0 (sizeof (Movie));
-  movie->tracks = g_malloc (10 * sizeof (Track *));
+  movie->tracks = g_malloc (20 * sizeof (Track *));
   return movie;
 }
 
@@ -380,22 +450,44 @@ gss_ism_movie_free (Movie * movie)
   g_free (movie);
 }
 
+Fragment *
+gss_ism_fragment_new (void)
+{
+  Fragment *fragment;
+  fragment = g_malloc0 (sizeof (Fragment));
+  return fragment;
+}
+
+void
+gss_ism_fragment_free (Fragment * fragment)
+{
+  g_free (fragment);
+}
+
 
 static gboolean
-parser_read (GssISMParser * parser, guint8 * buffer, int offset, int n_bytes)
+parser_read (GssISMParser * parser, guint8 * buffer, guint64 offset,
+    guint64 n_bytes)
 {
   off_t ret;
   ssize_t n;
 
   ret = lseek (parser->fd, offset, SEEK_SET);
   if (ret < 0) {
-    GST_ERROR ("seek to %d failed", offset);
+    GST_ERROR ("seek to %" G_GUINT64_FORMAT " failed", offset);
+    parser->error = TRUE;
     return FALSE;
+  }
+
+  if (offset + n_bytes > parser->file_size) {
+    n_bytes = parser->file_size - offset;
   }
 
   n = read (parser->fd, buffer, n_bytes);
   if (n != n_bytes) {
-    GST_ERROR ("read of %d bytes failed", n_bytes);
+    GST_ERROR ("read of %" G_GUINT64_FORMAT " bytes at offset %"
+        G_GUINT64_FORMAT " failed: %s", n_bytes, offset, strerror (errno));
+    parser->error = TRUE;
     return FALSE;
   }
 
@@ -410,24 +502,31 @@ gss_ism_parse_ftyp (GssISMParser * parser, guint64 offset, guint64 size)
   guint8 *data;
   guint32 atom = 0;
   guint32 tmp = 0;
+  gboolean ret;
 
   data = g_malloc (size);
-  parser_read (parser, data, parser->offset, size);
+  ret = parser_read (parser, data, parser->offset, size);
+  if (!ret) {
+    return;
+  }
 
   gst_byte_reader_init (&br, data + 8, size - 8);
 
   gst_byte_reader_get_uint32_le (&br, &parser->ftyp_atom);
-  GST_ERROR ("ftyp: %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (parser->ftyp_atom));
+  GST_DEBUG ("ftyp: %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (parser->ftyp_atom));
   if (parser->ftyp_atom == GST_MAKE_FOURCC ('i', 's', 'm', 'l')) {
     parser->is_isml = TRUE;
   } else if (parser->ftyp_atom == GST_MAKE_FOURCC ('m', 'p', '4', '2')) {
-    parser->is_mp42 = FALSE;
+    parser->is_mp42 = TRUE;
+  } else if (parser->ftyp_atom == GST_MAKE_FOURCC ('q', 't', ' ', ' ')) {
+    //parser->is_qt__ = TRUE;
   } else {
-    GST_ERROR ("not isml or mp4 file");
+    GST_ERROR ("not isml, mp4, or qt file: %" GST_FOURCC_FORMAT,
+        GST_FOURCC_ARGS (atom));
   }
   gst_byte_reader_get_uint32_le (&br, &tmp);
   while (gst_byte_reader_get_uint32_le (&br, &atom)) {
-    GST_ERROR ("compat: %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (atom));
+    GST_DEBUG ("compat: %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (atom));
     if (atom == GST_MAKE_FOURCC ('i', 's', 'm', 'l')) {
       parser->ftyp |= GSS_ISOM_FTYP_ISML;
     } else if (atom == GST_MAKE_FOURCC ('m', 'p', '4', '2')) {
@@ -440,6 +539,10 @@ gss_ism_parse_ftyp (GssISMParser * parser, guint64 offset, guint64 size)
       parser->ftyp |= GSS_ISOM_FTYP_ISO2;
     } else if (atom == GST_MAKE_FOURCC ('i', 's', 'o', 'm')) {
       parser->ftyp |= GSS_ISOM_FTYP_ISOM;
+    } else if (atom == GST_MAKE_FOURCC ('q', 't', ' ', ' ')) {
+      parser->ftyp |= GSS_ISOM_FTYP_QT__;
+    } else if (atom == 0) {
+      GST_DEBUG ("ignoring 0 ftyp");
     } else {
       GST_ERROR ("unknown ftyp %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (atom));
     }
@@ -454,21 +557,28 @@ gst_byte_reader_init_sub (GstByteReader * sbr, const GstByteReader * br,
 }
 
 static void
-gss_ism_parse_moof (GssISMParser * parser, AtomMoof * moof, GstByteReader * br)
+gss_ism_parse_moof (GssISMParser * parser, Fragment * fragment,
+    GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader sbr;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('m', 'f', 'h', 'd')) {
-      gss_ism_parse_mfhd (parser, &moof->mfhd, &sbr);
+      gss_ism_parse_mfhd (parser, &fragment->mfhd, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'a', 'f')) {
-      gss_ism_parse_traf (parser, &moof->traf, &sbr);
+      gss_ism_parse_traf (parser, &fragment->traf, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -497,12 +607,18 @@ static void
 gss_ism_parse_traf (GssISMParser * parser, AtomTraf * traf, GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader sbr;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('t', 'f', 'h', 'd')) {
@@ -528,7 +644,7 @@ gss_ism_parse_traf (GssISMParser * parser, AtomTraf * traf, GstByteReader * br)
       }
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " inside moof at offset %" G_GINT64_MODIFIER "x, size %d",
+          " inside traf at offset %" G_GINT64_MODIFIER "x, size %d",
           GST_FOURCC_ARGS (atom), parser->offset, size);
     }
 
@@ -601,10 +717,10 @@ gss_ism_parse_trun (GssISMParser * parser, AtomTrun * trun, GstByteReader * br)
 }
 
 static void
-gss_ism_fixup_moof (AtomMoof * moof)
+gss_ism_fixup_moof (Fragment * fragment)
 {
-  AtomTfhd *tfhd = &moof->traf.tfhd;
-  AtomTrun *trun = &moof->traf.trun;
+  AtomTfhd *tfhd = &fragment->traf.tfhd;
+  AtomTrun *trun = &fragment->traf.trun;
   int i;
 
   if (!(trun->flags & TR_SAMPLE_DURATION)) {
@@ -621,13 +737,13 @@ gss_ism_fixup_moof (AtomMoof * moof)
 }
 
 static guint64
-gss_ism_moof_get_duration (AtomMoof * moof)
+gss_ism_moof_get_duration (Fragment * fragment)
 {
   guint64 duration = 0;
   int i;
 
-  for (i = 0; i < moof->traf.trun.sample_count; i++) {
-    duration += moof->traf.trun.samples[i].duration;
+  for (i = 0; i < fragment->traf.trun.sample_count; i++) {
+    duration += fragment->traf.trun.samples[i].duration;
   }
   return duration;
 }
@@ -700,9 +816,9 @@ void
 gss_ism_fragment_set_sample_encryption (GssISMFragment * fragment,
     int n_samples, guint64 * init_vectors, gboolean is_h264)
 {
-  AtomMoof *moof = fragment->moof;
-  AtomUUIDSampleEncryption *se = &moof->traf.sample_encryption;
-  AtomTrun *trun = &moof->traf.trun;
+  Fragment *frag = (Fragment *) fragment->moof;
+  AtomUUIDSampleEncryption *se = &frag->traf.sample_encryption;
+  AtomTrun *trun = &frag->traf.trun;
   int i;
 
   se->present = TRUE;
@@ -773,6 +889,11 @@ gss_ism_parse_mvhd (GssISMParser * parser, AtomMvhd * mvhd, GstByteReader * br)
   if ((br)->byte < (br)->size) \
     GST_ERROR("leftover bytes %d < %d", (br)->byte, (br)->size); \
 } while(0)
+#define CHECK_END_ATOM(br, atom) do { \
+  if ((br)->byte < (br)->size) \
+    GST_ERROR("leftover bytes %d < %d in container %" GST_FOURCC_FORMAT, \
+        (br)->byte, (br)->size, GST_FOURCC_ARGS((atom))); \
+} while(0)
 static void
 gss_ism_parse_tkhd (GssISMParser * parser, Track * track, GstByteReader * br)
 {
@@ -824,7 +945,9 @@ gss_ism_parse_tref (GssISMParser * parser, Track * track, GstByteReader * br)
   AtomTref *tref = &track->tref;
   tref->present = TRUE;
 
-  CHECK_END (br);
+  GST_FIXME ("parse tref");
+
+  //CHECK_END (br);
 }
 
 static void
@@ -835,7 +958,9 @@ gss_ism_parse_elst (GssISMParser * parser, Track * track, GstByteReader * br)
   gst_byte_reader_get_uint8 (br, &elst->version);
   gst_byte_reader_get_uint24_be (br, &elst->flags);
 
-  CHECK_END (br);
+  GST_FIXME ("parse elst");
+
+  //CHECK_END (br);
 }
 
 static void
@@ -891,13 +1016,13 @@ gboolean
 get_string (GssISMParser * parser, GstByteReader * br, gchar ** string)
 {
   gboolean ret;
-  if (parser->ftyp & GSS_ISOM_FTYP_ISML) {
+  if (!(parser->ftyp & (GSS_ISOM_FTYP_MP41 | GSS_ISOM_FTYP_MP42))) {
     guint8 len = 0;
     const guint8 *s;
     gst_byte_reader_get_uint8 (br, &len);
     ret = gst_byte_reader_get_data (br, len, &s);
     if (ret) {
-      *string = g_malloc (len);
+      *string = g_malloc (len + 1);
       memcpy (*string, s, len);
       (*string)[len] = 0;
     }
@@ -921,7 +1046,7 @@ gss_ism_parse_hdlr (GssISMParser * parser, Track * track, GstByteReader * br)
   gst_byte_reader_skip (br, 12);
   get_string (parser, br, &hdlr->name);
 
-  gst_byte_reader_dump (br);
+  //gst_byte_reader_dump (br);
 
   CHECK_END (br);
 }
@@ -979,18 +1104,28 @@ gss_ism_parse_dref (GssISMParser * parser, Track * track, GstByteReader * br)
   gst_byte_reader_get_uint32_be (br, &dref->entry_count);
   dref->entries = g_malloc0 (sizeof (AtomDrefEntry) * dref->entry_count);
   for (i = 0; i < dref->entry_count; i++) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader sbr;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('u', 'r', 'l', ' ')) {
-      GST_ERROR ("url_");
+      GST_FIXME ("url_");
     } else if (atom == GST_MAKE_FOURCC ('u', 'r', 'n', ' ')) {
-      GST_ERROR ("urn_");
+      GST_FIXME ("urn_");
+    } else if (atom == GST_MAKE_FOURCC ('a', 'l', 'i', 's')) {
+      GST_FIXME ("alis");
+    } else if (atom == GST_MAKE_FOURCC ('c', 'i', 'o', 's')) {
+      GST_FIXME ("cios");
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside dref, size %d",
           GST_FOURCC_ARGS (atom), size);
@@ -1179,25 +1314,39 @@ gss_ism_parse_stsd (GssISMParser * parser, Track * track, GstByteReader * br)
   gst_byte_reader_get_uint24_be (br, &stsd->flags);
   gst_byte_reader_get_uint32_be (br, &stsd->entry_count);
   for (i = 0; i < stsd->entry_count; i++) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader sbr;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('m', 'p', '4', 'a')) {
-      GST_ERROR ("mp4a");
+      GST_FIXME ("mp4a");
     } else if (atom == GST_MAKE_FOURCC ('a', 'v', 'c', '1')) {
-      GST_ERROR ("avc1");
+      GST_FIXME ("avc1");
     } else if (atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'v')) {
-      GST_ERROR ("encv");
+      GST_FIXME ("encv");
     } else if (atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'a')) {
-      GST_ERROR ("enca");
+      GST_FIXME ("enca");
+    } else if (atom == GST_MAKE_FOURCC ('t', 'm', 'c', 'd')) {
+      GST_FIXME ("tmcd");
+    } else if (atom == GST_MAKE_FOURCC ('a', 'p', 'c', 'h')) {
+      GST_FIXME ("apch");
+    } else if (atom == GST_MAKE_FOURCC ('A', 'V', '1', 'x')) {
+      GST_FIXME ("AV1x");
     } else {
+#if 0
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside stsd, size %d",
           GST_FOURCC_ARGS (atom), size);
+#endif
     }
 
     gst_byte_reader_skip (br, size - 8);
@@ -1206,6 +1355,12 @@ gss_ism_parse_stsd (GssISMParser * parser, Track * track, GstByteReader * br)
   gst_byte_reader_dump (br);
 
   CHECK_END (br);
+}
+
+static void
+gss_ism_parse_ignore (GssISMParser * parser, Track * track, GstByteReader * br)
+{
+  GST_FIXME ("ingoring atom");
 }
 
 typedef struct _ContainerAtoms ContainerAtoms;
@@ -1232,6 +1387,9 @@ static ContainerAtoms stbl_atoms[] = {
   {GST_MAKE_FOURCC ('c', 'o', '6', '4'), gss_ism_parse_co64},
   {GST_MAKE_FOURCC ('s', 't', 's', 'h'), gss_ism_parse_stsh},
   {GST_MAKE_FOURCC ('s', 't', 'd', 'p'), gss_ism_parse_stdp},
+  {GST_MAKE_FOURCC ('c', 's', 'l', 'g'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('s', 't', 'p', 's'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('s', 'd', 't', 'p'), gss_ism_parse_ignore},
   {0}
 };
 
@@ -1241,6 +1399,9 @@ static ContainerAtoms minf_atoms[] = {
   {GST_MAKE_FOURCC ('h', 'm', 'h', 'd'), gss_ism_parse_hmhd},
   {GST_MAKE_FOURCC ('d', 'i', 'n', 'f'), NULL, dinf_atoms},
   {GST_MAKE_FOURCC ('s', 't', 'b', 'l'), NULL, stbl_atoms},
+  {GST_MAKE_FOURCC ('g', 'm', 'h', 'd'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('h', 'd', 'l', 'r'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('c', 'o', 'd', 'e'), gss_ism_parse_ignore},
   {0}
 };
 
@@ -1248,6 +1409,8 @@ static ContainerAtoms mdia_atoms[] = {
   {GST_MAKE_FOURCC ('m', 'd', 'h', 'd'), gss_ism_parse_mdhd},
   {GST_MAKE_FOURCC ('h', 'd', 'l', 'r'), gss_ism_parse_hdlr},
   {GST_MAKE_FOURCC ('m', 'i', 'n', 'f'), NULL, minf_atoms},
+  {GST_MAKE_FOURCC ('i', 'm', 'a', 'p'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('u', 'd', 't', 'a'), gss_ism_parse_ignore},
   {0}
 };
 
@@ -1256,11 +1419,22 @@ static ContainerAtoms edts_atoms[] = {
   {0}
 };
 
+#if 0
+static ContainerAtoms udta_atoms[] = {
+  {0}
+};
+#endif
+
 static ContainerAtoms trak_atoms[] = {
   {GST_MAKE_FOURCC ('t', 'k', 'h', 'd'), gss_ism_parse_tkhd},
   {GST_MAKE_FOURCC ('t', 'r', 'e', 'f'), gss_ism_parse_tref},
+  //{GST_MAKE_FOURCC ('u', 'd', 't', 'a'), NULL, udta_atoms},
+  {GST_MAKE_FOURCC ('u', 'd', 't', 'a'), gss_ism_parse_ignore},
   {GST_MAKE_FOURCC ('e', 'd', 't', 's'), NULL, edts_atoms},
   {GST_MAKE_FOURCC ('m', 'd', 'i', 'a'), NULL, mdia_atoms},
+  {GST_MAKE_FOURCC ('m', 'e', 't', 'a'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('l', 'o', 'a', 'd'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('t', 'a', 'p', 't'), gss_ism_parse_ignore},
   {0}
 };
 
@@ -1270,13 +1444,19 @@ gss_ism_parse_container (GssISMParser * parser, Track * track,
     GstByteReader * br, ContainerAtoms * atoms, guint32 parent_atom)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
-    int i;
     GstByteReader sbr;
+    int i;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     for (i = 0; atoms[i].atom != 0; i++) {
@@ -1297,6 +1477,8 @@ gss_ism_parse_container (GssISMParser * parser, Track * track,
 
     gst_byte_reader_skip (br, size - 8);
   }
+
+  CHECK_END_ATOM (br, parent_atom);
 }
 
 static void
@@ -1310,22 +1492,40 @@ gss_ism_parse_mvex (GssISMParser * parser, AtomMvex * mvex, GstByteReader * br)
 }
 
 static void
-gss_ism_parse_moov (GssISMParser * parser, AtomMoov * moov, GstByteReader * br)
+gss_ism_parse_meta (GssISMParser * parser, AtomMeta * meta, GstByteReader * br)
 {
-  Movie *movie;
+}
 
-  movie = gss_ism_movie_new ();
+static void
+gss_ism_parse_skip (GssISMParser * parser, AtomSkip * skip, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_iods (GssISMParser * parser, AtomIods * iods, GstByteReader * br)
+{
+}
+
+static void
+gss_ism_parse_moov (GssISMParser * parser, Movie * movie, GstByteReader * br)
+{
   while (gst_byte_reader_get_remaining (br) >= 8) {
-    guint32 size = 0;
+    guint64 size = 0;
+    guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader sbr;
 
-    gst_byte_reader_get_uint32_be (br, &size);
+    gst_byte_reader_get_uint32_be (br, &size32);
     gst_byte_reader_get_uint32_le (br, &atom);
+    if (size32 == 1) {
+      gst_byte_reader_get_uint64_be (br, &size);
+    } else {
+      size = size32;
+    }
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
     if (atom == GST_MAKE_FOURCC ('m', 'v', 'h', 'd')) {
-      gss_ism_parse_mvhd (parser, &moov->mvhd, &sbr);
+      gss_ism_parse_mvhd (parser, &movie->mvhd, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'a', 'k')) {
       Track *track;
       track = gss_ism_track_new ();
@@ -1333,13 +1533,15 @@ gss_ism_parse_moov (GssISMParser * parser, AtomMoov * moov, GstByteReader * br)
       movie->tracks[movie->n_tracks] = track;
       movie->n_tracks++;
     } else if (atom == GST_MAKE_FOURCC ('u', 'd', 't', 'a')) {
-      gss_ism_parse_udta (parser, &moov->udta, &sbr);
+      gss_ism_parse_udta (parser, &movie->udta, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('m', 'v', 'e', 'x')) {
-      gss_ism_parse_mvex (parser, &moov->mvex, &sbr);
-    } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
-      const guint8 *uuid = NULL;
-
-      gst_byte_reader_peek_data (br, 16, &uuid);
+      gss_ism_parse_mvex (parser, &movie->mvex, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('m', 'e', 't', 'a')) {
+      gss_ism_parse_meta (parser, &movie->meta, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('s', 'k', 'i', 'p')) {
+      gss_ism_parse_skip (parser, &movie->skip, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('i', 'o', 'd', 's')) {
+      gss_ism_parse_iods (parser, &movie->iods, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -1520,19 +1722,19 @@ gss_ism_mfhd_serialize (AtomMfhd * mfhd, GstByteWriter * bw)
 }
 
 static void
-gss_ism_moof_serialize (AtomMoof * moof, GstByteWriter * bw)
+gss_ism_moof_serialize (Fragment * fragment, GstByteWriter * bw)
 {
   int offset;
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'f'));
 
-  gss_ism_mfhd_serialize (&moof->mfhd, bw);
-  gss_ism_traf_serialize (&moof->traf, bw);
+  gss_ism_mfhd_serialize (&fragment->mfhd, bw);
+  gss_ism_traf_serialize (&fragment->traf, bw);
   //gss_ism_xmp_data_serialize (&moof->xmp_data, bw);
 
   ATOM_FINISH (bw, offset);
 
   GST_WRITE_UINT32_BE (
-      (void *) (bw->parent.data + moof->traf.trun.data_offset_fixup),
+      (void *) (bw->parent.data + fragment->traf.trun.data_offset_fixup),
       bw->parent.byte + 8);
 }
 
@@ -1541,11 +1743,11 @@ gss_ism_fragment_serialize (GssISMFragment * fragment, guint8 ** data,
     int *size)
 {
   GstByteWriter *bw;
-  AtomMoof *moof = fragment->moof;
+  Fragment *frag = fragment->moof;
 
   bw = gst_byte_writer_new ();
 
-  gss_ism_moof_serialize (moof, bw);
+  gss_ism_moof_serialize (frag, bw);
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
@@ -1556,7 +1758,7 @@ gss_ism_fragment_get_sample_sizes (GssISMFragment * fragment)
 {
   int *s;
   int i;
-  AtomTrun *trun = &((AtomMoof *) fragment->moof)->traf.trun;
+  AtomTrun *trun = &((Fragment *) fragment->moof)->traf.trun;
 
   s = g_malloc (sizeof (int) * fragment->n_samples);
   for (i = 0; i < fragment->n_samples; i++) {
@@ -1569,9 +1771,9 @@ void
 gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
     guint8 * content_key)
 {
-  AtomMoof *moof = fragment->moof;
-  AtomTrun *trun = &((AtomMoof *) fragment->moof)->traf.trun;
-  AtomUUIDSampleEncryption *se = &moof->traf.sample_encryption;
+  Fragment *frag = fragment->moof;
+  AtomTrun *trun = &((Fragment *) fragment->moof)->traf.trun;
+  AtomUUIDSampleEncryption *se = &frag->traf.sample_encryption;
   guint64 sample_offset;
   int i;
 

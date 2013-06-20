@@ -78,6 +78,8 @@ typedef struct _AtomMoov AtomMoov;
 typedef struct _AtomParser AtomParser;
 
 typedef struct _AtomMvex AtomMvex;
+typedef struct _AtomMeta AtomMeta;
+typedef struct _AtomSkip AtomSkip;
 
 
 struct _AtomMfhd
@@ -133,19 +135,6 @@ struct _AtomSdtp
 
 };
 
-/* XMP data */
-/* be7acfcb-97a9-42e8-9c71-999491e3afac */
-const guint8 uuid_xmp_data[] = { 0xbe, 0x7a, 0xcf, 0xcb, 0x97, 0xa9, 0x42,
-  0xe8, 0x9c, 0x71, 0x99, 0x94, 0x91, 0xe3, 0xaf, 0xac
-};
-
-/* SampleEncryptionBox */
-/* A2394F52-5A9B-4f14-A244-6C427C648DF4 */
-const guint8 uuid_sample_encryption[16] = {
-  0xa2, 0x39, 0x4f, 0x52, 0x5a, 0x9b, 0x4f, 0x14,
-  0xa2, 0x44, 0x6c, 0x42, 0x7c, 0x64, 0x8d, 0xf4
-};
-
 struct _AtomUUIDSampleEncryption
 {
   gboolean present;
@@ -185,11 +174,7 @@ struct _AtomTraf
 
 struct _AtomMoof
 {
-  guint8 version;
-  guint32 flags;
 
-  AtomMfhd mfhd;
-  AtomTraf traf;
 };
 
 /* From ISO/IEC 14496-1:2002 */
@@ -528,11 +513,12 @@ struct _AtomMvex
 {
 };
 
-/* ProtectionSystemSpecificHeaderBox */
-/* 0xd08a4f18-10f3-4a82-b6c8-32d8aba183d3 */
-const guint8 uuid_protection_header[16] = {
-  0xd0, 0x8a, 0x4f, 0x18, 0x10, 0xf3, 0x4a, 0x82,
-  0xb6, 0xc8, 0x32, 0xd8, 0xab, 0xa1, 0x83, 0xd3
+struct _AtomMeta
+{
+};
+
+struct _AtomSkip
+{
 };
 
 struct _AtomUUIDProtectionHeader

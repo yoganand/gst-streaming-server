@@ -42,6 +42,7 @@ struct _GssISMFragment {
 
 
 GssISMParser *gss_ism_parser_new (void);
+void gss_ism_parser_free (GssISMParser *parser);
 gboolean gss_ism_parser_parse_file (GssISMParser *parser,
     const char *filename);
 GssISMFragment * gss_ism_parser_get_fragments (GssISMParser *parser, int track_id,
