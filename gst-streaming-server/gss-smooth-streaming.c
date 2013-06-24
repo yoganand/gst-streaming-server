@@ -475,8 +475,7 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
       const char *la_url;
       gchar *kid_base64;
 
-      la_url = "http://192.168.83.157:8080/rightsmanager.asmx";
-      //la_url = "http://playready.directtaps.net/pr/svc/rightsmanager.asmx";
+      la_url = "http://playready.directtaps.net/pr/svc/rightsmanager.asmx";
 
       kid_base64 = g_base64_encode (ism->kid, ism->kid_len);
       /* this all needs to be on one line, to satisfy clients */
