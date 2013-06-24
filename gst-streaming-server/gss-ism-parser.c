@@ -363,6 +363,12 @@ gss_ism_track_free (GssISMTrack * track)
   g_free (track);
 }
 
+guint64
+gss_ism_track_get_n_samples (GssISMTrack * track)
+{
+  return track->stsz.sample_count;
+}
+
 GssISMMovie *
 gss_ism_movie_new (void)
 {
@@ -1785,4 +1791,180 @@ gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
     }
     sample_offset += trun->samples[i].size;
   }
+}
+
+void
+gss_ism_parser_fragmentize (GssISMParser * parser)
+{
+  GssISMTrack *video_track;
+  GssISMTrack *audio_track;
+  int n_fragments;
+  int i;
+  guint64 video_timestamp = 0;
+  guint64 audio_timestamp = 0;
+  int audio_index = 0;
+  int audio_index_end;
+
+  video_track = parser->movie->tracks[1];
+  audio_track = parser->movie->tracks[0];
+  if (!video_track->stss.present) {
+    GST_ERROR ("no stss atom in video track, something wrong");
+    return;
+  }
+
+  n_fragments = video_track->stss.entry_count;
+
+  parser->fragments = g_malloc0 (sizeof (GssISMFragment *) * n_fragments * 2);
+  parser->n_fragments = n_fragments * 2;
+  parser->n_fragments_alloc = n_fragments * 2;
+
+  for (i = 0; i < n_fragments; i++) {
+    GssISMFragment *audio_fragment;
+    GssISMFragment *video_fragment;
+    guint64 n_samples;
+    AtomTrunSample *samples;
+    int sample_offset;
+    int j;
+    guint64 duration;
+
+    audio_fragment = gss_ism_fragment_new ();
+    video_fragment = gss_ism_fragment_new ();
+    parser->fragments[i * 2 + 0] = audio_fragment;
+    parser->fragments[i * 2 + 1] = video_fragment;
+
+    video_fragment->mfhd.sequence_number = i;
+
+    video_fragment->traf.tfhd.track_id = video_track->tkhd.track_id;
+    video_fragment->traf.tfhd.default_sample_duration = 100;
+    video_fragment->traf.tfhd.default_sample_size = 0;
+    video_fragment->traf.tfhd.default_sample_flags = 0;
+
+    sample_offset = video_track->stss.sample_numbers[i] - 1;
+    if (i == n_fragments - 1) {
+      n_samples = gss_ism_track_get_n_samples (video_track) - sample_offset;
+    } else {
+      n_samples = (video_track->stss.sample_numbers[i + 1] - 1) - sample_offset;
+    }
+    video_fragment->traf.trun.sample_count = n_samples;
+    video_fragment->traf.trun.data_offset = 12;
+    samples = g_malloc0 (sizeof (AtomTrunSample) * n_samples);
+    duration = 0;
+    for (j = 0; j < n_samples; j++) {
+      GssISMSample sample;
+      gss_ism_track_get_sample (video_track, &sample, sample_offset + j);
+      samples[j].duration = sample.duration;
+      samples[j].size = sample.size;
+      samples[j].flags = 0;
+      samples[j].composition_time_offset = sample.composition_time_offset;
+      duration += sample.duration;
+      video_timestamp += sample.duration;
+    }
+    video_fragment->traf.trun.samples = samples;
+    /* FIXME not all strictly necessary, should be handled in serializer */
+    video_fragment->traf.trun.flags =
+        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_SAMPLE_FLAGS |
+        TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
+    video_fragment->duration = gst_util_uint64_scale_int (duration,
+        10000000, video_track->mdhd.timescale);
+
+    audio_fragment->mfhd.sequence_number = i;
+
+    (void) audio_track;
+
+    audio_index_end = gss_ism_track_get_index_from_timestamp (audio_track,
+        video_timestamp * audio_track->mdhd.timescale /
+        video_track->mdhd.timescale);
+
+    audio_fragment->mfhd.sequence_number = i;
+
+    audio_fragment->traf.tfhd.track_id = audio_track->tkhd.track_id;
+    audio_fragment->traf.tfhd.default_sample_duration = 100;
+    audio_fragment->traf.tfhd.default_sample_size = 0;
+    audio_fragment->traf.tfhd.default_sample_flags = 0;
+
+    n_samples = audio_index_end - audio_index;
+    audio_fragment->traf.trun.sample_count = n_samples;
+    audio_fragment->traf.trun.data_offset = 12;
+    samples = g_malloc0 (sizeof (AtomTrunSample) * n_samples);
+    duration = 0;
+    for (j = 0; j < n_samples; j++) {
+      GssISMSample sample;
+      gss_ism_track_get_sample (audio_track, &sample, audio_index + j);
+      samples[j].duration = sample.duration;
+      samples[j].size = sample.size;
+      samples[j].flags = 0;
+      samples[j].composition_time_offset = sample.composition_time_offset;
+      duration += sample.duration;
+    }
+    audio_fragment->traf.trun.samples = samples;
+    /* FIXME not all strictly necessary, should be handled in serializer */
+    audio_fragment->traf.trun.flags =
+        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_SAMPLE_FLAGS |
+        TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
+    audio_fragment->duration = gst_util_uint64_scale_int (duration,
+        10000000, audio_track->mdhd.timescale);
+
+    audio_timestamp += duration;
+    audio_index = audio_index_end;
+  }
+}
+
+int
+gss_ism_track_get_index_from_timestamp (GssISMTrack * track, guint64 timestamp)
+{
+  int i;
+  int offset;
+  guint64 ts;
+  AtomSttsEntry *entries;
+
+  ts = 0;
+  offset = 0;
+  entries = track->stts.entries;
+  for (i = 0; i < track->stts.entry_count; i++) {
+    if (timestamp - ts >= entries[i].sample_count * entries[i].sample_delta) {
+      ts += entries[i].sample_count * entries[i].sample_delta;
+      offset += entries[i].sample_count;
+    } else {
+      offset += (timestamp - ts) / entries[i].sample_delta;
+      return offset;
+    }
+  }
+
+  return 0;
+}
+
+void
+gss_ism_track_get_sample (GssISMTrack * track, GssISMSample * sample,
+    int sample_index)
+{
+  int i;
+  int offset;
+
+  offset = 0;
+  sample->duration = 0;
+  for (i = 0; i < track->stts.entry_count; i++) {
+    if (sample_index < offset + track->stts.entries[i].sample_count) {
+      sample->duration = track->stts.entries[i].sample_delta;
+      break;
+    }
+    offset += track->stts.entries[i].sample_count;
+  }
+
+  if (track->stsz.sample_size == 0) {
+    sample->size = track->stsz.sample_sizes[sample_index];
+  } else {
+    sample->size = track->stsz.sample_size;
+  }
+
+  offset = 0;
+  sample->composition_time_offset = 0;
+  for (i = 0; i < track->ctts.entry_count; i++) {
+    if (sample_index < offset + track->ctts.entries[i].sample_count) {
+      sample->composition_time_offset = track->ctts.entries[i].sample_offset;
+      break;
+    }
+    offset += track->ctts.entries[i].sample_count;
+  }
+
+
 }

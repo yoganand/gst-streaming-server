@@ -323,7 +323,7 @@ ISMInfo ism_files[] = {
       },
   {
         "drwho-406.mp4",
-        "Dr Who MP4",
+        "drwho",
         716, 416, TRUE,
         1445090,
         "014d401fffe1001b674d401ff281686b7fe0340032a20000030002ee6b28001e30622c01000568e93b2c80",
@@ -357,6 +357,10 @@ gss_smooth_streaming_setup (GssServer * server)
 
     parser = gss_ism_parser_new ();
     gss_ism_parser_parse_file (parser, info->filename);
+
+    if (gss_ism_parser_get_n_fragments (parser, AUDIO_TRACK_ID) == 0) {
+      gss_ism_parser_fragmentize (parser);
+    }
 
     ism->audio_levels[0].n_fragments =
         gss_ism_parser_get_n_fragments (parser, AUDIO_TRACK_ID);

@@ -31,6 +31,7 @@ typedef struct _GssISMTrack GssISMTrack;
 typedef struct _GssISMMovie GssISMMovie;
 typedef struct _GssISMParser GssISMParser;
 typedef struct _GssISMFragment GssISMFragment;
+typedef struct _GssISMSample GssISMSample;
 
 typedef enum
 {
@@ -128,6 +129,13 @@ struct _GssISMParser
   guint64 data_size;
 };
 
+struct _GssISMSample
+{
+  guint32 duration;
+  guint32 size;
+  //guint32 flags;
+  guint32 composition_time_offset;
+};
 
 
 GssISMParser *gss_ism_parser_new (void);
@@ -156,6 +164,16 @@ void gss_ism_movie_free (GssISMMovie * movie);
 
 GssISMFragment *gss_ism_fragment_new (void);
 void gss_ism_fragment_free (GssISMFragment * fragment);
+
+void gss_ism_parser_fragmentize (GssISMParser *parser);
+
+guint64 gss_ism_track_get_n_samples (GssISMTrack *track);
+
+void gss_ism_track_get_sample (GssISMTrack *track, GssISMSample *sample,
+    int sample_index);
+int gss_ism_track_get_index_from_timestamp (GssISMTrack *track, guint64
+    timestamp);
+
 
 
 G_END_DECLS
