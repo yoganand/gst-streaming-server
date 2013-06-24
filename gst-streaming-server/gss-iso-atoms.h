@@ -20,6 +20,8 @@
 #ifndef _GSS_ISO_ATOMS_H
 #define _GSS_ISO_ATOMS_H
 
+#include <glib.h>
+
 /* Atom definitions */
 
 typedef struct _AtomMfhd AtomMfhd;

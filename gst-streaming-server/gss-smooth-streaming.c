@@ -39,6 +39,8 @@
 #include <fcntl.h>
 #include <openssl/aes.h>
 
+#define AUDIO_TRACK_ID 1
+#define VIDEO_TRACK_ID 2
 
 typedef struct _GssISM GssISM;
 typedef struct _GssISMLevel GssISMLevel;
@@ -77,15 +79,14 @@ struct _GssISMLevel
   int video_width;
   int video_height;
 
-  GssISMFragment *fragments;
+  GssISMParser *parser;
+  int track_id;
 };
 
 
 GssISM *gss_ism_new (void);
 void gss_ism_free (GssISM * ism);
 GssISMLevel *gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate);
-GssISMFragment *gss_ism_level_get_fragment (GssISM * ism, GssISMLevel * level,
-    guint64 timestamp);
 
 
 static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
@@ -213,6 +214,7 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
   guint64 *init_vectors;
   guint64 iv;
   int i;
+  int n_samples;
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
@@ -239,12 +241,13 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
 
   gss_utils_get_random_bytes ((guint8 *) & iv, 8);
 
-  init_vectors = g_malloc (fragment->n_samples * sizeof (guint64));
-  for (i = 0; i < fragment->n_samples; i++) {
+  n_samples = gss_ism_fragment_get_n_samples (fragment);
+  init_vectors = g_malloc (n_samples * sizeof (guint64));
+  for (i = 0; i < n_samples; i++) {
     init_vectors[i] = iv + i;
   }
-  gss_ism_fragment_set_sample_encryption (fragment, fragment->n_samples,
-      init_vectors, (fragment->track_id == 2));
+  gss_ism_fragment_set_sample_encryption (fragment, n_samples,
+      init_vectors, (fragment->track_id == VIDEO_TRACK_ID));
 
   if (ism->content_key == NULL) {
     gss_ism_generate_content_key (ism);
@@ -338,7 +341,6 @@ gss_smooth_streaming_setup (GssServer * server)
     ISMInfo *info = &ism_files[i];
     GssISM *ism;
     GssISMParser *parser;
-    int n_fragments;
     char *s;
 
     ism = gss_ism_new ();
@@ -356,26 +358,23 @@ gss_smooth_streaming_setup (GssServer * server)
     parser = gss_ism_parser_new ();
     gss_ism_parser_parse_file (parser, info->filename);
 
-    ism->audio_levels[0].fragments =
-        gss_ism_parser_get_fragments (parser, 1, &n_fragments);
-    ism->audio_levels[0].n_fragments = n_fragments;
-
+    ism->audio_levels[0].n_fragments =
+        gss_ism_parser_get_n_fragments (parser, AUDIO_TRACK_ID);
+    ism->audio_levels[0].parser = parser;
+    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
     ism->audio_levels[0].filename = g_strdup (info->filename);
     ism->audio_levels[0].bitrate = info->audio_bitrate;
 
-    ism->video_levels[0].fragments =
-        gss_ism_parser_get_fragments (parser, 2, &n_fragments);
-    ism->video_levels[0].n_fragments = n_fragments;
+    ism->video_levels[0].n_fragments =
+        gss_ism_parser_get_n_fragments (parser, VIDEO_TRACK_ID);
     ism->video_levels[0].filename = g_strdup (info->filename);
     ism->video_levels[0].bitrate = info->video_bitrate;
     ism->video_levels[0].video_width = info->width;
     ism->video_levels[0].video_height = info->height;
+    ism->video_levels[0].parser = parser;
+    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
 
-    ism->duration =
-        ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
-        1].timestamp +
-        ism->video_levels[0].fragments[ism->video_levels[0].n_fragments -
-        1].duration;
+    ism->duration = gss_ism_parser_get_duration (parser, VIDEO_TRACK_ID);
 
     ism->video_codec_data = info->video_codec_data;
     ism->audio_codec_data = info->audio_codec_data;
@@ -427,9 +426,12 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
   {
     GssISMLevel *level = &ism->video_levels[0];
 
-    for (i = 0; i < ism->video_levels[0].n_fragments; i++) {
+    for (i = 0; i < level->n_fragments; i++) {
+      GssISMFragment *fragment;
+      fragment = gss_ism_parser_get_fragment (level->parser,
+          level->track_id, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
-          (guint64) level->fragments[i].duration);
+          (guint64) fragment->duration);
     }
   }
   GSS_A ("  </StreamIndex>\n");
@@ -449,9 +451,12 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
   {
     GssISMLevel *level = &ism->audio_levels[0];
 
-    for (i = 0; i < ism->audio_levels[0].n_fragments; i++) {
+    for (i = 0; i < level->n_fragments; i++) {
+      GssISMFragment *fragment;
+      fragment = gss_ism_parser_get_fragment (level->parser,
+          level->track_id, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
-          (guint64) level->fragments[i].duration);
+          (guint64) fragment->duration);
     }
   }
 
@@ -576,7 +581,8 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
     return;
   }
 
-  fragment = gss_ism_level_get_fragment (ism, level, start_time);
+  fragment = gss_ism_parser_get_fragment_by_timestamp (level->parser,
+      level->track_id, start_time);
   if (fragment == NULL) {
     GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
@@ -628,19 +634,6 @@ gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate)
       if (ism->audio_levels[i].bitrate == bitrate) {
         return &ism->audio_levels[i];
       }
-    }
-  }
-  return NULL;
-}
-
-GssISMFragment *
-gss_ism_level_get_fragment (GssISM * ism, GssISMLevel * level,
-    guint64 timestamp)
-{
-  int i;
-  for (i = 0; i < level->n_fragments; i++) {
-    if (level->fragments[i].timestamp == timestamp) {
-      return &level->fragments[i];
     }
   }
   return NULL;
