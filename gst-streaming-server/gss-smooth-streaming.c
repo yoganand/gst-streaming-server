@@ -64,6 +64,7 @@ struct _GssISM
   GssISMLevel *video_levels;
 
   gboolean needs_encryption;
+  gboolean needs_assembly;
 
   guint8 *kid;
   gsize kid_len;
@@ -202,6 +203,61 @@ gss_ism_generate_content_key (GssISM * ism)
 }
 
 static void
+gss_ism_assemble_and_send_chunk (GssTransaction * t, GssISM * ism,
+    GssISMLevel * level, GssISMFragment * fragment)
+{
+  guint8 *mdat_data;
+  guint8 *moof_data;
+  int moof_size;
+  off_t ret;
+  int fd;
+  ssize_t n;
+  int i;
+  int offset;
+
+  fd = open (level->filename, O_RDONLY);
+  if (fd < 0) {
+    GST_WARNING ("file not found %s", level->filename);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  mdat_data = g_malloc (fragment->mdat_size);
+
+  GST_WRITE_UINT32_BE (mdat_data, fragment->mdat_size);
+  GST_WRITE_UINT32_LE (mdat_data + 4, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
+  offset = 8;
+  for (i = 0; i < fragment->n_mdat_chunks; i++) {
+    ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
+    if (ret < 0) {
+      GST_WARNING ("failed to seek");
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      close (fd);
+      return;
+    }
+
+    n = read (fd, mdat_data + offset, fragment->chunks[i].size);
+    if (n < fragment->chunks[i].size) {
+      GST_WARNING ("read failed");
+      g_free (mdat_data);
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      close (fd);
+      return;
+    }
+    offset += fragment->chunks[i].size;
+  }
+  close (fd);
+
+  gss_ism_fragment_serialize (fragment, &moof_data, &moof_size);
+
+  soup_message_set_status (t->msg, SOUP_STATUS_OK);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, moof_data,
+      moof_size);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
+      fragment->mdat_size);
+}
+
+static void
 gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
     GssISMLevel * level, GssISMFragment * fragment)
 {
@@ -215,6 +271,7 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
   guint64 iv;
   int i;
   int n_samples;
+  int offset;
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
@@ -223,21 +280,31 @@ gss_ism_encrypt_and_send_chunk (GssTransaction * t, GssISM * ism,
     return;
   }
 
-  ret = lseek (fd, fragment->mdat_offset, SEEK_SET);
-  if (ret < 0) {
-    GST_WARNING ("failed to seek");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-
   mdat_data = g_malloc (fragment->mdat_size);
-  n = read (fd, mdat_data, fragment->mdat_size);
-  if (n < fragment->mdat_size) {
-    GST_WARNING ("read failed");
-    g_free (mdat_data);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
+
+  GST_WRITE_UINT32_BE (mdat_data, fragment->mdat_size);
+  GST_WRITE_UINT32_LE (mdat_data + 4, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
+  offset = 8;
+  for (i = 0; i < fragment->n_mdat_chunks; i++) {
+    ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
+    if (ret < 0) {
+      GST_WARNING ("failed to seek");
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      close (fd);
+      return;
+    }
+
+    n = read (fd, mdat_data + offset, fragment->chunks[i].size);
+    if (n < fragment->chunks[i].size) {
+      GST_WARNING ("read failed");
+      g_free (mdat_data);
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      close (fd);
+      return;
+    }
+    offset += fragment->chunks[i].size;
   }
+  close (fd);
 
   gss_utils_get_random_bytes ((guint8 *) & iv, 8);
 
@@ -360,6 +427,7 @@ gss_smooth_streaming_setup (GssServer * server)
 
     if (gss_ism_parser_get_n_fragments (parser, AUDIO_TRACK_ID) == 0) {
       gss_ism_parser_fragmentize (parser);
+      ism->needs_assembly = TRUE;
     }
 
     ism->audio_levels[0].n_fragments =
@@ -385,6 +453,7 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->audio_rate = info->audio_rate;
     ism->playready = info->playready;
     ism->needs_encryption = (i == 4);
+    ism->needs_assembly = TRUE;
 
     s = g_strdup_printf ("/%s/Manifest", info->mount);
     gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
@@ -596,6 +665,8 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
 
   if (ism->needs_encryption) {
     gss_ism_encrypt_and_send_chunk (t, ism, level, fragment);
+  } else if (ism->needs_assembly) {
+    gss_ism_assemble_and_send_chunk (t, ism, level, fragment);
   } else {
     gss_file_fragment_serve_file (t, level->filename, fragment->moof_offset,
         fragment->moof_size + fragment->mdat_size);

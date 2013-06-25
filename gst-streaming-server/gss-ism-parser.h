@@ -32,6 +32,7 @@ typedef struct _GssISMMovie GssISMMovie;
 typedef struct _GssISMParser GssISMParser;
 typedef struct _GssISMFragment GssISMFragment;
 typedef struct _GssISMSample GssISMSample;
+typedef struct _GssMdatChunk GssMdatChunk;
 
 typedef enum
 {
@@ -44,12 +45,18 @@ typedef enum
   GSS_ISOM_FTYP_QT__ = (1 << 6),
 } GssIsomFtyp;
 
+struct _GssMdatChunk {
+  guint64 offset;
+  guint64 size;
+};
+
 struct _GssISMFragment {
   int track_id;
   guint64 moof_offset;
   guint64 moof_size;
-  guint64 mdat_offset;
-  guint64 mdat_size;
+  int mdat_size;
+  int n_mdat_chunks;
+  GssMdatChunk *chunks;
   guint64 timestamp;
   guint64 duration;
 
@@ -135,6 +142,7 @@ struct _GssISMSample
   guint32 size;
   //guint32 flags;
   guint32 composition_time_offset;
+  guint64 offset;
 };
 
 

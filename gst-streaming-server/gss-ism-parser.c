@@ -273,8 +273,12 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
       }
 
       if (parser->is_isml) {
-        parser->current_fragment->mdat_offset = parser->offset;
         parser->current_fragment->mdat_size = size;
+
+        parser->current_fragment->n_mdat_chunks = 1;
+        parser->current_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * 1);
+        parser->current_fragment->chunks[0].offset = parser->offset + 8;
+        parser->current_fragment->chunks[0].size = size - 8;
       }
     } else if (atom == GST_MAKE_FOURCC ('m', 'f', 'r', 'a')) {
       gss_ism_parse_mfra (parser, parser->offset, size);
@@ -1847,6 +1851,14 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     }
     video_fragment->traf.trun.sample_count = n_samples;
     video_fragment->traf.trun.data_offset = 12;
+
+    video_fragment->mdat_size = 8;
+    video_fragment->n_mdat_chunks = n_samples;
+    video_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
+
+    video_fragment->traf.sdtp.sample_flags =
+        g_malloc0 (sizeof (guint32) * n_samples);
+
     samples = g_malloc0 (sizeof (AtomTrunSample) * n_samples);
     duration = 0;
     for (j = 0; j < n_samples; j++) {
@@ -1858,6 +1870,10 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
       samples[j].composition_time_offset = sample.composition_time_offset;
       duration += sample.duration;
       video_timestamp += sample.duration;
+
+      video_fragment->chunks[j].offset = sample.offset;
+      video_fragment->chunks[j].size = sample.size;
+      video_fragment->mdat_size += sample.size;
     }
     video_fragment->traf.trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
@@ -1883,18 +1899,31 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     audio_fragment->traf.tfhd.default_sample_flags = 0;
 
     n_samples = audio_index_end - audio_index;
+
+    audio_fragment->mdat_size = 8;
+    audio_fragment->n_mdat_chunks = n_samples;
+    audio_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
+
     audio_fragment->traf.trun.sample_count = n_samples;
     audio_fragment->traf.trun.data_offset = 12;
     samples = g_malloc0 (sizeof (AtomTrunSample) * n_samples);
+
+    audio_fragment->traf.sdtp.sample_flags =
+        g_malloc0 (sizeof (guint32) * n_samples);
+
     duration = 0;
     for (j = 0; j < n_samples; j++) {
       GssISMSample sample;
-      gss_ism_track_get_sample (audio_track, &sample, audio_index + j);
-      samples[j].duration = sample.duration;
+      gss_ism_track_get_sample (audio_track, &sample, audio_index + j * 1);
+      samples[j].duration = sample.duration * 1;
       samples[j].size = sample.size;
       samples[j].flags = 0;
       samples[j].composition_time_offset = sample.composition_time_offset;
       duration += sample.duration;
+
+      audio_fragment->chunks[j].offset = sample.offset;
+      audio_fragment->chunks[j].size = sample.size;
+      audio_fragment->mdat_size += sample.size;
     }
     audio_fragment->traf.trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
@@ -1905,7 +1934,7 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
         10000000, audio_track->mdhd.timescale);
 
     audio_timestamp += duration;
-    audio_index = audio_index_end;
+    audio_index += n_samples;
   }
 }
 
@@ -1939,6 +1968,8 @@ gss_ism_track_get_sample (GssISMTrack * track, GssISMSample * sample,
 {
   int i;
   int offset;
+  int chunk_index;
+  int index_in_chunk;
 
   offset = 0;
   sample->duration = 0;
@@ -1966,5 +1997,43 @@ gss_ism_track_get_sample (GssISMTrack * track, GssISMSample * sample,
     offset += track->ctts.entries[i].sample_count;
   }
 
+  offset = 0;
+  chunk_index = 0;
+  index_in_chunk = 0;
+  for (i = 0; i < track->stsc.entry_count; i++) {
+    int n_chunks;
+
+#if 0
+    g_print ("stsc %d: %d %d %d\n", i,
+        track->stsc.entries[i].first_chunk,
+        track->stsc.entries[i].samples_per_chunk,
+        track->stsc.entries[i].sample_description_index);
+#endif
+
+    if (i == track->stsc.entry_count - 1) {
+      /* don't actually care */
+      n_chunks = 0;
+    } else {
+      n_chunks = track->stsc.entries[i + 1].first_chunk -
+          track->stsc.entries[i].first_chunk;
+    }
+    chunk_index = (track->stsc.entries[i].first_chunk - 1);
+    index_in_chunk = sample_index - offset;
+    chunk_index += index_in_chunk / track->stsc.entries[i].samples_per_chunk;
+    index_in_chunk = index_in_chunk % track->stsc.entries[i].samples_per_chunk;
+
+    offset += track->stsc.entries[i].samples_per_chunk * n_chunks;
+  }
+
+  /* FIXME */
+  if (index_in_chunk != 0) {
+    GST_ERROR ("fixme index_in_chunk != 0");
+  }
+
+  sample->offset = track->stco.chunk_offsets[chunk_index];
+
+  //g_print("%d: %d %d\n", sample_index, chunk_index, index_in_chunk);
+
+  sample->offset = 0;
 
 }
