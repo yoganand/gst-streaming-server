@@ -85,9 +85,33 @@ playready_get_resource (GssTransaction * t)
 {
 }
 
+const char *jpg_files[] = {
+  "/roku/xml/bbb-1.jpg",
+  "/roku/xml/bbb-2.jpg",
+  "/roku/xml/bbb-3.jpg",
+  "/roku/xml/bbb-4.jpg",
+};
+
+const char *png_files[] = {
+  "/roku/xml/smooth-streaming.png",
+};
+
+const char *xml_files[] = {
+  "/roku/xml/categories.xml",
+  "/roku/xml/creativity.xml",
+  "/roku/xml/design.xml",
+  "/roku/xml/generic.xml",
+  "/roku/xml/globalissues.xml",
+  "/roku/xml/inspiration.xml",
+  "/roku/xml/music.xml",
+  "/roku/xml/smooth-streaming.xml",
+  "/roku/xml/themind.xml"
+};
+
 void
 gss_playready_setup (GssServer * server)
 {
+  int i;
   gss_server_add_file_resource (server, "/crossdomain.xml", 0, "text/xml");
   gss_server_add_file_resource (server, "/clientaccesspolicy.xml", 0,
       "text/xml");
@@ -97,6 +121,16 @@ gss_playready_setup (GssServer * server)
   gss_server_add_resource (server, "/rightsmanager.asmx",
       0, "text/xml", playready_get_resource, NULL,
       playready_post_resource, server);
+
+  for (i = 0; i < G_N_ELEMENTS (jpg_files); i++) {
+    gss_server_add_file_resource (server, jpg_files[i], 0, "image/jpeg");
+  }
+  for (i = 0; i < G_N_ELEMENTS (png_files); i++) {
+    gss_server_add_file_resource (server, png_files[i], 0, "image/png");
+  }
+  for (i = 0; i < G_N_ELEMENTS (xml_files); i++) {
+    gss_server_add_file_resource (server, xml_files[i], 0, "text/xml");
+  }
 }
 
 
