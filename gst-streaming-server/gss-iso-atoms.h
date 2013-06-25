@@ -207,9 +207,12 @@ struct _AtomTkhd
   guint64 modification_time;
   guint32 track_id;
   guint64 duration;
-  gboolean track_is_audio;
-  gboolean track_is_visual;
-
+  guint16 layer;
+  guint16 alternate_group;
+  guint16 volume;
+  guint32 matrix[9];
+  guint32 width;
+  guint32 height;
 };
 
 struct _AtomTref
@@ -358,6 +361,16 @@ struct _AtomEsds
   /* ES descriptor */
   guint8 version;
   guint32 flags;
+
+  guint16 es_id;
+  guint8 es_flags;
+  guint8 type_indication;
+  guint8 stream_type;
+  guint32 buffer_size_db;
+  guint32 max_bitrate;
+  guint32 avg_bitrate;
+  int codec_data_len;
+  guint8 *codec_data;
 };
 
 struct _AtomMp4v
@@ -367,15 +380,16 @@ struct _AtomMp4v
   guint16 width;
   guint16 height;
   struct _AtomEsds es;
+
 };
 
 struct _AtomMp4a
 {
   gboolean present;
   guint16 data_reference_index;
-  guint16 channels;
-  guint16 bits_per_sample;
-  guint16 time_scale;
+  guint16 channel_count;
+  guint16 sample_size;
+  guint32 sample_rate;
   struct _AtomEsds es;
 };
 

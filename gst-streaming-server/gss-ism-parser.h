@@ -108,6 +108,11 @@ struct _GssISMTrack
   AtomStco stco;
   AtomStsh stsh;
   AtomStdp stdp;
+
+  /* inside mdia/minf/stsd */
+  AtomMp4v mp4v;
+  AtomMp4a mp4a;
+  AtomEsds esds;
 };
 
 struct _GssISMParser

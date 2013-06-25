@@ -398,6 +398,21 @@ ISMInfo ism_files[] = {
       },
 };
 
+static char *
+get_codec_string (guint8 * codec_data, int len)
+{
+  char *s;
+  int i;
+
+  if (codec_data == NULL)
+    return g_strdup ("");
+
+  s = g_malloc (len * 2 + 1);
+  for (i = 0; i < len; i++) {
+    sprintf (s + i * 2, "%02x", codec_data[i]);
+  }
+  return s;
+}
 
 void
 gss_smooth_streaming_setup (GssServer * server)
@@ -413,8 +428,6 @@ gss_smooth_streaming_setup (GssServer * server)
     ism = gss_ism_new ();
 
     /* FIXME */
-    ism->max_width = info->width;
-    ism->max_height = info->height;
     ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
 
     ism->n_video_levels = 1;
@@ -430,6 +443,9 @@ gss_smooth_streaming_setup (GssServer * server)
       ism->needs_assembly = TRUE;
     }
 
+    ism->max_width = parser->movie->tracks[1]->mp4v.width;
+    ism->max_height = parser->movie->tracks[1]->mp4v.height;
+
     ism->audio_levels[0].n_fragments =
         gss_ism_parser_get_n_fragments (parser, AUDIO_TRACK_ID);
     ism->audio_levels[0].parser = parser;
@@ -441,16 +457,23 @@ gss_smooth_streaming_setup (GssServer * server)
         gss_ism_parser_get_n_fragments (parser, VIDEO_TRACK_ID);
     ism->video_levels[0].filename = g_strdup (info->filename);
     ism->video_levels[0].bitrate = info->video_bitrate;
-    ism->video_levels[0].video_width = info->width;
-    ism->video_levels[0].video_height = info->height;
+    ism->video_levels[0].video_width = parser->movie->tracks[1]->mp4v.width;
+    ism->video_levels[0].video_height = parser->movie->tracks[1]->mp4v.height;
     ism->video_levels[0].parser = parser;
     ism->video_levels[0].track_id = VIDEO_TRACK_ID;
 
     ism->duration = gss_ism_parser_get_duration (parser, VIDEO_TRACK_ID);
 
-    ism->video_codec_data = info->video_codec_data;
-    ism->audio_codec_data = info->audio_codec_data;
-    ism->audio_rate = info->audio_rate;
+    ism->video_codec_data =
+        get_codec_string (parser->movie->tracks[1]->esds.codec_data,
+        parser->movie->tracks[1]->esds.codec_data_len);
+    ism->audio_codec_data =
+        get_codec_string (parser->movie->tracks[0]->esds.codec_data,
+        parser->movie->tracks[0]->esds.codec_data_len);
+    GST_DEBUG ("video: %s", ism->video_codec_data);
+    GST_DEBUG ("audio: %s", ism->audio_codec_data);
+    ism->audio_rate = parser->movie->tracks[0]->mp4a.sample_rate >> 16;
+    GST_DEBUG ("sample_rate: %d", ism->audio_rate);
     ism->playready = info->playready;
     ism->needs_encryption = (i == 4);
     ism->needs_assembly = TRUE;

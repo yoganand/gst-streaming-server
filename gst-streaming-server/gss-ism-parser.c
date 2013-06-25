@@ -41,6 +41,15 @@
 #include <fcntl.h>
 #include <openssl/aes.h>
 
+typedef struct _ContainerAtoms ContainerAtoms;
+struct _ContainerAtoms
+{
+  guint32 atom;
+  void (*parse) (GssISMParser * parser, GssISMTrack * track,
+      GstByteReader * br);
+  ContainerAtoms *atoms;
+};
+
 /* XMP data */
 /* be7acfcb-97a9-42e8-9c71-999491e3afac */
 const guint8 uuid_xmp_data[] = { 0xbe, 0x7a, 0xcf, 0xcb, 0x97, 0xa9, 0x42,
@@ -86,6 +95,10 @@ static void gss_ism_parse_moov (GssISMParser * parser, GssISMMovie * movie,
     GstByteReader * br);
 static void gss_ism_fixup_moof (GssISMFragment * fragment);
 static void gss_ism_parser_fixup (GssISMParser * parser);
+static void gss_ism_parse_container (GssISMParser * parser, GssISMTrack * track,
+    GstByteReader * br, ContainerAtoms * atoms, guint32 parent_atom);
+static void gss_ism_parse_ignore (GssISMParser * parser, GssISMTrack * track,
+    GstByteReader * br);
 
 static guint64 gss_ism_moof_get_duration (GssISMFragment * fragment);
 
@@ -862,18 +875,15 @@ gss_ism_parse_tkhd (GssISMParser * parser, GssISMTrack * track,
   }
   gst_byte_reader_get_uint32_be (br, &tmp);
   gst_byte_reader_get_uint32_be (br, &tmp);
-  gst_byte_reader_get_uint32_be (br, &tmp);
-  gst_byte_reader_get_uint16_be (br, &tmp16);
-  if (tmp16 == 0x0100)
-    tkhd->track_is_audio = TRUE;
+  gst_byte_reader_get_uint16_be (br, &tkhd->layer);
+  gst_byte_reader_get_uint16_be (br, &tkhd->alternate_group);
+  gst_byte_reader_get_uint16_be (br, &tkhd->volume);
   gst_byte_reader_get_uint16_be (br, &tmp16);
   for (i = 0; i < 9; i++) {
-    gst_byte_reader_get_uint32_be (br, &tmp);
+    gst_byte_reader_get_uint32_be (br, &tkhd->matrix[i]);
   }
-  gst_byte_reader_get_uint32_be (br, &tmp);
-  if (tmp == 0x01400000)
-    tkhd->track_is_visual = TRUE;
-  gst_byte_reader_get_uint32_be (br, &tmp);
+  gst_byte_reader_get_uint32_be (br, &tkhd->width);
+  gst_byte_reader_get_uint32_be (br, &tkhd->height);
 
   CHECK_END (br);
 }
@@ -1007,7 +1017,7 @@ gss_ism_parse_hdlr (GssISMParser * parser, GssISMTrack * track,
   gst_byte_reader_get_uint8 (br, &hdlr->version);
   gst_byte_reader_get_uint24_be (br, &hdlr->flags);
   gst_byte_reader_get_uint32_be (br, &tmp);
-  gst_byte_reader_get_uint32_be (br, &hdlr->handler_type);
+  gst_byte_reader_get_uint32_le (br, &hdlr->handler_type);
   gst_byte_reader_skip (br, 12);
   get_string (parser, br, &hdlr->name);
 
@@ -1283,6 +1293,87 @@ gss_ism_parse_stdp (GssISMParser * parser, GssISMTrack * track,
 }
 
 static void
+gss_ism_parse_esds (GssISMParser * parser, GssISMTrack * track,
+    GstByteReader * br)
+{
+  AtomEsds *esds = &track->esds;
+  guint32 tmp = 0;
+
+  //gst_byte_reader_dump (br);
+  gst_byte_reader_get_uint32_be (br, &tmp);
+
+  while (gst_byte_reader_get_remaining (br) > 0) {
+    guint8 tag = 0;
+    guint32 len = 0;
+    guint8 tmp = 0;
+
+    gst_byte_reader_get_uint8 (br, &tag);
+    do {
+      gst_byte_reader_get_uint8 (br, &tmp);
+      len <<= 7;
+      len |= (tmp & 0x7f);
+    } while (tmp & 0x80);
+
+    GST_DEBUG ("tag %d len %d", tag, len);
+    switch (tag) {
+      case 0x03:               /* ES_DescrTag */
+        gst_byte_reader_get_uint16_be (br, &esds->es_id);
+        gst_byte_reader_get_uint8 (br, &esds->es_flags);
+        if (esds->es_flags & 0x80) {
+          gst_byte_reader_skip (br, 2);
+        }
+        if (esds->es_flags & 0x40) {
+          gst_byte_reader_skip (br, 2);
+        }
+        if (esds->es_flags & 0x20) {
+          gst_byte_reader_skip (br, 2);
+        }
+        break;
+      case 0x04:               /* DecoderConfigDescrTag */
+        gst_byte_reader_get_uint8 (br, &esds->type_indication);
+        GST_DEBUG ("type_indication %d", esds->type_indication);
+        gst_byte_reader_get_uint8 (br, &esds->stream_type);
+        GST_DEBUG ("stream_type %d", esds->stream_type);
+        gst_byte_reader_get_uint24_be (br, &esds->buffer_size_db);
+        GST_DEBUG ("buffer_size_db %d", esds->buffer_size_db);
+        gst_byte_reader_get_uint32_be (br, &esds->max_bitrate);
+        GST_DEBUG ("max_bitrate %d", esds->max_bitrate);
+        gst_byte_reader_get_uint32_be (br, &esds->avg_bitrate);
+        GST_DEBUG ("avg_bitrate %d", esds->avg_bitrate);
+        break;
+      case 0x05:               /* DecSpecificInfoTag */
+        GST_DEBUG ("codec data len %d", len);
+        esds->codec_data_len = len;
+        gst_byte_reader_dup_data (br, esds->codec_data_len, &esds->codec_data);
+        break;
+      case 0x06:               /* SLConfigDescrTag */
+      default:
+        gst_byte_reader_skip (br, len);
+        break;
+    }
+
+  }
+}
+
+static void
+gss_ism_parse_avcC (GssISMParser * parser, GssISMTrack * track,
+    GstByteReader * br)
+{
+  AtomEsds *esds = &track->esds;
+
+  esds->codec_data_len = gst_byte_reader_get_remaining (br);
+  gst_byte_reader_dup_data (br, esds->codec_data_len, &esds->codec_data);
+}
+
+static ContainerAtoms stsd_atoms[] = {
+  {GST_MAKE_FOURCC ('a', 'v', 'c', 'C'), gss_ism_parse_avcC},
+  {GST_MAKE_FOURCC ('e', 's', 'd', 's'), gss_ism_parse_esds},
+  {GST_MAKE_FOURCC ('s', 'i', 'n', 'f'), gss_ism_parse_ignore},
+  {GST_MAKE_FOURCC ('b', 't', 'r', 't'), gss_ism_parse_ignore},
+  {0}
+};
+
+static void
 gss_ism_parse_stsd (GssISMParser * parser, GssISMTrack * track,
     GstByteReader * br)
 {
@@ -1306,15 +1397,59 @@ gss_ism_parse_stsd (GssISMParser * parser, GssISMTrack * track,
       size = size32;
     }
 
+    GST_DEBUG ("stsd atom %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (atom));
     gst_byte_reader_init_sub (&sbr, br, size - 8);
-    if (atom == GST_MAKE_FOURCC ('m', 'p', '4', 'a')) {
-      GST_FIXME ("mp4a");
-    } else if (atom == GST_MAKE_FOURCC ('a', 'v', 'c', '1')) {
-      GST_FIXME ("avc1");
-    } else if (atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'v')) {
-      GST_FIXME ("encv");
-    } else if (atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'a')) {
-      GST_FIXME ("enca");
+    if (atom == GST_MAKE_FOURCC ('m', 'p', '4', 'a') ||
+        atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'a')) {
+      AtomMp4a *mp4a = &track->mp4a;
+
+      GST_DEBUG ("mp4a");
+      mp4a->present = TRUE;
+      gst_byte_reader_skip (&sbr, 6);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4a->data_reference_index);
+
+      gst_byte_reader_skip (&sbr, 8);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4a->channel_count);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4a->sample_size);
+      gst_byte_reader_skip (&sbr, 4);
+      gst_byte_reader_get_uint32_be (&sbr, &mp4a->sample_rate);
+
+      gss_ism_parse_container (parser, track, &sbr, stsd_atoms, atom);
+#if 0
+      /* esds */
+      gst_byte_reader_skip (&sbr, 8);   /* length, esds */
+      gst_byte_reader_skip (&sbr, 4);   /* flags */
+      gss_ism_parse_esds (parser, track, &sbr);
+#endif
+
+      CHECK_END (&sbr);
+    } else if (atom == GST_MAKE_FOURCC ('a', 'v', 'c', '1') ||
+        atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'v') ||
+        atom == GST_MAKE_FOURCC ('m', 'p', '4', 'v')) {
+      AtomMp4v *mp4v = &track->mp4v;
+      //AtomEsds *esds = &track->esds;
+
+      GST_DEBUG ("avc1");
+      mp4v->present = TRUE;
+      gst_byte_reader_skip (&sbr, 6);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4v->data_reference_index);
+
+      gst_byte_reader_skip (&sbr, 16);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4v->width);
+      gst_byte_reader_get_uint16_be (&sbr, &mp4v->height);
+      GST_DEBUG ("%dx%d", mp4v->width, mp4v->height);
+      gst_byte_reader_skip (&sbr, 50);
+
+      gss_ism_parse_container (parser, track, &sbr, stsd_atoms, atom);
+#if 0
+      /* avcC */
+      gst_byte_reader_skip (&sbr, 8);
+      esds->codec_data_len = gst_byte_reader_get_remaining (&sbr);
+      gst_byte_reader_dup_data (&sbr, esds->codec_data_len, &esds->codec_data);
+#endif
+
+      //gst_byte_reader_dump (&sbr);
+      CHECK_END (&sbr);
     } else if (atom == GST_MAKE_FOURCC ('t', 'm', 'c', 'd')) {
       GST_FIXME ("tmcd");
     } else if (atom == GST_MAKE_FOURCC ('a', 'p', 'c', 'h')) {
@@ -1322,7 +1457,7 @@ gss_ism_parse_stsd (GssISMParser * parser, GssISMTrack * track,
     } else if (atom == GST_MAKE_FOURCC ('A', 'V', '1', 'x')) {
       GST_FIXME ("AV1x");
     } else {
-#if 0
+#if 1
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside stsd, size %d",
           GST_FOURCC_ARGS (atom), size);
 #endif
@@ -1342,15 +1477,6 @@ gss_ism_parse_ignore (GssISMParser * parser, GssISMTrack * track,
 {
   GST_FIXME ("ingoring atom");
 }
-
-typedef struct _ContainerAtoms ContainerAtoms;
-struct _ContainerAtoms
-{
-  guint32 atom;
-  void (*parse) (GssISMParser * parser, GssISMTrack * track,
-      GstByteReader * br);
-  ContainerAtoms *atoms;
-};
 
 static ContainerAtoms dinf_atoms[] = {
   {GST_MAKE_FOURCC ('d', 'r', 'e', 'f'), gss_ism_parse_dref},
@@ -1797,6 +1923,32 @@ gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
   }
 }
 
+static GssISMTrack *
+gss_ism_movie_get_video_track (GssISMMovie * movie)
+{
+  int i;
+  for (i = 0; i < movie->n_tracks; i++) {
+    if (movie->tracks[i]->hdlr.handler_type ==
+        GST_MAKE_FOURCC ('v', 'i', 'd', 'e')) {
+      return movie->tracks[i];
+    }
+  }
+  return NULL;
+}
+
+static GssISMTrack *
+gss_ism_movie_get_audio_track (GssISMMovie * movie)
+{
+  int i;
+  for (i = 0; i < movie->n_tracks; i++) {
+    if (movie->tracks[i]->hdlr.handler_type ==
+        GST_MAKE_FOURCC ('s', 'o', 'u', 'n')) {
+      return movie->tracks[i];
+    }
+  }
+  return NULL;
+}
+
 void
 gss_ism_parser_fragmentize (GssISMParser * parser)
 {
@@ -1809,10 +1961,25 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
   int audio_index = 0;
   int audio_index_end;
 
-  video_track = parser->movie->tracks[1];
-  audio_track = parser->movie->tracks[0];
+  video_track = gss_ism_movie_get_video_track (parser->movie);
+  if (video_track == NULL) {
+    GST_ERROR ("no video track");
+    return;
+  }
+
+  if (video_track->stsz.sample_count == 0) {
+    GST_ERROR ("sample_count == 0, already fragmented?");
+    return;
+  }
+
   if (!video_track->stss.present) {
     GST_ERROR ("no stss atom in video track, something wrong");
+    return;
+  }
+
+  audio_track = gss_ism_movie_get_audio_track (parser->movie);
+  if (audio_track == NULL) {
+    GST_ERROR ("no audio track");
     return;
   }
 
