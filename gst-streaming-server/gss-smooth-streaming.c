@@ -55,8 +55,8 @@ struct _GssISM
   int n_audio_levels;
   int n_video_levels;
 
-  const char *video_codec_data;
-  const char *audio_codec_data;
+  char *video_codec_data;
+  char *audio_codec_data;
   gboolean playready;
   int audio_rate;
 
@@ -337,65 +337,67 @@ struct _ISMInfo
 {
   const char *filename;
   const char *mount;
-  int width;
-  int height;
-  gboolean playready;
+  gboolean is_encrypted;
   int video_bitrate;
   const char *video_codec_data;
   int audio_bitrate;
-  int audio_rate;
-  const char *audio_codec_data;
+  gboolean enable_drm;
 };
 
 ISMInfo ism_files[] = {
   {
         "SuperSpeedway_720_2962.ismv",
         "SuperSpeedwayPR",
-        1280, 720, TRUE,
+        TRUE,
         2962000,
         "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
-        128000, 44100, "1210",
+        128000,
+        TRUE,
       },
   {
         "SuperSpeedway/SuperSpeedway_720_2962.ismv",
         "SuperSpeedway",
-        1280, 720, FALSE,
+        FALSE,
         2962000,
         "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
-        128000, 44100, "1210",
+        128000,
+        FALSE,
       },
   {
         "boondocks-408.ismv",
         "boondocks",
-        1024, 576, FALSE,
+        FALSE,
         2500000,
-        "01640029ffe1001967640029ace50100126c0440000003005dcd650003c60c458001000568e93b2c8b",
-        128000, 48000, "119056e500",
+        NULL,
+        128000,
+        FALSE,
       },
   {
         "boondocks-411.ismv",
         "boondocksHD",
-        1920, 1080, FALSE,
+        FALSE,
         5000000,
-        "0164002affe1001a6764002aace501e0089f970110000003001773594000f183116001000568e93b2c8b",
-        128000, 48000, "119056e500",
+        NULL,
+        128000,
+        FALSE,
       },
   {
         "boondocks-411.ismv",
         "boondocksHD-DRM",
-        1920, 1080, TRUE,
+        FALSE,
         5000000,
-        "0164002affe1001a6764002aace501e0089f970110000003001773594000f183116001000568e93b2c8b",
-        128000, 48000, "119056e500",
+        NULL,
+        128000,
+        TRUE,
       },
   {
         "drwho-406.mp4",
         "drwho",
-        716, 416, TRUE,
+        FALSE,
         1445090,
-        "014d401fffe1001b674d401ff281686b7fe0340032a20000030002ee6b28001e30622c01000568e93b2c80",
-        128000, 48000, "119056e500",
-      },
+        NULL,
+        128000,
+      FALSE},
 };
 
 static char *
@@ -464,9 +466,20 @@ gss_smooth_streaming_setup (GssServer * server)
 
     ism->duration = gss_ism_parser_get_duration (parser, VIDEO_TRACK_ID);
 
-    ism->video_codec_data =
-        get_codec_string (parser->movie->tracks[1]->esds.codec_data,
-        parser->movie->tracks[1]->esds.codec_data_len);
+    if (info->video_codec_data) {
+      ism->video_codec_data = g_strdup (info->video_codec_data);
+
+#if 0
+      g_print ("%s\n", ism->video_codec_data);
+      g_print ("%s\n",
+          get_codec_string (parser->movie->tracks[1]->esds.codec_data,
+              parser->movie->tracks[1]->esds.codec_data_len));
+#endif
+    } else {
+      ism->video_codec_data =
+          get_codec_string (parser->movie->tracks[1]->esds.codec_data,
+          parser->movie->tracks[1]->esds.codec_data_len);
+    }
     ism->audio_codec_data =
         get_codec_string (parser->movie->tracks[0]->esds.codec_data,
         parser->movie->tracks[0]->esds.codec_data_len);
@@ -474,9 +487,9 @@ gss_smooth_streaming_setup (GssServer * server)
     GST_DEBUG ("audio: %s", ism->audio_codec_data);
     ism->audio_rate = parser->movie->tracks[0]->mp4a.sample_rate >> 16;
     GST_DEBUG ("sample_rate: %d", ism->audio_rate);
-    ism->playready = info->playready;
-    ism->needs_encryption = (i == 4);
-    ism->needs_assembly = TRUE;
+    ism->playready = info->enable_drm;
+    ism->needs_encryption = info->enable_drm && (!info->is_encrypted);
+    ism->needs_assembly = (i == 5);
 
     s = g_strdup_printf ("/%s/Manifest", info->mount);
     gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
