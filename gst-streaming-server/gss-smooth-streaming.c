@@ -228,6 +228,8 @@ gss_ism_assemble_and_send_chunk (GssTransaction * t, GssISM * ism,
   GST_WRITE_UINT32_LE (mdat_data + 4, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
   offset = 8;
   for (i = 0; i < fragment->n_mdat_chunks; i++) {
+    GST_DEBUG ("chunk %d: %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
+        i, fragment->chunks[i].offset, fragment->chunks[i].size);
     ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
     if (ret < 0) {
       GST_WARNING ("failed to seek");
@@ -364,7 +366,7 @@ ISMInfo ism_files[] = {
         FALSE,
       },
   {
-        "boondocks-408.ismv",
+        "drwho-406.ismv",
         "boondocks",
         FALSE,
         2500000,
@@ -394,7 +396,7 @@ ISMInfo ism_files[] = {
         "drwho-406.mp4",
         "drwho",
         FALSE,
-        1445090,
+        2500000,
         NULL,
         128000,
       FALSE},

@@ -309,9 +309,9 @@ gss_ism_parser_parse_file (GssISMParser * parser, const char *filename)
 
       parser->movie = movie;
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
-      const guint8 *uuid = NULL;
+      guint8 uuid[16];
 
-      uuid = buffer + 8;
+      parser_read (parser, uuid, parser->offset + 8, 16);
 
       if (memcmp (uuid, uuid_xmp_data, 16) == 0) {
 
@@ -1927,6 +1927,7 @@ static GssISMTrack *
 gss_ism_movie_get_video_track (GssISMMovie * movie)
 {
   int i;
+  g_return_val_if_fail (movie != NULL, NULL);
   for (i = 0; i < movie->n_tracks; i++) {
     if (movie->tracks[i]->hdlr.handler_type ==
         GST_MAKE_FOURCC ('v', 'i', 'd', 'e')) {
@@ -1940,6 +1941,7 @@ static GssISMTrack *
 gss_ism_movie_get_audio_track (GssISMMovie * movie)
 {
   int i;
+  g_return_val_if_fail (movie != NULL, NULL);
   for (i = 0; i < movie->n_tracks; i++) {
     if (movie->tracks[i]->hdlr.handler_type ==
         GST_MAKE_FOURCC ('s', 'o', 'u', 'n')) {
@@ -1958,6 +1960,8 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
   int i;
   guint64 video_timestamp = 0;
   guint64 audio_timestamp = 0;
+  guint64 video_timescale_ts = 0;
+  guint64 audio_timescale_ts = 0;
   int audio_index = 0;
   int audio_index_end;
 
@@ -1996,19 +2000,20 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     AtomTrunSample *samples;
     int sample_offset;
     int j;
-    guint64 duration;
 
     audio_fragment = gss_ism_fragment_new ();
     video_fragment = gss_ism_fragment_new ();
     parser->fragments[i * 2 + 0] = audio_fragment;
     parser->fragments[i * 2 + 1] = video_fragment;
 
-    video_fragment->mfhd.sequence_number = i;
+    video_fragment->mfhd.sequence_number = 2 * i + 2;
 
     video_fragment->traf.tfhd.track_id = video_track->tkhd.track_id;
-    video_fragment->traf.tfhd.default_sample_duration = 100;
+    video_fragment->traf.tfhd.flags =
+        TF_DEFAULT_SAMPLE_DURATION | TF_DEFAULT_SAMPLE_FLAGS;
+    video_fragment->traf.tfhd.default_sample_duration = 0x061a80;
     video_fragment->traf.tfhd.default_sample_size = 0;
-    video_fragment->traf.tfhd.default_sample_flags = 0;
+    video_fragment->traf.tfhd.default_sample_flags = 0x000100c0;
 
     sample_offset = video_track->stss.sample_numbers[i] - 1;
     if (i == n_fragments - 1) {
@@ -2024,19 +2029,28 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     video_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
 
     video_fragment->traf.sdtp.sample_flags =
-        g_malloc0 (sizeof (guint32) * n_samples);
+        g_malloc0 (sizeof (guint8) * n_samples);
+    video_fragment->traf.sdtp.sample_flags[0] = 0x14;
+    for (j = 1; j < n_samples; j++) {
+      video_fragment->traf.sdtp.sample_flags[j] = 0x1c;
+    }
 
     samples = g_malloc0 (sizeof (AtomTrunSample) * n_samples);
-    duration = 0;
+    video_fragment->timestamp = video_timestamp;
     for (j = 0; j < n_samples; j++) {
       GssISMSample sample;
+      guint64 next_timestamp;
+
       gss_ism_track_get_sample (video_track, &sample, sample_offset + j);
-      samples[j].duration = sample.duration;
+
+      video_timescale_ts += sample.duration;
+      next_timestamp = gst_util_uint64_scale_int (video_timescale_ts,
+          10000000, video_track->mdhd.timescale);
+      samples[j].duration = next_timestamp - video_timestamp;
+      video_timestamp = next_timestamp;
       samples[j].size = sample.size;
       samples[j].flags = 0;
       samples[j].composition_time_offset = sample.composition_time_offset;
-      duration += sample.duration;
-      video_timestamp += sample.duration;
 
       video_fragment->chunks[j].offset = sample.offset;
       video_fragment->chunks[j].size = sample.size;
@@ -2045,25 +2059,21 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     video_fragment->traf.trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
     video_fragment->traf.trun.flags =
-        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_SAMPLE_FLAGS |
-        TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
-    video_fragment->duration = gst_util_uint64_scale_int (duration,
-        10000000, video_track->mdhd.timescale);
+        TR_SAMPLE_SIZE | TR_DATA_OFFSET | TR_FIRST_SAMPLE_FLAGS;
+    video_fragment->traf.trun.first_sample_flags = 0x40;
+    video_fragment->duration = video_timestamp - video_fragment->timestamp;
 
-    audio_fragment->mfhd.sequence_number = i;
-
-    (void) audio_track;
+    audio_fragment->mfhd.sequence_number = 2 * i + 1;
 
     audio_index_end = gss_ism_track_get_index_from_timestamp (audio_track,
-        video_timestamp * audio_track->mdhd.timescale /
-        video_track->mdhd.timescale);
-
-    audio_fragment->mfhd.sequence_number = i;
+        gst_util_uint64_scale_int (video_timestamp,
+            audio_track->mdhd.timescale, 10000000));
 
     audio_fragment->traf.tfhd.track_id = audio_track->tkhd.track_id;
-    audio_fragment->traf.tfhd.default_sample_duration = 100;
+    audio_fragment->traf.tfhd.flags = TF_DEFAULT_SAMPLE_FLAGS;
+    audio_fragment->traf.tfhd.default_sample_duration = 0;
     audio_fragment->traf.tfhd.default_sample_size = 0;
-    audio_fragment->traf.tfhd.default_sample_flags = 0;
+    audio_fragment->traf.tfhd.default_sample_flags = 0xc0;
 
     n_samples = audio_index_end - audio_index;
 
@@ -2078,15 +2088,22 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     audio_fragment->traf.sdtp.sample_flags =
         g_malloc0 (sizeof (guint32) * n_samples);
 
-    duration = 0;
+    audio_fragment->timestamp = audio_timestamp;
     for (j = 0; j < n_samples; j++) {
       GssISMSample sample;
+      guint64 next_timestamp;
+
       gss_ism_track_get_sample (audio_track, &sample, audio_index + j * 1);
-      samples[j].duration = sample.duration * 1;
+
+      audio_timescale_ts += sample.duration;
+      next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
+          10000000, audio_track->mdhd.timescale);
+      samples[j].duration = next_timestamp - audio_timestamp;
+      audio_timestamp = next_timestamp;
+
       samples[j].size = sample.size;
       samples[j].flags = 0;
       samples[j].composition_time_offset = sample.composition_time_offset;
-      duration += sample.duration;
 
       audio_fragment->chunks[j].offset = sample.offset;
       audio_fragment->chunks[j].size = sample.size;
@@ -2095,12 +2112,9 @@ gss_ism_parser_fragmentize (GssISMParser * parser)
     audio_fragment->traf.trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
     audio_fragment->traf.trun.flags =
-        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_SAMPLE_FLAGS |
-        TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
-    audio_fragment->duration = gst_util_uint64_scale_int (duration,
-        10000000, audio_track->mdhd.timescale);
+        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_DATA_OFFSET;
+    audio_fragment->duration = audio_timestamp - audio_fragment->timestamp;
 
-    audio_timestamp += duration;
     audio_index += n_samples;
   }
 }
@@ -2126,7 +2140,7 @@ gss_ism_track_get_index_from_timestamp (GssISMTrack * track, guint64 timestamp)
     }
   }
 
-  return 0;
+  return track->stsz.sample_count;
 }
 
 void
@@ -2198,9 +2212,4 @@ gss_ism_track_get_sample (GssISMTrack * track, GssISMSample * sample,
   }
 
   sample->offset = track->stco.chunk_offsets[chunk_index];
-
-  //g_print("%d: %d %d\n", sample_index, chunk_index, index_in_chunk);
-
-  sample->offset = 0;
-
 }
