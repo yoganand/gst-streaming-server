@@ -48,20 +48,6 @@ static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
 
 
-
-static void
-gss_ism_generate_content_key (GssISM * ism)
-{
-  guint8 *seed;
-
-  seed = gss_playready_get_default_key_seed ();
-
-  ism->content_key = gss_playready_generate_key (seed, 30, ism->kid,
-      ism->kid_len);
-
-  g_free (seed);
-}
-
 static guint8 *
 gss_ism_assemble_chunk (GssTransaction * t, GssISM * ism,
     GssISMLevel * level, GssIsomFragment * fragment)
@@ -126,31 +112,6 @@ gss_ism_send_chunk (GssTransaction * t, GssISM * ism,
       moof_size);
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
       fragment->mdat_size);
-}
-
-static void
-gss_ism_playready_setup_iv (GssISM * ism,
-    GssISMLevel * level, GssIsomFragment * fragment)
-{
-  guint64 *init_vectors;
-  guint64 iv;
-  int i;
-  int n_samples;
-
-  gss_utils_get_random_bytes ((guint8 *) & iv, 8);
-
-  n_samples = gss_isom_fragment_get_n_samples (fragment);
-  init_vectors = g_malloc (n_samples * sizeof (guint64));
-  for (i = 0; i < n_samples; i++) {
-    init_vectors[i] = iv + i;
-  }
-  gss_isom_fragment_set_sample_encryption (fragment, n_samples,
-      init_vectors, (fragment->track_id == VIDEO_TRACK_ID));
-  g_free (init_vectors);
-
-  if (ism->content_key == NULL) {
-    gss_ism_generate_content_key (ism);
-  }
 }
 
 /* FIXME should be extracted from file */
@@ -247,6 +208,7 @@ gss_smooth_streaming_setup (GssServer * server)
     ISMInfo *info = &ism_files[i];
     GssISM *ism;
     GssIsomFile *parser;
+    GssIsomTrack *video_track;
     char *s;
 
     ism = gss_ism_new ();
@@ -271,24 +233,27 @@ gss_smooth_streaming_setup (GssServer * server)
       gss_isom_file_fragmentize (parser);
     }
 
-    ism->max_width = parser->movie->tracks[1]->mp4v.width;
-    ism->max_height = parser->movie->tracks[1]->mp4v.height;
+    video_track = gss_isom_movie_get_video_track (parser->movie);
+    ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
+    ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
 
-    ism->audio_levels[0].n_fragments =
-        gss_isom_file_get_n_fragments (parser, AUDIO_TRACK_ID);
+    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
+    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (parser,
+        ism->audio_levels[0].track_id);
     ism->audio_levels[0].parser = parser;
     ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
     ism->audio_levels[0].filename = g_strdup (info->filename);
     ism->audio_levels[0].bitrate = info->audio_bitrate;
 
-    ism->video_levels[0].n_fragments =
-        gss_isom_file_get_n_fragments (parser, VIDEO_TRACK_ID);
+    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
+    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (parser,
+        ism->video_levels[0].track_id);
     ism->video_levels[0].filename = g_strdup (info->filename);
     ism->video_levels[0].bitrate = info->video_bitrate;
     ism->video_levels[0].video_width = parser->movie->tracks[1]->mp4v.width;
     ism->video_levels[0].video_height = parser->movie->tracks[1]->mp4v.height;
     ism->video_levels[0].parser = parser;
-    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
+    ism->video_levels[0].is_h264 = TRUE;
 
     ism->duration = gss_isom_file_get_duration (parser, VIDEO_TRACK_ID);
 
@@ -478,11 +443,11 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
     guint8 *mdat_data;
 
     if (ism->needs_encryption) {
-      gss_ism_playready_setup_iv (ism, level, fragment);
+      gss_playready_setup_iv (ism, level, fragment);
     }
     mdat_data = gss_ism_assemble_chunk (t, ism, level, fragment);
     if (ism->needs_encryption) {
-      gss_isom_encrypt_samples (fragment, mdat_data, ism->content_key);
+      gss_playready_encrypt_samples (fragment, mdat_data, ism->content_key);
     }
     gss_ism_send_chunk (t, ism, level, fragment, mdat_data);
   }

@@ -174,6 +174,8 @@ int gss_isom_fragment_get_n_samples (GssIsomFragment *fragment);
 
 GssIsomMovie *gss_isom_movie_new (void);
 void gss_isom_movie_free (GssIsomMovie * movie);
+GssIsomTrack * gss_isom_movie_get_video_track (GssIsomMovie * movie);
+GssIsomTrack * gss_isom_movie_get_audio_track (GssIsomMovie * movie);
 
 GssIsomFragment *gss_isom_fragment_new (void);
 void gss_isom_fragment_free (GssIsomFragment * fragment);

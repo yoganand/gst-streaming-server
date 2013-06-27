@@ -22,6 +22,8 @@
 #include "gss-playready.h"
 #include "gss-utils.h"
 
+#include <openssl/aes.h>
+
 
 static SoupSession *session;
 
@@ -250,4 +252,85 @@ gss_playready_get_protection_header_base64 (GssISM * ism, const char *la_url)
   g_free (utf16);
 
   return prot_header_base64;
+}
+
+void
+gss_ism_generate_content_key (GssISM * ism)
+{
+  guint8 *seed;
+
+  seed = gss_playready_get_default_key_seed ();
+
+  ism->content_key = gss_playready_generate_key (seed, 30, ism->kid,
+      ism->kid_len);
+
+  g_free (seed);
+}
+
+void
+gss_playready_setup_iv (GssISM * ism,
+    GssISMLevel * level, GssIsomFragment * fragment)
+{
+  guint64 *init_vectors;
+  guint64 iv;
+  int i;
+  int n_samples;
+
+  gss_utils_get_random_bytes ((guint8 *) & iv, 8);
+
+  n_samples = gss_isom_fragment_get_n_samples (fragment);
+  init_vectors = g_malloc (n_samples * sizeof (guint64));
+  for (i = 0; i < n_samples; i++) {
+    init_vectors[i] = iv + i;
+  }
+  gss_isom_fragment_set_sample_encryption (fragment, n_samples,
+      init_vectors, level->is_h264);
+  g_free (init_vectors);
+
+  if (ism->content_key == NULL) {
+    gss_ism_generate_content_key (ism);
+  }
+}
+
+void
+gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
+    guint8 * content_key)
+{
+  AtomTrun *trun = &fragment->traf.trun;
+  AtomUUIDSampleEncryption *se = &fragment->traf.sample_encryption;
+  guint64 sample_offset;
+  int i;
+
+  sample_offset = 8;
+
+  for (i = 0; i < trun->sample_count; i++) {
+    unsigned char raw_iv[16];
+    unsigned char ecount_buf[16] = { 0 };
+    unsigned int num = 0;
+    AES_KEY key;
+
+    memset (raw_iv, 0, 16);
+    GST_WRITE_UINT64_BE (raw_iv, se->samples[i].iv);
+
+    AES_set_encrypt_key (content_key, 16 * 8, &key);
+
+    if (se->samples[i].num_entries == 0) {
+      AES_ctr128_encrypt (mdat_data + sample_offset,
+          mdat_data + sample_offset, trun->samples[i].size,
+          &key, raw_iv, ecount_buf, &num);
+    } else {
+      guint64 offset;
+      int j;
+      offset = sample_offset;
+      for (j = 0; j < se->samples[i].num_entries; j++) {
+        offset += se->samples[i].entries[j].bytes_of_clear_data;
+        AES_ctr128_encrypt (mdat_data + offset,
+            mdat_data + offset,
+            se->samples[i].entries[j].bytes_of_encrypted_data,
+            &key, raw_iv, ecount_buf, &num);
+        offset += se->samples[i].entries[j].bytes_of_encrypted_data;
+      }
+    }
+    sample_offset += trun->samples[i].size;
+  }
 }

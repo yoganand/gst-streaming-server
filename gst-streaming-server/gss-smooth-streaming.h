@@ -65,6 +65,7 @@ struct _GssISMLevel
 
   GssIsomFile *parser;
   int track_id;
+  gboolean is_h264;
 };
 
 GssISM *gss_ism_new (void);

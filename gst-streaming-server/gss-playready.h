@@ -32,6 +32,10 @@ guint8 * gss_playready_generate_key (guint8 *key_seed, int key_seed_len,
 guint8 * gss_playready_get_default_key_seed (void);
 char * gss_playready_get_protection_header_base64 (GssISM *ism,
     const char *la_url);
+void gss_playready_encrypt_samples (GssIsomFragment * fragment,
+    guint8 * mdat_data, guint8 * content_key);
+void gss_playready_setup_iv (GssISM * ism, GssISMLevel * level,
+    GssIsomFragment * fragment);
 
 G_END_DECLS
 

@@ -1882,50 +1882,7 @@ gss_isom_fragment_get_sample_sizes (GssIsomFragment * fragment)
   return s;
 }
 
-void
-gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
-    guint8 * content_key)
-{
-  AtomTrun *trun = &fragment->traf.trun;
-  AtomUUIDSampleEncryption *se = &fragment->traf.sample_encryption;
-  guint64 sample_offset;
-  int i;
-
-  sample_offset = 8;
-
-  for (i = 0; i < trun->sample_count; i++) {
-    unsigned char raw_iv[16];
-    unsigned char ecount_buf[16] = { 0 };
-    unsigned int num = 0;
-    AES_KEY key;
-
-    memset (raw_iv, 0, 16);
-    GST_WRITE_UINT64_BE (raw_iv, se->samples[i].iv);
-
-    AES_set_encrypt_key (content_key, 16 * 8, &key);
-
-    if (se->samples[i].num_entries == 0) {
-      AES_ctr128_encrypt (mdat_data + sample_offset,
-          mdat_data + sample_offset, trun->samples[i].size,
-          &key, raw_iv, ecount_buf, &num);
-    } else {
-      guint64 offset;
-      int j;
-      offset = sample_offset;
-      for (j = 0; j < se->samples[i].num_entries; j++) {
-        offset += se->samples[i].entries[j].bytes_of_clear_data;
-        AES_ctr128_encrypt (mdat_data + offset,
-            mdat_data + offset,
-            se->samples[i].entries[j].bytes_of_encrypted_data,
-            &key, raw_iv, ecount_buf, &num);
-        offset += se->samples[i].entries[j].bytes_of_encrypted_data;
-      }
-    }
-    sample_offset += trun->samples[i].size;
-  }
-}
-
-static GssIsomTrack *
+GssIsomTrack *
 gss_isom_movie_get_video_track (GssIsomMovie * movie)
 {
   int i;
@@ -1939,7 +1896,7 @@ gss_isom_movie_get_video_track (GssIsomMovie * movie)
   return NULL;
 }
 
-static GssIsomTrack *
+GssIsomTrack *
 gss_isom_movie_get_audio_track (GssIsomMovie * movie)
 {
   int i;
