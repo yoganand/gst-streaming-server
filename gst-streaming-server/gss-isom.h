@@ -18,20 +18,20 @@
  */
 
 
-#ifndef _GSS_ISM_PARSER_H
-#define _GSS_ISM_PARSER_H
+#ifndef _GSS_ISOM_H
+#define _GSS_ISOM_H
 
 #include "gss-iso-atoms.h"
 #include "gss-server.h"
 
 G_BEGIN_DECLS
 
-typedef struct _GssISMFragment GssISMFragment;
-typedef struct _GssISMTrack GssISMTrack;
-typedef struct _GssISMMovie GssISMMovie;
-typedef struct _GssISMParser GssISMParser;
-typedef struct _GssISMFragment GssISMFragment;
-typedef struct _GssISMSample GssISMSample;
+typedef struct _GssIsomFragment GssIsomFragment;
+typedef struct _GssIsomTrack GssIsomTrack;
+typedef struct _GssIsomMovie GssIsomMovie;
+typedef struct _GssIsomFile GssIsomFile;
+typedef struct _GssIsomFragment GssIsomFragment;
+typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssMdatChunk GssMdatChunk;
 
 typedef enum
@@ -50,7 +50,7 @@ struct _GssMdatChunk {
   guint64 size;
 };
 
-struct _GssISMFragment {
+struct _GssIsomFragment {
   int track_id;
   guint64 moof_offset;
   guint64 moof_size;
@@ -64,10 +64,10 @@ struct _GssISMFragment {
   AtomTraf traf;
 };
 
-struct _GssISMMovie
+struct _GssIsomMovie
 {
   int n_tracks;
-  GssISMTrack **tracks;
+  GssIsomTrack **tracks;
 
   AtomMvhd mvhd;
   AtomUdta udta;
@@ -77,7 +77,7 @@ struct _GssISMMovie
   AtomIods iods;
 };
 
-struct _GssISMTrack
+struct _GssIsomTrack
 {
   AtomTkhd tkhd;
   AtomTref tref;
@@ -115,7 +115,7 @@ struct _GssISMTrack
   AtomEsds esds;
 };
 
-struct _GssISMParser
+struct _GssIsomFile
 {
   gboolean error;
   int fd;
@@ -126,22 +126,22 @@ struct _GssISMParser
   gboolean is_isml;
   gboolean is_mp42;
 
-  GssISMFragment **fragments;
+  GssIsomFragment **fragments;
   int n_fragments;
   int n_fragments_alloc;
 
-  GssISMFragment *current_fragment;
+  GssIsomFragment *current_fragment;
 
   void *moov;
 
-  GssISMMovie *movie;
+  GssIsomMovie *movie;
 
   guint8 *data;
   guint64 data_offset;
   guint64 data_size;
 };
 
-struct _GssISMSample
+struct _GssIsomSample
 {
   guint32 duration;
   guint32 size;
@@ -151,40 +151,40 @@ struct _GssISMSample
 };
 
 
-GssISMParser *gss_ism_parser_new (void);
-void gss_ism_parser_free (GssISMParser *parser);
-gboolean gss_ism_parser_parse_file (GssISMParser *parser,
+GssIsomFile *gss_isom_file_new (void);
+void gss_isom_file_free (GssIsomFile *file);
+gboolean gss_isom_file_parse_file (GssIsomFile *file,
     const char *filename);
-GssISMFragment * gss_ism_parser_get_fragment (GssISMParser *parser,
+GssIsomFragment * gss_isom_file_get_fragment (GssIsomFile *file,
     int track_id, int frag_index);
-GssISMFragment * gss_ism_parser_get_fragment_by_timestamp (
-    GssISMParser *parser, int track_id, guint64 timestamp);
-int gss_ism_parser_get_n_fragments (GssISMParser *parser, int track_id);
-guint64 gss_ism_parser_get_duration (GssISMParser *parser, int track_id);
-void gss_ism_parser_free (GssISMParser *parser);
+GssIsomFragment * gss_isom_file_get_fragment_by_timestamp (
+    GssIsomFile *file, int track_id, guint64 timestamp);
+int gss_isom_file_get_n_fragments (GssIsomFile *file, int track_id);
+guint64 gss_isom_file_get_duration (GssIsomFile *file, int track_id);
+void gss_isom_file_free (GssIsomFile *file);
 
-void gss_ism_fragment_set_sample_encryption (GssISMFragment *fragment,
+void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
     int n_samples, guint64 *init_vectors, gboolean is_h264);
-void gss_ism_fragment_serialize (GssISMFragment *fragment, guint8 **data,
+void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
     int *size);
-int * gss_ism_fragment_get_sample_sizes (GssISMFragment *fragment);
-void gss_ism_encrypt_samples (GssISMFragment * fragment, guint8 * mdat_data,
+int * gss_isom_fragment_get_sample_sizes (GssIsomFragment *fragment);
+void gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 *content_key);
-int gss_ism_fragment_get_n_samples (GssISMFragment *fragment);
+int gss_isom_fragment_get_n_samples (GssIsomFragment *fragment);
 
-GssISMMovie *gss_ism_movie_new (void);
-void gss_ism_movie_free (GssISMMovie * movie);
+GssIsomMovie *gss_isom_movie_new (void);
+void gss_isom_movie_free (GssIsomMovie * movie);
 
-GssISMFragment *gss_ism_fragment_new (void);
-void gss_ism_fragment_free (GssISMFragment * fragment);
+GssIsomFragment *gss_isom_fragment_new (void);
+void gss_isom_fragment_free (GssIsomFragment * fragment);
 
-void gss_ism_parser_fragmentize (GssISMParser *parser);
+void gss_isom_file_fragmentize (GssIsomFile *file);
 
-guint64 gss_ism_track_get_n_samples (GssISMTrack *track);
+guint64 gss_isom_track_get_n_samples (GssIsomTrack *track);
 
-void gss_ism_track_get_sample (GssISMTrack *track, GssISMSample *sample,
+void gss_isom_track_get_sample (GssIsomTrack *track, GssIsomSample *sample,
     int sample_index);
-int gss_ism_track_get_index_from_timestamp (GssISMTrack *track, guint64
+int gss_isom_track_get_index_from_timestamp (GssIsomTrack *track, guint64
     timestamp);
 
 

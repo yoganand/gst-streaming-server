@@ -22,7 +22,7 @@
 #define _GSS_SMOOTH_STREAMING_H
 
 #include "gss-server.h"
-#include "gss-ism-parser.h"
+#include "gss-isom.h"
 
 G_BEGIN_DECLS
 
@@ -63,7 +63,7 @@ struct _GssISMLevel
   int video_width;
   int video_height;
 
-  GssISMParser *parser;
+  GssIsomFile *parser;
   int track_id;
 };
 
