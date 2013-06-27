@@ -723,6 +723,7 @@ gss_ism_parse_sample_encryption (GssISMParser * parser,
   int i;
   int j;
 
+  se->present = TRUE;
   gst_byte_reader_get_uint8 (br, &se->version);
   gst_byte_reader_get_uint24_be (br, &se->flags);
   GST_DEBUG ("flags %08x", se->flags);
