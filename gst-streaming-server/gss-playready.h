@@ -22,6 +22,7 @@
 #define _GSS_PLAYREADY_H
 
 #include "gss-server.h"
+#include "gss-smooth-streaming.h"
 
 G_BEGIN_DECLS
 
@@ -29,6 +30,8 @@ void gss_playready_setup (GssServer * server);
 guint8 * gss_playready_generate_key (guint8 *key_seed, int key_seed_len,
     guint8 *kid, int kid_len);
 guint8 * gss_playready_get_default_key_seed (void);
+char * gss_playready_get_protection_header_base64 (GssISM *ism,
+    const char *la_url);
 
 G_END_DECLS
 

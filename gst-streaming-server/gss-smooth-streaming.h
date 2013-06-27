@@ -22,8 +22,55 @@
 #define _GSS_SMOOTH_STREAMING_H
 
 #include "gss-server.h"
+#include "gss-ism-parser.h"
 
 G_BEGIN_DECLS
+
+typedef struct _GssISM GssISM;
+typedef struct _GssISMLevel GssISMLevel;
+
+struct _GssISM
+{
+  guint64 duration;
+
+  int max_width;
+  int max_height;
+
+  int n_audio_levels;
+  int n_video_levels;
+
+  char *video_codec_data;
+  char *audio_codec_data;
+  gboolean playready;
+  int audio_rate;
+
+  GssISMLevel *audio_levels;
+  GssISMLevel *video_levels;
+
+  gboolean needs_encryption;
+
+  guint8 *kid;
+  gsize kid_len;
+  guint8 *content_key;
+};
+
+struct _GssISMLevel
+{
+  const char *filename;
+
+  int n_fragments;
+  int bitrate;
+  int video_width;
+  int video_height;
+
+  GssISMParser *parser;
+  int track_id;
+};
+
+GssISM *gss_ism_new (void);
+void gss_ism_free (GssISM * ism);
+GssISMLevel *gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate);
+
 
 void gss_smooth_streaming_setup (GssServer * server);
 

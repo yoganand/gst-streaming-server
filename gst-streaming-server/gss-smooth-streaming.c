@@ -22,6 +22,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbytereader.h>
 
+#include "gss-smooth-streaming.h"
 #include "gss-server.h"
 #include "gss-html.h"
 #include "gss-session.h"
@@ -42,57 +43,10 @@
 #define AUDIO_TRACK_ID 1
 #define VIDEO_TRACK_ID 2
 
-typedef struct _GssISM GssISM;
-typedef struct _GssISMLevel GssISMLevel;
-
-struct _GssISM
-{
-  guint64 duration;
-
-  int max_width;
-  int max_height;
-
-  int n_audio_levels;
-  int n_video_levels;
-
-  char *video_codec_data;
-  char *audio_codec_data;
-  gboolean playready;
-  int audio_rate;
-
-  GssISMLevel *audio_levels;
-  GssISMLevel *video_levels;
-
-  gboolean needs_encryption;
-
-  guint8 *kid;
-  gsize kid_len;
-  guint8 *content_key;
-};
-
-struct _GssISMLevel
-{
-  const char *filename;
-
-  int n_fragments;
-  int bitrate;
-  int video_width;
-  int video_height;
-
-  GssISMParser *parser;
-  int track_id;
-};
-
-
-GssISM *gss_ism_new (void);
-void gss_ism_free (GssISM * ism);
-GssISMLevel *gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate);
-
 
 static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
 
-typedef struct _GssFileFragment GssFileFragment;
 
 
 static void
@@ -205,7 +159,7 @@ struct _ISMInfo
 {
   const char *filename;
   const char *mount;
-  gboolean is_encrypted;
+  char *kid_base64;
   int video_bitrate;
   const char *video_codec_data;
   int audio_bitrate;
@@ -216,7 +170,7 @@ ISMInfo ism_files[] = {
   {
         "SuperSpeedway_720_2962.ismv",
         "SuperSpeedwayPR",
-        TRUE,
+        "AmfjCTOPbEOl3WD/5mcecA==",
         2962000,
         "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
         128000,
@@ -225,7 +179,7 @@ ISMInfo ism_files[] = {
   {
         "SuperSpeedway/SuperSpeedway_720_2962.ismv",
         "SuperSpeedway",
-        FALSE,
+        NULL,
         2962000,
         "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
         128000,
@@ -234,7 +188,7 @@ ISMInfo ism_files[] = {
   {
         "drwho-406.ismv",
         "boondocks",
-        FALSE,
+        NULL,
         2500000,
         NULL,
         128000,
@@ -243,7 +197,7 @@ ISMInfo ism_files[] = {
   {
         "boondocks-411.ismv",
         "boondocksHD",
-        FALSE,
+        NULL,
         5000000,
         NULL,
         128000,
@@ -252,7 +206,7 @@ ISMInfo ism_files[] = {
   {
         "boondocks-411.ismv",
         "boondocksHD-DRM",
-        FALSE,
+        NULL,
         5000000,
         NULL,
         128000,
@@ -261,7 +215,7 @@ ISMInfo ism_files[] = {
   {
         "drwho-406.mp4",
         "drwho",
-        FALSE,
+        NULL,
         2500000,
         NULL,
         128000,
@@ -297,8 +251,13 @@ gss_smooth_streaming_setup (GssServer * server)
 
     ism = gss_ism_new ();
 
-    /* FIXME */
-    ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
+    if (info->kid_base64) {
+      ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
+    } else {
+      ism->kid_len = 16;
+      ism->kid = g_malloc (ism->kid_len);
+      gss_utils_get_random_bytes ((guint8 *) ism->kid, ism->kid_len);
+    }
 
     ism->n_video_levels = 1;
     ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
@@ -335,13 +294,6 @@ gss_smooth_streaming_setup (GssServer * server)
 
     if (info->video_codec_data) {
       ism->video_codec_data = g_strdup (info->video_codec_data);
-
-#if 0
-      g_print ("%s\n", ism->video_codec_data);
-      g_print ("%s\n",
-          get_codec_string (parser->movie->tracks[1]->esds.codec_data,
-              parser->movie->tracks[1]->esds.codec_data_len));
-#endif
     } else {
       ism->video_codec_data =
           get_codec_string (parser->movie->tracks[1]->esds.codec_data,
@@ -350,12 +302,9 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->audio_codec_data =
         get_codec_string (parser->movie->tracks[0]->esds.codec_data,
         parser->movie->tracks[0]->esds.codec_data_len);
-    GST_DEBUG ("video: %s", ism->video_codec_data);
-    GST_DEBUG ("audio: %s", ism->audio_codec_data);
     ism->audio_rate = parser->movie->tracks[0]->mp4a.sample_rate >> 16;
-    GST_DEBUG ("sample_rate: %d", ism->audio_rate);
     ism->playready = info->enable_drm;
-    ism->needs_encryption = info->enable_drm && (!info->is_encrypted);
+    ism->needs_encryption = info->enable_drm && (info->kid_base64 == NULL);
 
     s = g_strdup_printf ("/%s/Manifest", info->mount);
     gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
@@ -437,55 +386,17 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 
   GSS_A ("  </StreamIndex>\n");
   if (ism->playready) {
+    char *prot_header_base64;
+
     GSS_A ("<Protection>\n");
-    GSS_A
-        ("  <ProtectionHeader SystemID=\"9a04f079-9840-4286-ab92-e65be0885f95\">");
-    {
-      char *wrmheader;
-      char *prot_header_base64;
-      gunichar2 *utf16;
-      glong items;
-      int len;
-      guchar *content;
-      const char *la_url;
-      gchar *kid_base64;
+    GSS_A ("  <ProtectionHeader "
+        "SystemID=\"9a04f079-9840-4286-ab92-e65be0885f95\">");
 
-      la_url = "http://playready.directtaps.net/pr/svc/rightsmanager.asmx";
+    prot_header_base64 = gss_playready_get_protection_header_base64 (ism,
+        "http://playready.directtaps.net/pr/svc/rightsmanager.asmx");
+    GSS_P ("%s", prot_header_base64);
+    g_free (prot_header_base64);
 
-      kid_base64 = g_base64_encode (ism->kid, ism->kid_len);
-      /* this all needs to be on one line, to satisfy clients */
-      /* Note: DS_ID is ignored by Roku */
-      /* Roku checks CHECKSUM if it exists */
-      wrmheader =
-          g_strdup_printf
-          ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
-          "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
-          "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
-          //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
-          "<CUSTOMATTRIBUTES>"
-          "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
-          "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
-          "</DATA>" "</WRMHEADER>", kid_base64, la_url);
-      g_free (kid_base64);
-      len = strlen (wrmheader);
-      utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
-
-      content = g_malloc (items * sizeof (gunichar2) + 10);
-      memcpy (content + 10, utf16, items * sizeof (gunichar2));
-      GST_WRITE_UINT32_LE (content, items * sizeof (gunichar2) + 10);
-      GST_WRITE_UINT16_LE (content + 4, 1);
-      GST_WRITE_UINT16_LE (content + 6, 1);
-      GST_WRITE_UINT16_LE (content + 8, items * sizeof (gunichar2));
-
-      prot_header_base64 =
-          g_base64_encode (content, items * sizeof (gunichar2) + 10);
-
-      GSS_P ("%s", prot_header_base64);
-
-      g_free (prot_header_base64);
-      g_free (content);
-      g_free (utf16);
-    }
     GSS_A ("</ProtectionHeader>\n");
     GSS_A ("</Protection>\n");
   }

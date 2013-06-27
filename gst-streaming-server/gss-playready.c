@@ -205,3 +205,49 @@ gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
 
   return key;
 }
+
+
+char *
+gss_playready_get_protection_header_base64 (GssISM * ism, const char *la_url)
+{
+  char *wrmheader;
+  char *prot_header_base64;
+  gunichar2 *utf16;
+  glong items;
+  int len;
+  guchar *content;
+  gchar *kid_base64;
+
+  kid_base64 = g_base64_encode (ism->kid, ism->kid_len);
+  /* this all needs to be on one line, to satisfy clients */
+  /* Note: DS_ID is ignored by Roku */
+  /* Roku checks CHECKSUM if it exists */
+  wrmheader =
+      g_strdup_printf
+      ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
+      "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
+      "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
+      //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
+      "<CUSTOMATTRIBUTES>"
+      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
+      "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
+      "</DATA>" "</WRMHEADER>", kid_base64, la_url);
+  g_free (kid_base64);
+  len = strlen (wrmheader);
+  utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
+
+  content = g_malloc (items * sizeof (gunichar2) + 10);
+  memcpy (content + 10, utf16, items * sizeof (gunichar2));
+  GST_WRITE_UINT32_LE (content, items * sizeof (gunichar2) + 10);
+  GST_WRITE_UINT16_LE (content + 4, 1);
+  GST_WRITE_UINT16_LE (content + 6, 1);
+  GST_WRITE_UINT16_LE (content + 8, items * sizeof (gunichar2));
+
+  prot_header_base64 =
+      g_base64_encode (content, items * sizeof (gunichar2) + 10);
+
+  g_free (content);
+  g_free (utf16);
+
+  return prot_header_base64;
+}
