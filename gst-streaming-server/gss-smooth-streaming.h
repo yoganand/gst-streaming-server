@@ -63,7 +63,7 @@ struct _GssISMLevel
   int video_width;
   int video_height;
 
-  GssIsomFile *parser;
+  GssIsomFile *file;
   int track_id;
   gboolean is_h264;
 };

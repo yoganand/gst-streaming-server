@@ -16,6 +16,11 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+/*
+ *
+ * http://msdn.microsoft.com/en-us/library/ff469518.aspx
+ *
+ */
 
 #include "config.h"
 
@@ -207,7 +212,7 @@ gss_smooth_streaming_setup (GssServer * server)
   for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
     ISMInfo *info = &ism_files[i];
     GssISM *ism;
-    GssIsomFile *parser;
+    GssIsomFile *file;
     GssIsomTrack *video_track;
     char *s;
 
@@ -226,48 +231,48 @@ gss_smooth_streaming_setup (GssServer * server)
     ism->n_audio_levels = 1;
     ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
 
-    parser = gss_isom_file_new ();
-    gss_isom_file_parse_file (parser, info->filename);
+    file = gss_isom_file_new ();
+    gss_isom_file_parse_file (file, info->filename);
 
-    if (gss_isom_file_get_n_fragments (parser, AUDIO_TRACK_ID) == 0) {
-      gss_isom_file_fragmentize (parser);
+    if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
+      gss_isom_file_fragmentize (file);
     }
 
-    video_track = gss_isom_movie_get_video_track (parser->movie);
+    video_track = gss_isom_movie_get_video_track (file->movie);
     ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
     ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
 
     ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (parser,
+    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
         ism->audio_levels[0].track_id);
-    ism->audio_levels[0].parser = parser;
+    ism->audio_levels[0].file = file;
     ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
     ism->audio_levels[0].filename = g_strdup (info->filename);
     ism->audio_levels[0].bitrate = info->audio_bitrate;
 
     ism->video_levels[0].track_id = VIDEO_TRACK_ID;
-    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (parser,
+    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
         ism->video_levels[0].track_id);
     ism->video_levels[0].filename = g_strdup (info->filename);
     ism->video_levels[0].bitrate = info->video_bitrate;
-    ism->video_levels[0].video_width = parser->movie->tracks[1]->mp4v.width;
-    ism->video_levels[0].video_height = parser->movie->tracks[1]->mp4v.height;
-    ism->video_levels[0].parser = parser;
+    ism->video_levels[0].video_width = file->movie->tracks[1]->mp4v.width;
+    ism->video_levels[0].video_height = file->movie->tracks[1]->mp4v.height;
+    ism->video_levels[0].file = file;
     ism->video_levels[0].is_h264 = TRUE;
 
-    ism->duration = gss_isom_file_get_duration (parser, VIDEO_TRACK_ID);
+    ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
 
     if (info->video_codec_data) {
       ism->video_codec_data = g_strdup (info->video_codec_data);
     } else {
       ism->video_codec_data =
-          get_codec_string (parser->movie->tracks[1]->esds.codec_data,
-          parser->movie->tracks[1]->esds.codec_data_len);
+          get_codec_string (file->movie->tracks[1]->esds.codec_data,
+          file->movie->tracks[1]->esds.codec_data_len);
     }
     ism->audio_codec_data =
-        get_codec_string (parser->movie->tracks[0]->esds.codec_data,
-        parser->movie->tracks[0]->esds.codec_data_len);
-    ism->audio_rate = parser->movie->tracks[0]->mp4a.sample_rate >> 16;
+        get_codec_string (file->movie->tracks[0]->esds.codec_data,
+        file->movie->tracks[0]->esds.codec_data_len);
+    ism->audio_rate = file->movie->tracks[0]->mp4a.sample_rate >> 16;
     ism->playready = info->enable_drm;
     ism->needs_encryption = info->enable_drm && (info->kid_base64 == NULL);
 
@@ -317,7 +322,7 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->parser, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -341,7 +346,7 @@ gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->parser, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -429,7 +434,7 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
     return;
   }
 
-  fragment = gss_isom_file_get_fragment_by_timestamp (level->parser,
+  fragment = gss_isom_file_get_fragment_by_timestamp (level->file,
       level->track_id, start_time);
   if (fragment == NULL) {
     GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
