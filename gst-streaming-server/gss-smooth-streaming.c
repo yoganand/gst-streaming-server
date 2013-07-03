@@ -54,8 +54,10 @@ static void gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t,
     GssISM * ism);
 static void gss_smooth_streaming_resource_get_content2 (GssTransaction * t,
     GssISM * ism);
+#if 0
 static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
+#endif
 static void gss_smooth_streaming_get_resource (GssTransaction * t);
 
 static GHashTable *ism_cache;
@@ -127,75 +129,6 @@ gss_ism_send_chunk (GssTransaction * t, GssISM * ism,
       fragment->mdat_size);
 }
 
-/* FIXME should be extracted from file */
-typedef struct _ISMInfo ISMInfo;
-struct _ISMInfo
-{
-  const char *filename;
-  const char *mount;
-  char *kid_base64;
-  int video_bitrate;
-  const char *video_codec_data;
-  int audio_bitrate;
-  gboolean enable_drm;
-};
-
-ISMInfo ism_files[] = {
-  {
-        "SuperSpeedway_720_2962.ismv",
-        "SuperSpeedwayPR",
-        "AmfjCTOPbEOl3WD/5mcecA==",
-        2962000,
-        "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
-        128000,
-        TRUE,
-      },
-  {
-        "SuperSpeedway/SuperSpeedway_720_2962.ismv",
-        "SuperSpeedway",
-        NULL,
-        2962000,
-        "000000016764001FAC2CA5014016EFFC100010014808080A000007D200017700C100005A648000B4C9FE31C6080002D3240005A64FF18E1DA12251600000000168E9093525",
-        128000,
-        FALSE,
-      },
-  {
-        "drwho-406.ismv",
-        "boondocks",
-        NULL,
-        2500000,
-        NULL,
-        128000,
-        FALSE,
-      },
-  {
-        "boondocks-411.ismv",
-        "boondocksHD",
-        NULL,
-        5000000,
-        NULL,
-        128000,
-        FALSE,
-      },
-  {
-        "southpark-411.mp4",
-        "southpark",
-        NULL,
-        5000000,
-        NULL,
-        128000,
-        TRUE,
-      },
-  {
-        "drwho2-331.mp4",
-        "drwho",
-        NULL,
-        2500000,
-        NULL,
-        128000,
-      TRUE},
-};
-
 static char *
 get_codec_string (guint8 * codec_data, int len)
 {
@@ -215,99 +148,21 @@ get_codec_string (guint8 * codec_data, int len)
 void
 gss_smooth_streaming_setup (GssServer * server)
 {
-  int i;
-
   ism_cache = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
       (GDestroyNotify) gss_ism_free);
 
   gss_server_add_resource (server, "/ism-vod/", GSS_RESOURCE_PREFIX,
       NULL, gss_smooth_streaming_get_resource, NULL, NULL, NULL);
 
-  return;
-
-  for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
-    ISMInfo *info = &ism_files[i];
-    GssISM *ism;
-    GssIsomFile *file;
-    GssIsomTrack *video_track;
-    char *s;
-
-    ism = gss_ism_new ();
-
-    if (info->kid_base64) {
-      ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
-    } else {
-      ism->kid_len = 16;
-      ism->kid = g_malloc (ism->kid_len);
-      gss_utils_get_random_bytes ((guint8 *) ism->kid, ism->kid_len);
-    }
-
-    ism->n_video_levels = 1;
-    ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
-    ism->n_audio_levels = 1;
-    ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
-
-    file = gss_isom_file_new ();
-    gss_isom_file_parse_file (file, info->filename);
-
-    if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
-      gss_isom_file_fragmentize (file);
-    }
-
-    video_track = gss_isom_movie_get_video_track (file->movie);
-    ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
-    ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
-
-    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
-        ism->audio_levels[0].track_id);
-    ism->audio_levels[0].file = file;
-    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].filename = g_strdup (info->filename);
-    ism->audio_levels[0].bitrate = info->audio_bitrate;
-
-    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
-    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
-        ism->video_levels[0].track_id);
-    ism->video_levels[0].filename = g_strdup (info->filename);
-    ism->video_levels[0].bitrate = info->video_bitrate;
-    ism->video_levels[0].video_width = file->movie->tracks[1]->mp4v.width;
-    ism->video_levels[0].video_height = file->movie->tracks[1]->mp4v.height;
-    ism->video_levels[0].file = file;
-    ism->video_levels[0].is_h264 = TRUE;
-
-    ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
-
-    if (info->video_codec_data) {
-      ism->video_codec_data = g_strdup (info->video_codec_data);
-    } else {
-      ism->video_codec_data =
-          get_codec_string (file->movie->tracks[1]->esds.codec_data,
-          file->movie->tracks[1]->esds.codec_data_len);
-    }
-    ism->audio_codec_data =
-        get_codec_string (file->movie->tracks[0]->esds.codec_data,
-        file->movie->tracks[0]->esds.codec_data_len);
-    ism->audio_rate = file->movie->tracks[0]->mp4a.sample_rate >> 16;
-    ism->playready = info->enable_drm;
-    ism->needs_encryption = info->enable_drm && (info->kid_base64 == NULL);
-
-    s = g_strdup_printf ("/%s/Manifest", info->mount);
-    gss_server_add_resource (server, s, 0, "text/xml;charset=utf-8",
-        gss_smooth_streaming_resource_get_manifest, NULL, NULL, ism);
-    g_free (s);
-    s = g_strdup_printf ("/%s/content", info->mount);
-    gss_server_add_resource (server, s, 0, "video/mp4",
-        gss_smooth_streaming_resource_get_content, NULL, NULL, ism);
-    g_free (s);
-  }
 }
 
+#if 0
 static void
 gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 {
   gss_smooth_streaming_resource_get_manifest2 (t, t->resource->priv);
 }
+#endif
 
 static void
 gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
@@ -414,11 +269,13 @@ g_hash_table_lookup_guint64 (GHashTable * hash, const char *key,
   return TRUE;
 }
 
+#if 0
 static void
 gss_smooth_streaming_resource_get_content (GssTransaction * t)
 {
   gss_smooth_streaming_resource_get_content2 (t, t->resource->priv);
 }
+#endif
 
 static void
 gss_smooth_streaming_resource_get_content2 (GssTransaction * t, GssISM * ism)
