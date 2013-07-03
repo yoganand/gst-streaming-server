@@ -26,6 +26,7 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbytereader.h>
+#include <glib/gstdio.h>
 
 #include "gss-smooth-streaming.h"
 #include "gss-server.h"
@@ -49,8 +50,15 @@
 #define VIDEO_TRACK_ID 2
 
 
+static void gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t,
+    GssISM * ism);
+static void gss_smooth_streaming_resource_get_content2 (GssTransaction * t,
+    GssISM * ism);
 static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
+static void gss_smooth_streaming_get_resource (GssTransaction * t);
+
+static GHashTable *ism_cache;
 
 
 static guint8 *
@@ -170,8 +178,8 @@ ISMInfo ism_files[] = {
         FALSE,
       },
   {
-        "boondocks-411.ismv",
-        "boondocksHD-DRM",
+        "southpark-411.mp4",
+        "southpark",
         NULL,
         5000000,
         NULL,
@@ -179,7 +187,7 @@ ISMInfo ism_files[] = {
         TRUE,
       },
   {
-        "drwho-406.mp4",
+        "drwho2-331.mp4",
         "drwho",
         NULL,
         2500000,
@@ -208,6 +216,14 @@ void
 gss_smooth_streaming_setup (GssServer * server)
 {
   int i;
+
+  ism_cache = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify) gss_ism_free);
+
+  gss_server_add_resource (server, "/ism-vod/", GSS_RESOURCE_PREFIX,
+      NULL, gss_smooth_streaming_get_resource, NULL, NULL, NULL);
+
+  return;
 
   for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
     ISMInfo *info = &ism_files[i];
@@ -290,7 +306,12 @@ gss_smooth_streaming_setup (GssServer * server)
 static void
 gss_smooth_streaming_resource_get_manifest (GssTransaction * t)
 {
-  GssISM *ism = (GssISM *) t->resource->priv;
+  gss_smooth_streaming_resource_get_manifest2 (t, t->resource->priv);
+}
+
+static void
+gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
+{
   GString *s = g_string_new ("");
   int i;
 
@@ -396,7 +417,12 @@ g_hash_table_lookup_guint64 (GHashTable * hash, const char *key,
 static void
 gss_smooth_streaming_resource_get_content (GssTransaction * t)
 {
-  GssISM *ism = (GssISM *) t->resource->priv;
+  gss_smooth_streaming_resource_get_content2 (t, t->resource->priv);
+}
+
+static void
+gss_smooth_streaming_resource_get_content2 (GssTransaction * t, GssISM * ism)
+{
   guint64 start_time;
   const char *stream;
   guint64 bitrate;
@@ -496,4 +522,151 @@ gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate)
     }
   }
   return NULL;
+}
+
+static GssISM *
+gss_ism_load (const char *key)
+{
+  GssISM *ism;
+  ISMInfo *info;
+  int i;
+#if 0
+  GStatBuf sb;
+  char *filename;
+  int ret;
+
+  filename = g_strdup_printf ("%s/gss-manifest", key);
+  ret = g_stat (filename, &sb);
+  g_free (filename);
+  if (ret < 0) {
+    return NULL;
+  }
+#endif
+
+  GST_ERROR ("looking for %s", key);
+
+  for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
+    ISMInfo *info = &ism_files[i];
+
+    if (strcmp (info->mount, key) == 0) {
+      break;
+    }
+  }
+  if (i == G_N_ELEMENTS (ism_files)) {
+    return NULL;
+  }
+
+  GST_ERROR ("loading %s", key);
+
+  info = &ism_files[i];
+  {
+    GssIsomFile *file;
+    GssIsomTrack *video_track;
+
+    ism = gss_ism_new ();
+
+    if (info->kid_base64) {
+      ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
+    } else {
+      ism->kid_len = 16;
+      ism->kid = g_malloc (ism->kid_len);
+      gss_utils_get_random_bytes ((guint8 *) ism->kid, ism->kid_len);
+    }
+
+    ism->n_video_levels = 1;
+    ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
+    ism->n_audio_levels = 1;
+    ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
+
+    file = gss_isom_file_new ();
+    gss_isom_file_parse_file (file, info->filename);
+
+    if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
+      gss_isom_file_fragmentize (file);
+    }
+
+    video_track = gss_isom_movie_get_video_track (file->movie);
+    ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
+    ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
+
+    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
+    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
+        ism->audio_levels[0].track_id);
+    ism->audio_levels[0].file = file;
+    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
+    ism->audio_levels[0].filename = g_strdup (info->filename);
+    ism->audio_levels[0].bitrate = info->audio_bitrate;
+
+    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
+    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
+        ism->video_levels[0].track_id);
+    ism->video_levels[0].filename = g_strdup (info->filename);
+    ism->video_levels[0].bitrate = info->video_bitrate;
+    ism->video_levels[0].video_width = file->movie->tracks[1]->mp4v.width;
+    ism->video_levels[0].video_height = file->movie->tracks[1]->mp4v.height;
+    ism->video_levels[0].file = file;
+    ism->video_levels[0].is_h264 = TRUE;
+
+    ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
+
+    if (info->video_codec_data) {
+      ism->video_codec_data = g_strdup (info->video_codec_data);
+    } else {
+      ism->video_codec_data =
+          get_codec_string (file->movie->tracks[1]->esds.codec_data,
+          file->movie->tracks[1]->esds.codec_data_len);
+    }
+    ism->audio_codec_data =
+        get_codec_string (file->movie->tracks[0]->esds.codec_data,
+        file->movie->tracks[0]->esds.codec_data_len);
+    ism->audio_rate = file->movie->tracks[0]->mp4a.sample_rate >> 16;
+    ism->playready = info->enable_drm;
+    ism->needs_encryption = info->enable_drm && (info->kid_base64 == NULL);
+  }
+
+  return ism;
+}
+
+static void
+gss_smooth_streaming_get_resource (GssTransaction * t)
+{
+  const char *e;
+  const char *path;
+  char *key;
+  char *subpath;
+  GssISM *ism;
+
+  path = t->path + 9;
+  e = strchr (path, '/');
+  if (e == NULL) {
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  key = g_strndup (path, e - path);
+  subpath = g_strdup (e + 1);
+
+  ism = g_hash_table_lookup (ism_cache, key);
+  if (ism == NULL) {
+    ism = gss_ism_load (key);
+    if (ism == NULL) {
+      g_free (key);
+      g_free (subpath);
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      return;
+    }
+    g_hash_table_replace (ism_cache, key, ism);
+  } else {
+    g_free (key);
+  }
+
+  if (strcmp (subpath, "Manifest") == 0) {
+    gss_smooth_streaming_resource_get_manifest2 (t, ism);
+  } else if (strcmp (subpath, "content") == 0) {
+    gss_smooth_streaming_resource_get_content2 (t, ism);
+  } else {
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+  }
+
+  g_free (subpath);
 }
