@@ -524,54 +524,116 @@ gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate)
   return NULL;
 }
 
+static gboolean
+split (const char *line, char **filename, int *video_bitrate,
+    int *audio_bitrate)
+{
+  const char *s = line;
+  char *end;
+  int i;
+
+  while (g_ascii_isspace (s[0]))
+    s++;
+  if (s[0] == '#' || s[0] == 0)
+    return FALSE;
+
+  for (i = 0; s[i]; i++) {
+    if (g_ascii_isspace (s[i]))
+      break;
+  }
+
+  *filename = g_strndup (s, i);
+  *video_bitrate = 0;
+  *audio_bitrate = 0;
+
+  s += i;
+  while (g_ascii_isspace (s[0]))
+    s++;
+
+  *video_bitrate = strtoul (s, &end, 10);
+  s = end;
+
+  *audio_bitrate = strtoul (s, &end, 10);
+  s = end;
+
+  return TRUE;
+}
+
+static guint8 *
+create_key_id (const char *key_string)
+{
+  GChecksum *checksum;
+  guint8 *bytes;
+  gsize size;
+
+  checksum = g_checksum_new (G_CHECKSUM_SHA1);
+  bytes = g_malloc (20);
+  g_checksum_update (checksum, (const guint8 *) key_string, -1);
+  g_checksum_update (checksum,
+      (const guint8 *) "KThMK9Tibb+X9qRuTvwOchPRwH+4hV05yZXnx7C", -1);
+  g_checksum_get_digest (checksum, bytes, &size);
+  g_checksum_free (checksum);
+
+  return bytes;
+}
+
 static GssISM *
 gss_ism_load (const char *key)
 {
   GssISM *ism;
-  ISMInfo *info;
   int i;
-#if 0
-  GStatBuf sb;
   char *filename;
-  int ret;
+  char *contents;
+  gsize length;
+  char **lines;
+  gboolean ret;
+  GError *error = NULL;
+  int video_bitrate;
+  int audio_bitrate;
 
-  filename = g_strdup_printf ("%s/gss-manifest", key);
-  ret = g_stat (filename, &sb);
+  GST_DEBUG ("looking for %s", key);
+
+  filename = g_strdup_printf ("ism-vod/%s/gss-manifest", key);
+  ret = g_file_get_contents (filename, &contents, &length, &error);
   g_free (filename);
-  if (ret < 0) {
-    return NULL;
-  }
-#endif
-
-  GST_ERROR ("looking for %s", key);
-
-  for (i = 0; i < G_N_ELEMENTS (ism_files); i++) {
-    ISMInfo *info = &ism_files[i];
-
-    if (strcmp (info->mount, key) == 0) {
-      break;
-    }
-  }
-  if (i == G_N_ELEMENTS (ism_files)) {
+  if (!ret) {
+    g_error_free (error);
     return NULL;
   }
 
-  GST_ERROR ("loading %s", key);
+  GST_DEBUG ("loading %s", key);
 
-  info = &ism_files[i];
+  filename = NULL;
+  video_bitrate = 0;
+  audio_bitrate = 0;
+
+  lines = g_strsplit (contents, "\n", 0);
+  for (i = 0; lines[i]; i++) {
+
+    ret = split (lines[i], &filename, &video_bitrate, &audio_bitrate);
+    if (!ret)
+      continue;
+
+    GST_ERROR ("fn %s video_bitrate %d audio_bitrate %d",
+        filename, video_bitrate, audio_bitrate);
+  }
+
+  g_strfreev (lines);
+  g_free (contents);
+
+  if (filename == NULL) {
+    return NULL;
+  }
+
   {
     GssIsomFile *file;
     GssIsomTrack *video_track;
+    char *fn;
 
     ism = gss_ism_new ();
 
-    if (info->kid_base64) {
-      ism->kid = g_base64_decode ("AmfjCTOPbEOl3WD/5mcecA==", &ism->kid_len);
-    } else {
-      ism->kid_len = 16;
-      ism->kid = g_malloc (ism->kid_len);
-      gss_utils_get_random_bytes ((guint8 *) ism->kid, ism->kid_len);
-    }
+    ism->kid = create_key_id (key);
+    ism->kid_len = 16;
 
     ism->n_video_levels = 1;
     ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
@@ -579,7 +641,8 @@ gss_ism_load (const char *key)
     ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
 
     file = gss_isom_file_new ();
-    gss_isom_file_parse_file (file, info->filename);
+    fn = g_strdup_printf ("ism-vod/%s/%s", key, filename);
+    gss_isom_file_parse_file (file, fn);
 
     if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
       gss_isom_file_fragmentize (file);
@@ -594,14 +657,14 @@ gss_ism_load (const char *key)
         ism->audio_levels[0].track_id);
     ism->audio_levels[0].file = file;
     ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].filename = g_strdup (info->filename);
-    ism->audio_levels[0].bitrate = info->audio_bitrate;
+    ism->audio_levels[0].filename = fn;
+    ism->audio_levels[0].bitrate = audio_bitrate;
 
     ism->video_levels[0].track_id = VIDEO_TRACK_ID;
     ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
         ism->video_levels[0].track_id);
-    ism->video_levels[0].filename = g_strdup (info->filename);
-    ism->video_levels[0].bitrate = info->video_bitrate;
+    ism->video_levels[0].filename = fn;
+    ism->video_levels[0].bitrate = video_bitrate;
     ism->video_levels[0].video_width = file->movie->tracks[1]->mp4v.width;
     ism->video_levels[0].video_height = file->movie->tracks[1]->mp4v.height;
     ism->video_levels[0].file = file;
@@ -609,20 +672,18 @@ gss_ism_load (const char *key)
 
     ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
 
-    if (info->video_codec_data) {
-      ism->video_codec_data = g_strdup (info->video_codec_data);
-    } else {
-      ism->video_codec_data =
-          get_codec_string (file->movie->tracks[1]->esds.codec_data,
-          file->movie->tracks[1]->esds.codec_data_len);
-    }
+    ism->video_codec_data =
+        get_codec_string (file->movie->tracks[1]->esds.codec_data,
+        file->movie->tracks[1]->esds.codec_data_len);
     ism->audio_codec_data =
         get_codec_string (file->movie->tracks[0]->esds.codec_data,
         file->movie->tracks[0]->esds.codec_data_len);
     ism->audio_rate = file->movie->tracks[0]->mp4a.sample_rate >> 16;
-    ism->playready = info->enable_drm;
-    ism->needs_encryption = info->enable_drm && (info->kid_base64 == NULL);
+    ism->playready = TRUE;
+    ism->needs_encryption = TRUE;
   }
+
+  GST_DEBUG ("loading done");
 
   return ism;
 }
