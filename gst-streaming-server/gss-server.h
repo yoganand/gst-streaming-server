@@ -87,6 +87,8 @@ struct _GssServer
   char *base_url;
   char *base_url_https;
   GHashTable *resources;
+  int n_prefix_resources;
+  GssResource **prefix_resources;
 
   /* FIXME move this into a private structure */
   void *rtsp_server;

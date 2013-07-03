@@ -37,6 +37,7 @@ typedef enum {
   GSS_RESOURCE_ONETIME = (1<<4),
   GSS_RESOURCE_USER = (1<<5),
   GSS_RESOURCE_KIOSK = (1<<6),
+  GSS_RESOURCE_PREFIX = (1<<7),
 } GssResourceFlags;
 
 struct _GssResource {

@@ -658,8 +658,10 @@ gss_server_add_resource (GssServer * server, const char *location,
 {
   GssResource *resource;
 
-  g_return_val_if_fail (strcmp (content_type, "text/html") != 0, NULL);
-  g_return_val_if_fail (strcmp (content_type, "text/plain") != 0, NULL);
+  g_return_val_if_fail (content_type == NULL ||
+      strcmp (content_type, "text/html") != 0, NULL);
+  g_return_val_if_fail (content_type == NULL ||
+      strcmp (content_type, "text/plain") != 0, NULL);
 
   resource = g_new0 (GssResource, 1);
   resource->location = g_strdup (location);
@@ -670,7 +672,14 @@ gss_server_add_resource (GssServer * server, const char *location,
   resource->post_callback = post_callback;
   resource->priv = priv;
 
-  g_hash_table_replace (server->resources, resource->location, resource);
+  if (flags & GSS_RESOURCE_PREFIX) {
+    server->n_prefix_resources++;
+    server->prefix_resources = g_realloc (server->prefix_resources,
+        sizeof (GssResource *) * server->n_prefix_resources);
+    server->prefix_resources[server->n_prefix_resources - 1] = resource;
+  } else {
+    g_hash_table_replace (server->resources, resource->location, resource);
+  }
 
   return resource;
 }
@@ -958,10 +967,21 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   GssResource *resource;
   GssTransaction *transaction;
   GssSession *session;
+  int i;
 
   //GST_ERROR ("%s %s", msg->method, path);
 
-  resource = g_hash_table_lookup (server->resources, path);
+  resource = NULL;
+  for (i = 0; i < server->n_prefix_resources; i++) {
+    if (g_str_has_prefix (path, server->prefix_resources[i]->location)) {
+      resource = server->prefix_resources[i];
+      break;
+    }
+  }
+
+  if (!resource) {
+    resource = g_hash_table_lookup (server->resources, path);
+  }
 
   if (!resource) {
     GST_ERROR ("404 %s %s", msg->method, path);
