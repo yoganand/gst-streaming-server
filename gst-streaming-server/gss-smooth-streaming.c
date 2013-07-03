@@ -59,6 +59,8 @@ static void gss_smooth_streaming_resource_get_manifest (GssTransaction * t);
 static void gss_smooth_streaming_resource_get_content (GssTransaction * t);
 #endif
 static void gss_smooth_streaming_get_resource (GssTransaction * t);
+static void load_file (GssISM * ism, char *filename, int video_bitrate,
+    int audio_bitrate);
 
 static GHashTable *ism_cache;
 
@@ -191,7 +193,7 @@ gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
     GSS_P ("    <QualityLevel Index=\"%d\" Bitrate=\"%d\" "
         "FourCC=\"H264\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
         "CodecPrivateData=\"%s\" />\n", i, level->bitrate, level->video_width,
-        level->video_height, ism->video_codec_data);
+        level->video_height, level->codec_data);
   }
   {
     GssISMLevel *level = &ism->video_levels[0];
@@ -215,7 +217,7 @@ gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
     GSS_P ("    <QualityLevel FourCC=\"AACL\" Bitrate=\"%d\" "
         "SamplingRate=\"%d\" Channels=\"2\" BitsPerSample=\"16\" "
         "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"%s\" />\n",
-        level->bitrate, ism->audio_rate, ism->audio_codec_data);
+        level->bitrate, level->audio_rate, level->codec_data);
   }
   {
     GssISMLevel *level = &ism->audio_levels[0];
@@ -445,8 +447,6 @@ gss_ism_load (const char *key)
   char **lines;
   gboolean ret;
   GError *error = NULL;
-  int video_bitrate;
-  int audio_bitrate;
 
   GST_DEBUG ("looking for %s", key);
 
@@ -460,89 +460,108 @@ gss_ism_load (const char *key)
 
   GST_DEBUG ("loading %s", key);
 
-  filename = NULL;
-  video_bitrate = 0;
-  audio_bitrate = 0;
+  ism = gss_ism_new ();
+
+  ism->kid = create_key_id (key);
+  ism->kid_len = 16;
 
   lines = g_strsplit (contents, "\n", 0);
   for (i = 0; lines[i]; i++) {
+    char *fn = NULL;
+    int video_bitrate = 0;
+    int audio_bitrate = 0;
+    char *full_fn;
 
-    ret = split (lines[i], &filename, &video_bitrate, &audio_bitrate);
+    ret = split (lines[i], &fn, &video_bitrate, &audio_bitrate);
     if (!ret)
       continue;
 
     GST_ERROR ("fn %s video_bitrate %d audio_bitrate %d",
-        filename, video_bitrate, audio_bitrate);
+        fn, video_bitrate, audio_bitrate);
+
+    full_fn = g_strdup_printf ("ism-vod/%s/%s", key, fn);
+
+    load_file (ism, full_fn, video_bitrate, audio_bitrate);
+    g_free (full_fn);
+    g_free (fn);
   }
+
+  ism->playready = TRUE;
+  ism->needs_encryption = TRUE;
 
   g_strfreev (lines);
   g_free (contents);
 
-  if (filename == NULL) {
-    return NULL;
-  }
-
-  {
-    GssIsomFile *file;
-    GssIsomTrack *video_track;
-    char *fn;
-
-    ism = gss_ism_new ();
-
-    ism->kid = create_key_id (key);
-    ism->kid_len = 16;
-
-    ism->n_video_levels = 1;
-    ism->video_levels = g_malloc0 (ism->n_video_levels * sizeof (GssISMLevel));
-    ism->n_audio_levels = 1;
-    ism->audio_levels = g_malloc0 (ism->n_audio_levels * sizeof (GssISMLevel));
-
-    file = gss_isom_file_new ();
-    fn = g_strdup_printf ("ism-vod/%s/%s", key, filename);
-    gss_isom_file_parse_file (file, fn);
-
-    if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
-      gss_isom_file_fragmentize (file);
-    }
-
-    video_track = gss_isom_movie_get_video_track (file->movie);
-    ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
-    ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
-
-    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
-        ism->audio_levels[0].track_id);
-    ism->audio_levels[0].file = file;
-    ism->audio_levels[0].track_id = AUDIO_TRACK_ID;
-    ism->audio_levels[0].filename = fn;
-    ism->audio_levels[0].bitrate = audio_bitrate;
-
-    ism->video_levels[0].track_id = VIDEO_TRACK_ID;
-    ism->video_levels[0].n_fragments = gss_isom_file_get_n_fragments (file,
-        ism->video_levels[0].track_id);
-    ism->video_levels[0].filename = fn;
-    ism->video_levels[0].bitrate = video_bitrate;
-    ism->video_levels[0].video_width = file->movie->tracks[1]->mp4v.width;
-    ism->video_levels[0].video_height = file->movie->tracks[1]->mp4v.height;
-    ism->video_levels[0].file = file;
-    ism->video_levels[0].is_h264 = TRUE;
-
-    ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
-
-    ism->video_codec_data =
-        get_codec_string (file->movie->tracks[1]->esds.codec_data,
-        file->movie->tracks[1]->esds.codec_data_len);
-    ism->audio_codec_data =
-        get_codec_string (file->movie->tracks[0]->esds.codec_data,
-        file->movie->tracks[0]->esds.codec_data_len);
-    ism->audio_rate = file->movie->tracks[0]->mp4a.sample_rate >> 16;
-    ism->playready = TRUE;
-    ism->needs_encryption = TRUE;
-  }
-
   GST_DEBUG ("loading done");
 
   return ism;
+}
+
+static void
+load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
+{
+  GssIsomFile *file;
+  GssIsomTrack *video_track;
+  GssIsomTrack *audio_track;
+
+  file = gss_isom_file_new ();
+  gss_isom_file_parse_file (file, filename);
+
+  if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
+    gss_isom_file_fragmentize (file);
+  }
+
+  if (ism->duration == 0) {
+    ism->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
+  }
+
+  video_track = gss_isom_movie_get_video_track (file->movie);
+  if (video_track) {
+    GssISMLevel *level;
+
+    ism->video_levels = g_realloc (ism->video_levels,
+        (ism->n_video_levels + 1) * sizeof (GssISMLevel));
+    level = ism->video_levels + ism->n_video_levels;
+    ism->n_video_levels++;
+    memset (level, 0, sizeof (GssISMLevel));
+
+    ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
+    ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
+
+    level->track_id = VIDEO_TRACK_ID;
+    level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
+    level->filename = g_strdup (filename);
+    level->bitrate = video_bitrate;
+    level->video_width = file->movie->tracks[1]->mp4v.width;
+    level->video_height = file->movie->tracks[1]->mp4v.height;
+    level->file = file;
+    level->is_h264 = TRUE;
+
+    level->codec_data = get_codec_string (video_track->esds.codec_data,
+        video_track->esds.codec_data_len);
+  }
+
+  audio_track = gss_isom_movie_get_video_track (file->movie);
+  if (audio_track) {
+    GssISMLevel *level;
+
+    ism->audio_levels = g_realloc (ism->audio_levels,
+        (ism->n_audio_levels + 1) * sizeof (GssISMLevel));
+    level = ism->audio_levels + ism->n_audio_levels;
+    ism->n_audio_levels++;
+    memset (level, 0, sizeof (GssISMLevel));
+
+    level->track_id = AUDIO_TRACK_ID;
+    level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
+    level->file = file;
+    level->track_id = AUDIO_TRACK_ID;
+    level->filename = g_strdup (filename);
+    level->bitrate = audio_bitrate;
+    level->codec_data = get_codec_string (audio_track->esds.codec_data,
+        audio_track->esds.codec_data_len);
+    level->audio_rate = audio_track->mp4a.sample_rate >> 16;
+  }
+
 }
 
 static void

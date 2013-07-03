@@ -39,10 +39,7 @@ struct _GssISM
   int n_audio_levels;
   int n_video_levels;
 
-  char *video_codec_data;
-  char *audio_codec_data;
   gboolean playready;
-  int audio_rate;
 
   GssISMLevel *audio_levels;
   GssISMLevel *video_levels;
@@ -66,6 +63,8 @@ struct _GssISMLevel
   GssIsomFile *file;
   int track_id;
   gboolean is_h264;
+  char *codec_data;
+  int audio_rate;
 };
 
 GssISM *gss_ism_new (void);
