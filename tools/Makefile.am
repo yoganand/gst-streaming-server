@@ -3,7 +3,7 @@ bin_PROGRAMS = \
 	gss-server
 
 noinst_PROGRAMS = \
-	vts-server
+	vts-server gss-info
 
 
 gss_server_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS)
@@ -16,6 +16,16 @@ vts_server_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER
 vts_server_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS)
 vts_server_SOURCES = \
 	vts-server.c
+
+gss_info_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS) $(OPENSSL_CFLAGS)
+gss_info_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS) $(OPENSSL_LIBS)
+gss_info_SOURCES = \
+	gss-info.c
+
+
+
+
+
 
 
 
