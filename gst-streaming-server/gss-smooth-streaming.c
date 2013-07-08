@@ -211,13 +211,14 @@ gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
       "Chunks=\"%d\" QualityLevels=\"%d\" "
       "Url=\"content?stream=audio&amp;bitrate={bitrate}&amp;start_time={start time}\">\n",
       ism->audio_levels[0].n_fragments, ism->n_audio_levels);
-  for (i = 0; i < ism->n_video_levels; i++) {
+  for (i = 0; i < ism->n_audio_levels; i++) {
     GssISMLevel *level = &ism->audio_levels[i];
 
     GSS_P ("    <QualityLevel FourCC=\"AACL\" Bitrate=\"%d\" "
         "SamplingRate=\"%d\" Channels=\"2\" BitsPerSample=\"16\" "
         "PacketSize=\"4\" AudioTag=\"255\" CodecPrivateData=\"%s\" />\n",
         level->bitrate, level->audio_rate, level->codec_data);
+    break;
   }
   {
     GssISMLevel *level = &ism->audio_levels[0];
@@ -541,7 +542,7 @@ load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
         video_track->esds.codec_data_len);
   }
 
-  audio_track = gss_isom_movie_get_video_track (file->movie);
+  audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track) {
     GssISMLevel *level;
 
