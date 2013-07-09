@@ -2006,7 +2006,10 @@ gss_isom_file_fragmentize (GssIsomFile * file)
       video_timestamp = next_timestamp;
       samples[j].size = sample.size;
       samples[j].flags = 0;
-      samples[j].composition_time_offset = sample.composition_time_offset;
+      samples[j].composition_time_offset =
+          gst_util_uint64_scale_int (sample.composition_time_offset +
+          video_track->mdhd.timescale, 10000000,
+          video_track->mdhd.timescale) - 10000000;
 
       video_fragment->chunks[j].offset = sample.offset;
       video_fragment->chunks[j].size = sample.size;
@@ -2015,7 +2018,8 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     video_fragment->traf.trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
     video_fragment->traf.trun.flags =
-        TR_SAMPLE_SIZE | TR_DATA_OFFSET | TR_FIRST_SAMPLE_FLAGS;
+        TR_SAMPLE_SIZE | TR_DATA_OFFSET | TR_FIRST_SAMPLE_FLAGS |
+        TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
     video_fragment->traf.trun.first_sample_flags = 0x40;
     video_fragment->duration = video_timestamp - video_fragment->timestamp;
 
