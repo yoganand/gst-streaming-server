@@ -40,6 +40,7 @@ struct _GssTranscoder
 
   gboolean paused_for_buffering;
   guint timer_id;
+  gboolean audio_linked;
 
   /* properties */
   char *uri;
@@ -59,8 +60,8 @@ struct _GssProfile
 };
 
 GssProfile profiles[] = {
-  {1920, 1080, 5000000, 128000},
-  {1280, 720, 2500000, 128000},
+  //{1920, 1080, 5000000, 128000},
+  //{1280, 720, 2500000, 128000},
   {640, 360, 600000, 128000}
 };
 
@@ -73,6 +74,9 @@ void gss_transcoder_stop (GssTranscoder * transcoder);
 static gboolean gss_transcoder_handle_message (GstBus * bus,
     GstMessage * message, gpointer data);
 static gboolean onesecond_timer (gpointer priv);
+static void pad_added (GstElement * element, GstPad * pad, gpointer user_data);
+
+GstPad *gst_element_get_sink_pad (GstElement * element);
 
 gboolean verbose;
 gboolean use_deinterlace = FALSE;
@@ -129,7 +133,7 @@ main (int argc, char *argv[])
     if (gst_uri_is_valid (argv[1])) {
       uri = g_strdup (argv[1]);
     } else {
-      uri = g_filename_to_uri (argv[1], NULL, NULL);
+      uri = gst_filename_to_uri (argv[1], NULL);
     }
     g_print ("URI is %s\n", uri);
     transcoder->uri = uri;
@@ -205,32 +209,32 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
     g_string_append (s, "filesrc name=src ! ");
   }
 
-  g_string_append (s, "decodebin name=dec ! ");
+  g_string_append (s, "decodebin name=dec ");
 
-  g_string_append (s, "video/x-raw ! queue ! ");
-
+  g_string_append (s, "queue name=vqueue ! ");
   if (use_deinterlace) {
     g_string_append (s, "yadif ! ");
   } else if (use_ivtc) {
     g_string_append (s, "ivtc ! ");
   }
 
+  g_string_append (s, "videoconvert ! ");
+  g_string_append (s, "video/x-raw,format=I420 ! ");
   g_string_append_printf (s, "videocrop top=%d bottom=%d left=%d right=%d ! ",
       transcoder->crop_top, transcoder->crop_bottom,
       transcoder->crop_left, transcoder->crop_right);
-
-  g_string_append (s, "videoconvert ! ");
-  g_string_append (s, "video/x-raw,format=I420 ! ");
+  g_string_append (s, "queue ! ");
   g_string_append (s, "tee name=vtee ");
 
-  g_string_append (s, "dec. ! queue max-size-time=5000000000 "
+  g_string_append (s, "queue name=aqueue max-size-time=5000000000 "
       "max-size-bytes=0 max-size-buffers=0 ! ");
   g_string_append (s, "audioconvert ! ");
-  g_string_append (s, "audio/x-raw,format=S16LE,channels=2 ! ");
+  g_string_append (s, "audio/x-raw,channels=2 ! ");
   g_string_append (s, "audioresample ! ");
   g_string_append (s, "audio/x-raw,rate=48000 ! ");
   g_string_append_printf (s, "neroaacenc bitrate=%d ! ",
       profiles[0].audio_bitrate);
+  g_string_append (s, "queue ! ");
   g_string_append (s, "tee name=atee ");
 
   for (i = 0; i < G_N_ELEMENTS (profiles); i++) {
@@ -239,10 +243,13 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
     g_string_append_printf (s,
         "video/x-raw,pixel-aspect-ratio=1/1,width=%d,height=%d ! ",
         profiles[i].width, profiles[i].height);
-    g_string_append_printf (s, "x264enc name=venc%d bitrate=%d ! ", i,
+    g_string_append_printf (s,
+        "x264enc name=venc%d bitrate=%d tune=zerolatency ! ", i,
         (profiles[i].total_bitrate - profiles[i].audio_bitrate) / 1000);
+    g_string_append_printf (s, "queue ! ");
     g_string_append_printf (s, "mp4mux name=mux%d ! ", i);
-    g_string_append_printf (s, "filesink name=sink%d location=out.mp4 ", i);
+    g_string_append_printf (s, "filesink name=sink%d location=out-%d.mp4 ",
+        i, i);
 
     g_string_append (s, "atee. ! queue ! ");
     g_string_append_printf (s, "mux%d. ", i);
@@ -276,10 +283,91 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
   }
   g_object_unref (e);
 
+  e = gst_bin_get_by_name (GST_BIN (pipeline), "dec");
+  g_assert (e);
+  g_signal_connect (e, "pad-added", G_CALLBACK (pad_added), transcoder);
+
+  g_object_unref (e);
+
 
   transcoder->source_element = gst_bin_get_by_name (GST_BIN (pipeline), "src");
   g_print ("source_element is %p\n", transcoder->source_element);
 
+}
+
+static void
+pad_added (GstElement * element, GstPad * pad, gpointer user_data)
+{
+  GssTranscoder *transcoder = (GssTranscoder *) user_data;
+  GstCaps *caps;
+  GstStructure *structure;
+  GstPadLinkReturn ret;
+
+  caps = gst_pad_get_current_caps (pad);
+
+  GST_ERROR ("new pad: %" GST_PTR_FORMAT, caps);
+  structure = gst_caps_get_structure (caps, 0);
+  if (gst_structure_has_name (structure, "video/x-raw")) {
+    GstElement *e;
+    GstPad *sinkpad;
+
+    e = gst_bin_get_by_name (GST_BIN (transcoder->pipeline), "vqueue");
+    g_assert (e);
+    sinkpad = gst_element_get_static_pad (e, "sink");
+    g_assert (sinkpad);
+
+    ret = gst_pad_link (pad, sinkpad);
+    if (GST_PAD_LINK_FAILED (ret)) {
+      GST_ERROR ("link failed");
+    }
+
+    g_object_unref (sinkpad);
+    g_object_unref (e);
+  } else if (gst_structure_has_name (structure, "audio/x-raw")) {
+    if (!transcoder->audio_linked) {
+      GstElement *e;
+      GstPad *sinkpad;
+
+      transcoder->audio_linked = TRUE;
+
+      e = gst_bin_get_by_name (GST_BIN (transcoder->pipeline), "aqueue");
+      g_assert (e);
+      sinkpad = gst_element_get_static_pad (e, "sink");
+      g_assert (sinkpad);
+
+      ret = gst_pad_link (pad, sinkpad);
+      if (GST_PAD_LINK_FAILED (ret)) {
+        GST_ERROR ("link failed");
+      }
+
+      g_object_unref (sinkpad);
+      g_object_unref (e);
+    } else {
+      GstElement *bin;
+      GstPad *sinkpad;
+      gboolean bret;
+
+      bin =
+          gst_parse_bin_from_description
+          ("queue max-size-time=5000000000 max-size-bytes=0 "
+          "max-size-buffers=0 ! fakesink", TRUE, NULL);
+      gst_bin_add (GST_BIN (transcoder->pipeline), bin);
+      bret = gst_element_sync_state_with_parent (bin);
+      if (!bret) {
+        GST_ERROR ("could not sync with parent");
+      }
+
+      sinkpad = gst_element_get_sink_pad (bin);
+      g_assert (sinkpad);
+      ret = gst_pad_link (pad, sinkpad);
+      if (GST_PAD_LINK_FAILED (ret)) {
+        GST_ERROR ("link failed");
+      }
+
+      g_object_unref (sinkpad);
+    }
+
+  }
 }
 
 void
@@ -337,6 +425,7 @@ static void
 gss_transcoder_handle_ready_to_paused (GssTranscoder * transcoder)
 {
   if (!transcoder->paused_for_buffering) {
+    GST_ERROR ("set playing");
     gst_element_set_state (transcoder->pipeline, GST_STATE_PLAYING);
   }
 }
@@ -344,6 +433,7 @@ gss_transcoder_handle_ready_to_paused (GssTranscoder * transcoder)
 static void
 gss_transcoder_handle_paused_to_playing (GssTranscoder * transcoder)
 {
+  GST_ERROR ("PLAYING");
 
 }
 
@@ -467,6 +557,11 @@ gss_transcoder_handle_message (GstBus * bus, GstMessage * message,
       }
     }
       break;
+    case GST_MESSAGE_LATENCY:
+    {
+      GST_ERROR ("latency message");
+    }
+      break;
     case GST_MESSAGE_STATE_DIRTY:
     case GST_MESSAGE_CLOCK_PROVIDE:
     case GST_MESSAGE_CLOCK_LOST:
@@ -480,7 +575,6 @@ gss_transcoder_handle_message (GstBus * bus, GstMessage * message,
     case GST_MESSAGE_SEGMENT_START:
     case GST_MESSAGE_SEGMENT_DONE:
     case GST_MESSAGE_DURATION:
-    case GST_MESSAGE_LATENCY:
     case GST_MESSAGE_ASYNC_START:
     case GST_MESSAGE_ASYNC_DONE:
     case GST_MESSAGE_REQUEST_STATE:
@@ -527,3 +621,38 @@ have_element (const gchar * element_name)
   return FALSE;
 }
 #endif
+
+GstPad *
+gst_element_get_sink_pad (GstElement * element)
+{
+  GstIterator *iter;
+  GstPad *pad = NULL;
+  gboolean done = FALSE;
+  GValue item = { 0 };
+
+  iter = gst_element_iterate_sink_pads (element);
+
+  while (!done) {
+    switch (gst_iterator_next (iter, &item)) {
+      case GST_ITERATOR_OK:
+        pad = g_value_dup_object (&item);
+        g_value_reset (&item);
+        done = TRUE;
+        break;
+      case GST_ITERATOR_RESYNC:
+        pad = NULL;
+        gst_iterator_resync (iter);
+        break;
+      case GST_ITERATOR_ERROR:
+        done = TRUE;
+        break;
+      case GST_ITERATOR_DONE:
+        done = TRUE;
+        break;
+    }
+  }
+  g_value_unset (&item);
+  gst_iterator_free (iter);
+
+  return pad;
+}
