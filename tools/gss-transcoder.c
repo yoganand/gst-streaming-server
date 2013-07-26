@@ -61,8 +61,8 @@ struct _GssProfile
 
 GssProfile profiles[] = {
   //{1920, 1080, 5000000, 128000},
-  //{1280, 720, 2500000, 128000},
-  {640, 360, 600000, 128000}
+  {1280, 720, 2500000, 128000},
+  //{640, 360, 600000, 128000}
 };
 
 GssTranscoder *gss_transcoder_new (void);
@@ -75,6 +75,9 @@ static gboolean gss_transcoder_handle_message (GstBus * bus,
     GstMessage * message, gpointer data);
 static gboolean onesecond_timer (gpointer priv);
 static void pad_added (GstElement * element, GstPad * pad, gpointer user_data);
+static GstPadProbeReturn
+segment_probe (GstPad * pad, GstPadProbeInfo * info, gpointer user_data);
+static void parse_crop_string (GssTranscoder * transcoder, const char *s);
 
 GstPad *gst_element_get_sink_pad (GstElement * element);
 
@@ -86,6 +89,7 @@ double clip_start = 0.0;
 double clip_end = 0.0;
 char *output = "out";
 char *audio_channel_string = "0,1";
+gboolean use_stretch = FALSE;
 
 
 static GOptionEntry entries[] = {
@@ -95,6 +99,8 @@ static GOptionEntry entries[] = {
       "Enable deinterlacing filter", NULL},
   {"ivtc", 0, 0, G_OPTION_ARG_NONE, &use_ivtc, "Enable inverse telecine filter",
       NULL},
+  {"stretch", 0, 0, G_OPTION_ARG_NONE, &use_stretch,
+      "Enable stretching instead of letterboxing", NULL},
 
   {"crop", 0, 0, G_OPTION_ARG_STRING, &crop_string,
       "Crop [top,bottom,left,right]", NULL},
@@ -128,6 +134,8 @@ main (int argc, char *argv[])
 
   transcoder = gss_transcoder_new ();
 
+  parse_crop_string (transcoder, crop_string);
+
   if (argc > 1) {
     gchar *uri;
     if (gst_uri_is_valid (argv[1])) {
@@ -143,6 +151,7 @@ main (int argc, char *argv[])
     exit (1);
   }
 
+
   gss_transcoder_start (transcoder);
 
   main_loop = g_main_loop_new (NULL, TRUE);
@@ -153,6 +162,26 @@ main (int argc, char *argv[])
   exit (0);
 }
 
+static void
+parse_crop_string (GssTranscoder * transcoder, const char *s)
+{
+  char **parts;
+
+  parts = g_strsplit (s, ",", 5);
+  if (parts[0]) {
+    transcoder->crop_top = strtoul (parts[0], NULL, 10);
+    if (parts[1]) {
+      transcoder->crop_bottom = strtoul (parts[1], NULL, 10);
+      if (parts[2]) {
+        transcoder->crop_left = strtoul (parts[2], NULL, 10);
+        if (parts[3]) {
+          transcoder->crop_right = strtoul (parts[3], NULL, 10);
+        }
+      }
+    }
+  }
+  g_strfreev (parts);
+}
 
 GssTranscoder *
 gss_transcoder_new (void)
@@ -192,6 +221,7 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
   GString *s;
   gboolean is_http;
   GstElement *e;
+  GstPad *pad;
   int i;
 
   s = g_string_new ("");
@@ -212,6 +242,7 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
   g_string_append (s, "decodebin name=dec ");
 
   g_string_append (s, "queue name=vqueue ! ");
+  g_string_append (s, "videosegmentclip name=vclip ! ");
   if (use_deinterlace) {
     g_string_append (s, "yadif ! ");
   } else if (use_ivtc) {
@@ -228,6 +259,7 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
 
   g_string_append (s, "queue name=aqueue max-size-time=5000000000 "
       "max-size-bytes=0 max-size-buffers=0 ! ");
+  g_string_append (s, "audiosegmentclip name=aclip ! ");
   g_string_append (s, "audioconvert ! ");
   g_string_append (s, "audio/x-raw,channels=2 ! ");
   g_string_append (s, "audioresample ! ");
@@ -239,7 +271,11 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
 
   for (i = 0; i < G_N_ELEMENTS (profiles); i++) {
     g_string_append (s, "vtee. ! queue ! ");
-    g_string_append (s, "videoscale ! ");
+    if (use_stretch) {
+      g_string_append (s, "videoscale add-borders=false ! ");
+    } else {
+      g_string_append (s, "videoscale add-borders=true ! ");
+    }
     g_string_append_printf (s,
         "video/x-raw,pixel-aspect-ratio=1/1,width=%d,height=%d ! ",
         profiles[i].width, profiles[i].height);
@@ -248,6 +284,7 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
         (profiles[i].total_bitrate - profiles[i].audio_bitrate) / 1000);
     g_string_append_printf (s, "queue ! ");
     g_string_append_printf (s, "mp4mux name=mux%d ! ", i);
+    g_string_append_printf (s, "watchdog timeout=5000 ! ");
     g_string_append_printf (s, "filesink name=sink%d location=out-%d.mp4 ",
         i, i);
 
@@ -289,6 +326,23 @@ gss_transcoder_create_pipeline (GssTranscoder * transcoder)
 
   g_object_unref (e);
 
+  e = gst_bin_get_by_name (GST_BIN (pipeline), "aqueue");
+  g_assert (e);
+  pad = gst_element_get_static_pad (e, "src");
+  g_assert (pad);
+  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+      segment_probe, transcoder, NULL);
+  g_object_unref (pad);
+  g_object_unref (e);
+
+  e = gst_bin_get_by_name (GST_BIN (pipeline), "vqueue");
+  g_assert (e);
+  pad = gst_element_get_static_pad (e, "src");
+  g_assert (pad);
+  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+      segment_probe, transcoder, NULL);
+  g_object_unref (pad);
+  g_object_unref (e);
 
   transcoder->source_element = gst_bin_get_by_name (GST_BIN (pipeline), "src");
   g_print ("source_element is %p\n", transcoder->source_element);
@@ -304,6 +358,11 @@ pad_added (GstElement * element, GstPad * pad, gpointer user_data)
   GstPadLinkReturn ret;
 
   caps = gst_pad_get_current_caps (pad);
+  if (caps == NULL) {
+    GST_ERROR ("current caps is NULL");
+    g_assert (caps);
+    return;
+  }
 
   GST_ERROR ("new pad: %" GST_PTR_FORMAT, caps);
   structure = gst_caps_get_structure (caps, 0);
@@ -368,6 +427,45 @@ pad_added (GstElement * element, GstPad * pad, gpointer user_data)
     }
 
   }
+}
+
+static GstPadProbeReturn
+segment_probe (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
+{
+  GstEvent *event;
+
+  event = gst_pad_probe_info_get_event (info);
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_SEGMENT:
+    {
+      const GstSegment *segment;
+      GstSegment newsegment;
+      GstEvent *new_event;
+
+      gst_event_parse_segment (event, &segment);
+
+      if (segment->start == clip_start * GST_SECOND &&
+          (clip_end != 0.0 && segment->stop == clip_end * GST_SECOND)) {
+        return GST_PAD_PROBE_OK;
+      }
+
+      GST_ERROR ("fixing up segment event %" G_GUINT64_FORMAT ":%"
+          G_GUINT64_FORMAT, segment->start, segment->stop);
+      gst_segment_copy_into (segment, &newsegment);
+      newsegment.start = clip_start * GST_SECOND;
+      if (clip_end != 0.0) {
+        newsegment.stop = clip_end * GST_SECOND;
+      }
+      new_event = gst_event_new_segment (&newsegment);
+      gst_pad_push_event (pad, new_event);
+      return GST_PAD_PROBE_DROP;
+    }
+      break;
+    default:
+      break;
+  }
+
+  return GST_PAD_PROBE_OK;
 }
 
 void
