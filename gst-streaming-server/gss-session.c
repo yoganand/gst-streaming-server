@@ -29,6 +29,7 @@
 
 #include <json-glib/json-glib.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 #define GST_CAT_DEFAULT gss_debug
 
