@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 
 SUBDIRS = gst-streaming-server tools pkgconfig doc
 
-EXTRA_DIST = autogen.sh gtk-doc.mak HACKING TODO BUGS README
+EXTRA_DIST = autogen.sh gtk-doc.make HACKING TODO BUGS README
 
 DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
 
