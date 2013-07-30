@@ -49,6 +49,7 @@
 #define AUDIO_TRACK_ID 1
 #define VIDEO_TRACK_ID 2
 
+#define GSS_ISM_SECOND 10000000
 
 static void gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t,
     GssISM * ism);
@@ -248,6 +249,69 @@ gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
     GSS_A ("</Protection>\n");
   }
   GSS_A ("</SmoothStreamingMedia>\n");
+
+}
+
+static void
+gss_smooth_streaming_resource_get_dash_mpd (GssTransaction * t, GssISM * ism)
+{
+  GString *s = g_string_new ("");
+  int i;
+
+  t->s = s;
+
+  GSS_P ("<MPD xmlns=\"urn:mpeg:DASH:schema:MPD:2011\" "
+      "mediaPresentationDuration=\"PT%dS\" "
+      "minBufferTime=\"PT5S\" "
+      "profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\" "
+      "type=\"static\">\n", (int) (ism->duration / GSS_ISM_SECOND));
+  GSS_A ("  <BaseURL>http://localhost:8080/ism-vod/southpark/</BaseURL>\n");
+  GSS_P ("  <Period duration=\"PT%dS\" start=\"PT0S\">\n",
+      (int) (ism->duration / GSS_ISM_SECOND));
+
+  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
+      "codecs=\"avc1.4D401F\" frameRate=\"24/1\" "
+      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
+      "bitstreamSwitching=\"true\">\n");
+  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
+      "initialization=\"$Bandwidth$/init.mp4v\" "
+      "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
+  GSS_A ("        <SegmentTimeline>\n");
+  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
+      ism->video_levels[0].n_fragments);
+  GSS_A ("        </SegmentTimeline>\n");
+  GSS_A ("      </SegmentTemplate>\n");
+
+  for (i = 0; i < ism->n_video_levels; i++) {
+    GssISMLevel *level = &ism->video_levels[i];
+
+    GSS_P ("      <Representation id=\"v%d\" width=\"%d\" height=\"%d\" "
+        "bandwidth=\"%d\"/>\n",
+        i, level->video_width, level->video_height, level->bitrate);
+  }
+  GSS_A ("    </AdaptationSet>\n");
+
+  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
+      "codecs=\"mp4a\" frameRate=\"24/1\" "
+      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
+      "bitstreamSwitching=\"true\">\n");
+  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
+      "initialization=\"$Bandwidth$/init.mp4v\" "
+      "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
+  GSS_A ("        <SegmentTimeline>\n");
+  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
+      ism->video_levels[0].n_fragments);
+  GSS_A ("        </SegmentTimeline>\n");
+  GSS_A ("      </SegmentTemplate>\n");
+  for (i = 0; i < ism->n_audio_levels; i++) {
+    GssISMLevel *level = &ism->audio_levels[i];
+
+    GSS_P ("      <Representation id=\"a%d\" bandwidth=\"%d\"/>\n",
+        i, level->bitrate);
+  }
+  GSS_A ("    </AdaptationSet>\n");
+  GSS_A ("  </Period>\n");
+  GSS_A ("</MPD>\n");
 
 }
 
@@ -602,6 +666,8 @@ gss_smooth_streaming_get_resource (GssTransaction * t)
     gss_smooth_streaming_resource_get_manifest2 (t, ism);
   } else if (strcmp (subpath, "content") == 0) {
     gss_smooth_streaming_resource_get_content2 (t, ism);
+  } else if (strcmp (subpath, "manifest.mpd") == 0) {
+    gss_smooth_streaming_resource_get_dash_mpd (t, ism);
   } else {
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
   }
