@@ -328,7 +328,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
       /* ignore */
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " at offset %" G_GINT64_MODIFIER "x, size %d",
+          " at offset %" G_GINT64_MODIFIER "x, size %" G_GUINT64_FORMAT,
           GST_FOURCC_ARGS (atom), file->offset, size);
     }
 
@@ -546,8 +546,8 @@ gss_isom_parse_moof (GssIsomFile * file, GssIsomFragment * fragment,
       }
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " inside moof at offset %" G_GINT64_MODIFIER "x, size %d",
-          GST_FOURCC_ARGS (atom), file->offset, size);
+          " inside moof at offset %" G_GINT64_MODIFIER "x, size %"
+          G_GUINT64_FORMAT, GST_FOURCC_ARGS (atom), file->offset, size);
     }
 
     gst_byte_reader_skip (br, size - 8);
@@ -594,8 +594,8 @@ gss_isom_parse_traf (GssIsomFile * file, AtomTraf * traf, GstByteReader * br)
       }
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " inside traf at offset %" G_GINT64_MODIFIER "x, size %d",
-          GST_FOURCC_ARGS (atom), file->offset, size);
+          " inside traf at offset %" G_GINT64_MODIFIER "x, size %"
+          G_GUINT64_FORMAT, GST_FOURCC_ARGS (atom), file->offset, size);
     }
 
     gst_byte_reader_skip (br, size - 8);
@@ -1105,8 +1105,8 @@ gss_isom_parse_dref (GssIsomFile * file, GssIsomTrack * track,
     } else if (atom == GST_MAKE_FOURCC ('c', 'i', 'o', 's')) {
       GST_FIXME ("cios");
     } else {
-      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside dref, size %d",
-          GST_FOURCC_ARGS (atom), size);
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside dref, size %"
+          G_GUINT64_FORMAT, GST_FOURCC_ARGS (atom), size);
     }
 
     gst_byte_reader_skip (br, size - 8);
@@ -1457,8 +1457,8 @@ gss_isom_parse_stsd (GssIsomFile * file, GssIsomTrack * track,
       GST_FIXME ("AV1x");
     } else {
 #if 1
-      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside stsd, size %d",
-          GST_FOURCC_ARGS (atom), size);
+      GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT " inside stsd, size %"
+          G_GUINT64_FORMAT, GST_FOURCC_ARGS (atom), size);
 #endif
     }
 
@@ -1577,7 +1577,7 @@ gss_isom_parse_container (GssIsomFile * file, GssIsomTrack * track,
     }
     if (atoms[i].atom == 0) {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " inside %" GST_FOURCC_FORMAT ", size %d",
+          " inside %" GST_FOURCC_FORMAT ", size %" G_GUINT64_FORMAT,
           GST_FOURCC_ARGS (atom), GST_FOURCC_ARGS (parent_atom), size);
     }
 
@@ -1664,8 +1664,9 @@ gss_isom_parse_moov (GssIsomFile * file, GssIsomMovie * movie,
       }
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
-          " inside moov at offset %" G_GINT64_MODIFIER "x, size %d",
-          GST_FOURCC_ARGS (atom), file->offset + br->byte, size);
+          " inside moov at offset %" G_GINT64_MODIFIER "x, size %"
+          G_GUINT64_FORMAT, GST_FOURCC_ARGS (atom), file->offset + br->byte,
+          size);
     }
 
     gst_byte_reader_skip (br, size - 8);
