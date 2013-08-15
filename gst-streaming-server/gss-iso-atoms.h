@@ -32,6 +32,9 @@ typedef struct _AtomSdtp AtomSdtp;
 typedef struct _AtomUUIDSampleEncryption AtomUUIDSampleEncryption;
 typedef struct _AtomUUIDSampleEncryptionSample AtomUUIDSampleEncryptionSample;
 typedef struct _AtomUUIDSampleEncryptionSampleEntry AtomUUIDSampleEncryptionSampleEntry;
+typedef struct _AtomAvcn AtomAvcn;
+typedef struct _AtomTfdt AtomTfdt;
+typedef struct _AtomTrik AtomTrik;
 typedef struct _AtomTraf AtomTraf;
 typedef struct _AtomMoof AtomMoof;
 
@@ -163,6 +166,24 @@ struct _AtomUUIDSampleEncryptionSampleEntry
   guint32 bytes_of_encrypted_data;
 };
 
+struct _AtomAvcn
+{
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomTfdt
+{
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomTrik
+{
+  guint8 version;
+  guint32 flags;
+};
+
 struct _AtomTraf
 {
   guint8 version;
@@ -172,6 +193,9 @@ struct _AtomTraf
   AtomTrun trun;
   AtomSdtp sdtp;
   AtomUUIDSampleEncryption sample_encryption;
+  AtomAvcn avcn;
+  AtomTfdt tfdt;
+  AtomTrik trik;
 };
 
 struct _AtomMoof

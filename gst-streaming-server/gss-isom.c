@@ -90,6 +90,12 @@ static void gss_isom_parse_mfra (GssIsomFile * file, guint64 offset,
     guint64 size);
 static void gss_isom_parse_sample_encryption (GssIsomFile * file,
     AtomUUIDSampleEncryption * se, GstByteReader * br);
+static void gss_isom_parse_avcn (GssIsomFile * file, AtomAvcn * avcn,
+    GstByteReader * br);
+static void gss_isom_parse_tfdt (GssIsomFile * file, AtomTfdt * tfdt,
+    GstByteReader * br);
+static void gss_isom_parse_trik (GssIsomFile * file, AtomTrik * trik,
+    GstByteReader * br);
 static void gss_isom_parse_moov (GssIsomFile * file, GssIsomMovie * movie,
     GstByteReader * br);
 static void gss_isom_fixup_moof (GssIsomFragment * fragment);
@@ -101,6 +107,17 @@ static void gss_isom_parse_ignore (GssIsomFile * file, GssIsomTrack * track,
     GstByteReader * br);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
+
+
+#define CHECK_END(br) do { \
+  if ((br)->byte < (br)->size) \
+    GST_ERROR("leftover bytes %d < %d", (br)->byte, (br)->size); \
+} while(0)
+#define CHECK_END_ATOM(br, atom) do { \
+  if ((br)->byte < (br)->size) \
+    GST_ERROR("leftover bytes %d < %d in container %" GST_FOURCC_FORMAT, \
+        (br)->byte, (br)->size, GST_FOURCC_ARGS((atom))); \
+} while(0)
 
 
 GssIsomFile *
@@ -326,6 +343,10 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
       /* ignore */
     } else if (atom == GST_MAKE_FOURCC ('w', 'i', 'd', 'e')) {
       /* ignore */
+    } else if (atom == GST_MAKE_FOURCC ('s', 't', 'y', 'p')) {
+      GST_ERROR ("styp");
+    } else if (atom == GST_MAKE_FOURCC ('s', 'i', 'd', 'x')) {
+      GST_ERROR ("sidx");
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " at offset %" G_GINT64_MODIFIER "x, size %" G_GUINT64_FORMAT,
@@ -471,6 +492,8 @@ gss_isom_parse_ftyp (GssIsomFile * file, guint64 offset, guint64 size)
     file->is_mp42 = TRUE;
   } else if (file->ftyp_atom == GST_MAKE_FOURCC ('q', 't', ' ', ' ')) {
     //file->is_qt__ = TRUE;
+  } else if (file->ftyp_atom == GST_MAKE_FOURCC ('d', 'a', 's', 'h')) {
+    //file->is_dash = TRUE;
   } else {
     GST_ERROR ("not isml, mp4, or qt file: %" GST_FOURCC_FORMAT,
         GST_FOURCC_ARGS (atom));
@@ -578,6 +601,12 @@ gss_isom_parse_traf (GssIsomFile * file, AtomTraf * traf, GstByteReader * br)
       gss_isom_parse_trun (file, &traf->trun, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('s', 'd', 't', 'p')) {
       gss_isom_parse_sdtp (file, &traf->sdtp, &sbr, traf->trun.sample_count);
+    } else if (atom == GST_MAKE_FOURCC ('a', 'v', 'c', 'n')) {
+      gss_isom_parse_avcn (file, &traf->avcn, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('t', 'f', 'd', 't')) {
+      gss_isom_parse_tfdt (file, &traf->tfdt, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'i', 'k')) {
+      gss_isom_parse_trik (file, &traf->trik, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -757,6 +786,36 @@ gss_isom_parse_sample_encryption (GssIsomFile * file,
 }
 
 static void
+gss_isom_parse_avcn (GssIsomFile * file, AtomAvcn * avcn, GstByteReader * br)
+{
+
+  gst_byte_reader_get_uint8 (br, &avcn->version);
+  gst_byte_reader_get_uint24_be (br, &avcn->flags);
+
+  CHECK_END (br);
+}
+
+static void
+gss_isom_parse_tfdt (GssIsomFile * file, AtomTfdt * tfdt, GstByteReader * br)
+{
+
+  gst_byte_reader_get_uint8 (br, &tfdt->version);
+  gst_byte_reader_get_uint24_be (br, &tfdt->flags);
+
+  CHECK_END (br);
+}
+
+static void
+gss_isom_parse_trik (GssIsomFile * file, AtomTrik * trik, GstByteReader * br)
+{
+
+  gst_byte_reader_get_uint8 (br, &trik->version);
+  gst_byte_reader_get_uint24_be (br, &trik->flags);
+
+  CHECK_END (br);
+}
+
+static void
 gss_isom_parse_mfra (GssIsomFile * file, guint64 offset, guint64 size)
 {
   /* ignored for now */
@@ -835,15 +894,6 @@ gss_isom_parse_mvhd (GssIsomFile * file, AtomMvhd * mvhd, GstByteReader * br)
   gst_byte_reader_get_uint32_be (br, &mvhd->next_track_id);
 }
 
-#define CHECK_END(br) do { \
-  if ((br)->byte < (br)->size) \
-    GST_ERROR("leftover bytes %d < %d", (br)->byte, (br)->size); \
-} while(0)
-#define CHECK_END_ATOM(br, atom) do { \
-  if ((br)->byte < (br)->size) \
-    GST_ERROR("leftover bytes %d < %d in container %" GST_FOURCC_FORMAT, \
-        (br)->byte, (br)->size, GST_FOURCC_ARGS((atom))); \
-} while(0)
 static void
 gss_isom_parse_tkhd (GssIsomFile * file, GssIsomTrack * track,
     GstByteReader * br)
