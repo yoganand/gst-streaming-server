@@ -1075,8 +1075,17 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     resource->post_callback (transaction);
   } else if (msg->method == SOUP_METHOD_SOURCE && resource->put_callback) {
     resource->put_callback (transaction);
+  } else if (msg->method == SOUP_METHOD_OPTIONS) {
+    soup_message_headers_replace (msg->response_headers,
+        "Access-Control-Allow-Origin", "*");
+    soup_message_headers_replace (msg->response_headers,
+        "Access-Control-Allow-Headers", "origin,range");
+    soup_message_headers_replace (msg->response_headers,
+        "Access-Control-Expose-Headers", "Server,range");
+    soup_message_headers_replace (msg->response_headers,
+        "Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   } else {
-    gss_html_error_404 (server, msg);
+    gss_html_error_405 (server, msg);
   }
 
   if (transaction->s) {
