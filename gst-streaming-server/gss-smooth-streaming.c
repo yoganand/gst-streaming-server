@@ -597,8 +597,8 @@ load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
     level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
     level->filename = g_strdup (filename);
     level->bitrate = video_bitrate;
-    level->video_width = file->movie->tracks[1]->mp4v.width;
-    level->video_height = file->movie->tracks[1]->mp4v.height;
+    level->video_width = video_track->mp4v.width;
+    level->video_height = video_track->mp4v.height;
     level->file = file;
     level->is_h264 = TRUE;
 
