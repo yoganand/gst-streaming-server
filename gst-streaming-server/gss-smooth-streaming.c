@@ -253,26 +253,49 @@ gss_smooth_streaming_resource_get_manifest2 (GssTransaction * t, GssISM * ism)
 }
 
 static void
-gss_smooth_streaming_resource_get_dash_mpd (GssTransaction * t, GssISM * ism)
+gss_smooth_streaming_resource_get_dash_range_mpd (GssTransaction * t,
+    GssISM * ism)
 {
   GString *s = g_string_new ("");
   int i;
 
   t->s = s;
 
-  GSS_P ("<MPD xmlns=\"urn:mpeg:DASH:schema:MPD:2011\" "
-      "mediaPresentationDuration=\"PT%dS\" "
-      "minBufferTime=\"PT5S\" "
-      "profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\" "
-      "type=\"static\">\n", (int) (ism->duration / GSS_ISM_SECOND));
-  GSS_A ("  <BaseURL>http://localhost:8080/ism-vod/southpark/</BaseURL>\n");
-  GSS_P ("  <Period duration=\"PT%dS\" start=\"PT0S\">\n",
-      (int) (ism->duration / GSS_ISM_SECOND));
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      "application/octet-stream");
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Origin", "*");
 
-  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
-      "codecs=\"avc1.4D401F\" frameRate=\"24/1\" "
-      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
-      "bitstreamSwitching=\"true\">\n");
+  GSS_P ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+  GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
+      "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
+      "  type=\"static\"\n"
+      "  mediaPresentationDuration=\"PT%dS\"\n"
+      "  minBufferTime=\"PT2S\"\n"
+      "  profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\">\n",
+      (int) (ism->duration / GSS_ISM_SECOND));
+  //GSS_A ("  <BaseURL>//ism-vod/elephantsdream/</BaseURL>\n");
+  //GSS_A ("  <BaseURL>http://127.0.0.1:8080/ism-vod/elephantsdream/</BaseURL>\n");
+  GSS_P ("  <Period>\n");
+
+  GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
+      "codecs=\"mp4a.40.5\" lang=\"en\" "
+      "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
+  for (i = 0; i < ism->n_audio_levels; i++) {
+    GssISMLevel *level = &ism->audio_levels[i];
+
+    GSS_P ("      <Representation id=\"a%d\" bandwidth=\"%d\">\n",
+        i, level->bitrate);
+    GSS_P ("        <BaseURL>content-range/a%d</BaseURL>\n", i);
+    GSS_A ("      </Representation>\n");
+  }
+  GSS_A ("    </AdaptationSet>\n");
+
+  GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
+      "codecs=\"avc1.42401E\" "
+      "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
+#if 0
   GSS_A ("      <SegmentTemplate timescale=\"100000\" "
       "initialization=\"$Bandwidth$/init.mp4v\" "
       "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
@@ -281,18 +304,22 @@ gss_smooth_streaming_resource_get_dash_mpd (GssTransaction * t, GssISM * ism)
       ism->video_levels[0].n_fragments);
   GSS_A ("        </SegmentTimeline>\n");
   GSS_A ("      </SegmentTemplate>\n");
+#endif
 
   for (i = 0; i < ism->n_video_levels; i++) {
     GssISMLevel *level = &ism->video_levels[i];
 
-    GSS_P ("      <Representation id=\"v%d\" width=\"%d\" height=\"%d\" "
-        "bandwidth=\"%d\"/>\n",
-        i, level->video_width, level->video_height, level->bitrate);
+    GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
+        "width=\"%d\" height=\"%d\">\n",
+        i, level->bitrate, level->video_width, level->video_height);
+    GSS_P ("        <BaseURL>content-range/v%d</BaseURL>\n", i);
+    GSS_A ("      </Representation>\n");
   }
   GSS_A ("    </AdaptationSet>\n");
 
+#if 0
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
-      "codecs=\"mp4a\" frameRate=\"24/1\" "
+      "codecs=\"mp4a\" "
       "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
       "bitstreamSwitching=\"true\">\n");
   GSS_A ("      <SegmentTemplate timescale=\"100000\" "
@@ -303,16 +330,94 @@ gss_smooth_streaming_resource_get_dash_mpd (GssTransaction * t, GssISM * ism)
       ism->video_levels[0].n_fragments);
   GSS_A ("        </SegmentTimeline>\n");
   GSS_A ("      </SegmentTemplate>\n");
-  for (i = 0; i < ism->n_audio_levels; i++) {
-    GssISMLevel *level = &ism->audio_levels[i];
+#endif
 
-    GSS_P ("      <Representation id=\"a%d\" bandwidth=\"%d\"/>\n",
-        i, level->bitrate);
-  }
-  GSS_A ("    </AdaptationSet>\n");
   GSS_A ("  </Period>\n");
   GSS_A ("</MPD>\n");
+  GSS_A ("\n");
 
+}
+
+static void
+gss_smooth_streaming_resource_get_dash_range_fragment (GssTransaction * t,
+    GssISM * ism, const char *path)
+{
+  gboolean ret;
+  char *contents;
+  gsize length;
+  GError *error = NULL;
+  GStatBuf sb;
+  gboolean have_range;
+  SoupRange *ranges;
+  int n_ranges;
+  int index;
+  GssISMLevel *level;
+
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Origin", "*");
+
+  /* skip over content-range/ */
+  path += 14;
+
+  if (path[0] != 'a' && path[0] != 'v') {
+    GST_ERROR ("bad path: %s", path);
+    return;
+  }
+  index = strtol (path + 1, NULL, 10);
+
+  if (path[0] == 'a') {
+    level = &ism->audio_levels[index];
+  } else {
+    level = &ism->video_levels[index];
+  }
+
+  if (level == NULL) {
+    GST_ERROR ("bad level: %c%d from path %s", path[0], index, path);
+    return;
+  }
+
+  g_stat (level->filename, &sb);
+
+  if (t->msg->method == SOUP_METHOD_HEAD) {
+    soup_message_headers_set_content_length (t->msg->response_headers,
+        sb.st_size);
+    return;
+  }
+
+  have_range = soup_message_headers_get_ranges (t->msg->request_headers,
+      sb.st_size, &ranges, &n_ranges);
+
+  ret = g_file_get_contents (level->filename, &contents, &length, &error);
+  if (!ret) {
+    g_error_free (error);
+    GST_WARNING ("missing file %s", level->filename);
+    return;
+  }
+  //gss_soup_dump_request_headers (t->msg);
+
+  if (have_range) {
+    if (n_ranges != 1) {
+      GST_ERROR ("too many ranges");
+    }
+
+    GST_DEBUG ("handling Range: %" G_GSIZE_FORMAT "-%" G_GSIZE_FORMAT,
+        ranges[0].start, ranges[0].end);
+
+    soup_message_headers_set_content_range (t->msg->response_headers,
+        ranges[0].start, ranges[0].end, sb.st_size);
+
+    soup_message_set_response (t->msg, "video/mp4",
+        SOUP_MEMORY_COPY, contents + ranges[0].start,
+        ranges[0].end + 1 - ranges[0].start);
+
+    soup_message_set_status (t->msg, SOUP_STATUS_PARTIAL_CONTENT);
+
+    soup_message_headers_free_ranges (t->msg->response_headers, ranges);
+    g_free (contents);
+  } else {
+    soup_message_set_response (t->msg, "video/mp4",
+        SOUP_MEMORY_TAKE, contents, length);
+  }
 }
 
 static gboolean
@@ -662,13 +767,17 @@ gss_smooth_streaming_get_resource (GssTransaction * t)
     g_free (key);
   }
 
+  GST_DEBUG ("subpath: %s", subpath);
   if (strcmp (subpath, "Manifest") == 0) {
     gss_smooth_streaming_resource_get_manifest2 (t, ism);
   } else if (strcmp (subpath, "content") == 0) {
     gss_smooth_streaming_resource_get_content2 (t, ism);
-  } else if (strcmp (subpath, "manifest.mpd") == 0) {
-    gss_smooth_streaming_resource_get_dash_mpd (t, ism);
+  } else if (strcmp (subpath, "manifest-range.mpd") == 0) {
+    gss_smooth_streaming_resource_get_dash_range_mpd (t, ism);
+  } else if (strncmp (subpath, "content-range/", 14) == 0) {
+    gss_smooth_streaming_resource_get_dash_range_fragment (t, ism, subpath);
   } else {
+    GST_ERROR ("not found: %s, %s", t->path, subpath);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
   }
 
