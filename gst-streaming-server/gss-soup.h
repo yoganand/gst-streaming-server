@@ -32,6 +32,7 @@ char * gss_soup_get_base_url_http (GssServer *server, SoupMessage *msg);
 char * gss_soup_get_base_url_https (GssServer * server, SoupMessage * msg);
 char * gss_transaction_get_base_url (GssTransaction *t);
 gboolean gss_transaction_is_secure (GssTransaction *t);
+void gss_soup_dump_request_headers (SoupMessage *msg);
 
 
 G_END_DECLS

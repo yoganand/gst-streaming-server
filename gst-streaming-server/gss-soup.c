@@ -101,3 +101,17 @@ gss_transaction_is_secure (GssTransaction * t)
 {
   return (t->soupserver == t->server->ssl_server);
 }
+
+void
+gss_soup_dump_request_headers (SoupMessage * msg)
+{
+  SoupMessageHeadersIter iter;
+  const char *name;
+  const char *value;
+
+  soup_message_headers_iter_init (&iter, msg->request_headers);
+
+  while (soup_message_headers_iter_next (&iter, &name, &value)) {
+    GST_ERROR ("%s: %s", name, value);
+  }
+}
