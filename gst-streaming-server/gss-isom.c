@@ -2922,7 +2922,8 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, int track_id,
     GstByteWriter * bw)
 {
   int offset;
-  int offset_udta;
+  int offset_mvex;
+  int offset_2;
   int i;
   gboolean is_video;
 
@@ -2982,9 +2983,21 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, int track_id,
 #endif
 
   /* mvex */
-  offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
-  gst_byte_writer_put_data (bw, movie->mvex.data, movie->mvex.size);
-  ATOM_FINISH (bw, offset_udta);
+  offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
+  offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
+  gst_byte_writer_put_uint32_be (bw, 0x01000000);
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint32_be (bw, 0x1f1e5c05);
+  ATOM_FINISH (bw, offset_2);
+  offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'e', 'x'));
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint32_be (bw, track_id);
+  gst_byte_writer_put_uint32_be (bw, 0x00000001);
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  ATOM_FINISH (bw, offset_2);
+  ATOM_FINISH (bw, offset_mvex);
 
 #if 0
   /* meta */
@@ -3011,13 +3024,17 @@ gss_isom_movie_serialize_track (GssIsomMovie * movie, int track, guint8 ** data,
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
   ATOM_FINISH (bw, offset);
 
+#if 0
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('p', 'd', 'i', 'n'));
   gst_byte_writer_put_uint32_be (bw, 0x00000000);
   ATOM_FINISH (bw, offset);
+#endif
 
+#if 0
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('b', 'l', 'o', 'c'));
   gst_byte_writer_fill (bw, 0, 0x404);
   ATOM_FINISH (bw, offset);
+#endif
 
   gss_isom_moov_serialize_track (movie, track, bw);
 
