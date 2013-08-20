@@ -46,7 +46,7 @@ sources = \
 	gss-program.c \
 	gss-pull.c \
 	gss-push.c \
-	gss-smooth-streaming.c \
+	gss-adaptive.c \
 	gss-isom.c \
 	gss-iso-atoms.h \
 	gss-stream.c \
@@ -90,7 +90,7 @@ gss_include_HEADERS = \
 	gss-pull.h \
 	gss-push.h \
 	gss-resource.h \
-	gss-smooth-streaming.h \
+	gss-adaptive.h \
 	gss-isom.h \
 	gss-stream.h \
 	gss-transaction.h \

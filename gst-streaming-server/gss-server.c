@@ -31,7 +31,7 @@
 #include "gss-content.h"
 #include "gss-utils.h"
 #include "gss-vod.h"
-#include "gss-smooth-streaming.h"
+#include "gss-adaptive.h"
 #include "gss-playready.h"
 
 #define GST_CAT_DEFAULT gss_debug
@@ -283,7 +283,7 @@ gss_server_init (GssServer * server)
 
   gss_server_setup_resources (server);
 
-  gss_smooth_streaming_setup (server);
+  gss_adaptive_setup (server);
 
   g_timeout_add (1000, (GSourceFunc) periodic_timer, server);
 }

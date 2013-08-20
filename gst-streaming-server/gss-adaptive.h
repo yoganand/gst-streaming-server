@@ -26,10 +26,10 @@
 
 G_BEGIN_DECLS
 
-typedef struct _GssISM GssISM;
-typedef struct _GssISMLevel GssISMLevel;
+typedef struct _GssAdaptive GssAdaptive;
+typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
 
-struct _GssISM
+struct _GssAdaptive
 {
   guint64 duration;
 
@@ -41,8 +41,8 @@ struct _GssISM
 
   gboolean playready;
 
-  GssISMLevel *audio_levels;
-  GssISMLevel *video_levels;
+  GssAdaptiveLevel *audio_levels;
+  GssAdaptiveLevel *video_levels;
 
   gboolean needs_encryption;
 
@@ -51,7 +51,7 @@ struct _GssISM
   guint8 *content_key;
 };
 
-struct _GssISMLevel
+struct _GssAdaptiveLevel
 {
   const char *filename;
 
@@ -67,12 +67,12 @@ struct _GssISMLevel
   int audio_rate;
 };
 
-GssISM *gss_ism_new (void);
-void gss_ism_free (GssISM * ism);
-GssISMLevel *gss_ism_get_level (GssISM * ism, gboolean video, guint64 bitrate);
+GssAdaptive *gss_adaptive_new (void);
+void gss_adaptive_free (GssAdaptive * adaptive);
+GssAdaptiveLevel *gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video, guint64 bitrate);
 
 
-void gss_smooth_streaming_setup (GssServer * server);
+void gss_adaptive_setup (GssServer * server);
 
 G_END_DECLS
 

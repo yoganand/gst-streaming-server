@@ -210,7 +210,8 @@ gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
 
 
 char *
-gss_playready_get_protection_header_base64 (GssISM * ism, const char *la_url)
+gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
+    const char *la_url)
 {
   char *wrmheader;
   char *prot_header_base64;
@@ -220,7 +221,7 @@ gss_playready_get_protection_header_base64 (GssISM * ism, const char *la_url)
   guchar *content;
   gchar *kid_base64;
 
-  kid_base64 = g_base64_encode (ism->kid, ism->kid_len);
+  kid_base64 = g_base64_encode (adaptive->kid, adaptive->kid_len);
   /* this all needs to be on one line, to satisfy clients */
   /* Note: DS_ID is ignored by Roku */
   /* Roku checks CHECKSUM if it exists */
@@ -255,21 +256,21 @@ gss_playready_get_protection_header_base64 (GssISM * ism, const char *la_url)
 }
 
 void
-gss_ism_generate_content_key (GssISM * ism)
+gss_adaptive_generate_content_key (GssAdaptive * adaptive)
 {
   guint8 *seed;
 
   seed = gss_playready_get_default_key_seed ();
 
-  ism->content_key = gss_playready_generate_key (seed, 30, ism->kid,
-      ism->kid_len);
+  adaptive->content_key = gss_playready_generate_key (seed, 30, adaptive->kid,
+      adaptive->kid_len);
 
   g_free (seed);
 }
 
 void
-gss_playready_setup_iv (GssISM * ism,
-    GssISMLevel * level, GssIsomFragment * fragment)
+gss_playready_setup_iv (GssAdaptive * adaptive,
+    GssAdaptiveLevel * level, GssIsomFragment * fragment)
 {
   guint64 *init_vectors;
   guint64 iv;
@@ -287,8 +288,8 @@ gss_playready_setup_iv (GssISM * ism,
       init_vectors, level->is_h264);
   g_free (init_vectors);
 
-  if (ism->content_key == NULL) {
-    gss_ism_generate_content_key (ism);
+  if (adaptive->content_key == NULL) {
+    gss_adaptive_generate_content_key (adaptive);
   }
 }
 
