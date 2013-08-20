@@ -492,8 +492,8 @@ gss_smooth_streaming_resource_get_dash_live_mpd (GssTransaction * t,
     GssISMLevel *level = &ism->audio_levels[i];
 
     GSS_P
-        ("      <Representation id=\"a%d\" bandwidth=\"%d\" audioSamplingRate=\"44100\"/>\n",
-        i, level->bitrate);
+        ("      <Representation id=\"a%d\" bandwidth=\"%d\" audioSamplingRate=\"%d\"/>\n",
+        i, level->bitrate, level->audio_rate);
   }
   GSS_A ("    </AdaptationSet>\n");
 
