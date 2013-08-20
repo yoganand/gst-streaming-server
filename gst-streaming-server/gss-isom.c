@@ -180,8 +180,9 @@ gss_isom_file_get_fragment_by_timestamp (GssIsomFile * file,
 guint64
 gss_isom_file_get_duration (GssIsomFile * file, int track_id)
 {
-  int i;
   guint64 duration;
+#if 0
+  int i;
 
   duration = 0;
   for (i = 0; i < file->n_fragments; i++) {
@@ -189,6 +190,8 @@ gss_isom_file_get_duration (GssIsomFile * file, int track_id)
       duration += file->fragments[i]->duration;
     }
   }
+#endif
+  duration = file->movie->mvhd.duration;
 
   return duration;
 }
@@ -3286,6 +3289,8 @@ gss_isom_file_fragmentize (GssIsomFile * file)
 
     audio_index += n_samples;
   }
+
+  file->movie->mvhd.duration = video_timestamp;
 }
 
 int
