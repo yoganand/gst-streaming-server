@@ -40,6 +40,7 @@ typedef struct _AtomMoof AtomMoof;
 
 typedef struct _AtomMvhd AtomMvhd;
 typedef struct _AtomIods AtomIods;
+typedef struct _AtomAinf AtomAinf;
 typedef struct _AtomTrak AtomTrak;
 typedef struct _AtomTkhd AtomTkhd;
 typedef struct _AtomTref AtomTref;
@@ -65,6 +66,7 @@ typedef struct _AtomMp4v AtomMp4v;
 typedef struct _AtomMp4a AtomMp4a;
 typedef struct _AtomMp4s AtomMp4s;
 typedef struct _AtomStsd AtomStsd;
+typedef struct _AtomStsdEntry AtomStsdEntry;
 typedef struct _AtomStsz AtomStsz;
 typedef struct _AtomStscEntry AtomStscEntry;
 typedef struct _AtomStsc AtomStsc;
@@ -81,10 +83,12 @@ typedef struct _AtomCprt AtomCprt;
 typedef struct _AtomUUIDProtectionHeader AtomUUIDProtectionHeader;
 typedef struct _AtomMoov AtomMoov;
 typedef struct _AtomParser AtomParser;
-
 typedef struct _AtomMvex AtomMvex;
 typedef struct _AtomMeta AtomMeta;
+typedef struct _AtomIlst AtomIlst;
+typedef struct _AtomMdir AtomMdir;
 typedef struct _AtomSkip AtomSkip;
+typedef struct _AtomStore AtomStore;
 
 
 struct _AtomMfhd
@@ -176,6 +180,8 @@ struct _AtomTfdt
 {
   guint8 version;
   guint32 flags;
+
+  guint64 start_time;
 };
 
 struct _AtomTrik
@@ -220,6 +226,15 @@ struct _AtomIods
   guint8 version;
   guint32 flags;
   /* object descriptor */
+};
+
+struct _AtomAinf
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+
+  /* FIXME */
 };
 
 struct _AtomTkhd
@@ -329,6 +344,7 @@ struct _AtomUrn_
 };
 
 struct _AtomDrefEntry {
+  guint32 atom;
   guint8 entry_version;
   guint32 entry_flags;
   struct _AtomUrn_ urn_;
@@ -424,13 +440,19 @@ struct _AtomMp4s
   struct _AtomEsds es;
 };
 
+struct _AtomStsdEntry
+{
+  guint32 atom;
+
+};
+
 struct _AtomStsd
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  //AtomStsdEntry *entries;
+  AtomStsdEntry *entries;
 
 };
 
@@ -555,10 +577,35 @@ struct _AtomMvex
 
 struct _AtomMeta
 {
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomIlst
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+};
+
+struct _AtomMdir
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
 };
 
 struct _AtomSkip
 {
+};
+
+struct _AtomStore
+{
+  guint32 atom;
+  gboolean present;
+  guint8 *data;
+  int size;
 };
 
 struct _AtomUUIDProtectionHeader

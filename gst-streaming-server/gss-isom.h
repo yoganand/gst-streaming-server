@@ -32,6 +32,7 @@ typedef struct _GssIsomMovie GssIsomMovie;
 typedef struct _GssIsomFile GssIsomFile;
 typedef struct _GssIsomFragment GssIsomFragment;
 typedef struct _GssIsomSample GssIsomSample;
+typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
 typedef struct _GssMdatChunk GssMdatChunk;
 
 typedef enum
@@ -43,6 +44,7 @@ typedef enum
   GSS_ISOM_FTYP_ISO2 = (1 << 4),
   GSS_ISOM_FTYP_ISOM = (1 << 5),
   GSS_ISOM_FTYP_QT__ = (1 << 6),
+  GSS_ISOM_FTYP_ISO6 = (1 << 7),
 } GssIsomFtyp;
 
 struct _GssMdatChunk {
@@ -70,11 +72,20 @@ struct _GssIsomMovie
   GssIsomTrack **tracks;
 
   AtomMvhd mvhd;
+
   AtomUdta udta;
-  AtomMvex mvex;
-  AtomMeta meta;
+  /* udta */
+  AtomStore meta;
+  AtomStore hdlr;
+  AtomStore ilst;
+  AtomMdir mdir;
+  AtomStore xtra;
+
   AtomSkip skip;
-  AtomIods iods;
+  AtomStore iods;
+  AtomStore mvex;
+  AtomStore ainf;
+
 };
 
 struct _GssIsomTrack
@@ -109,11 +120,14 @@ struct _GssIsomTrack
   AtomStsh stsh;
   AtomStdp stdp;
 
-  /* inside mdia/minf/stsd */
+  /* inside mdia/minf/stbl/stsd */
   AtomMp4v mp4v;
   AtomMp4a mp4a;
   AtomEsds esds;
+  AtomStore esds_store;
+
 };
+
 
 struct _GssIsomFile
 {
@@ -139,6 +153,24 @@ struct _GssIsomFile
   guint8 *data;
   guint64 data_offset;
   guint64 data_size;
+
+  AtomStore pdin;
+  AtomStore bloc;
+};
+
+struct _GssIsomSampleIterator
+{
+  GssIsomTrack *track;
+  int sample_index;
+  int stts_index;
+  int index_in_stts;
+  int ctts_index;
+  int index_in_ctts;
+  int stsc_index;
+  int chunk_index;
+  int index_in_chunk;
+  int offset_in_chunk;
+
 };
 
 struct _GssIsomSample
@@ -166,6 +198,8 @@ void gss_isom_file_free (GssIsomFile *file);
 void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
     int n_samples, guint64 *init_vectors, gboolean is_h264);
 void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
+    int *size, gboolean is_video);
+void gss_isom_movie_serialize_track (GssIsomMovie * movie, int track, guint8 ** data,
     int *size);
 int * gss_isom_fragment_get_sample_sizes (GssIsomFragment *fragment);
 void gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
@@ -188,6 +222,15 @@ void gss_isom_track_get_sample (GssIsomTrack *track, GssIsomSample *sample,
     int sample_index);
 int gss_isom_track_get_index_from_timestamp (GssIsomTrack *track, guint64
     timestamp);
+
+void gss_isom_sample_iter_init (GssIsomSampleIterator *iter,
+    GssIsomTrack *track);
+gboolean gss_isom_sample_iter_iterate (GssIsomSampleIterator *iter);
+void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
+    GssIsomSample *sample);
+
+
+
 
 
 

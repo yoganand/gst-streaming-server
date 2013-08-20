@@ -48,12 +48,18 @@ main (int argc, char *argv[])
     ret = gss_isom_file_parse_file (file, argv[i]);
     if (!ret) {
       g_print ("parse failed");
+      continue;
     }
 
     video_track = gss_isom_movie_get_video_track (file->movie);
     audio_track = gss_isom_movie_get_audio_track (file->movie);
-    g_print ("%s %d %d\n",
-        argv[i], video_track->esds.avg_bitrate, audio_track->esds.avg_bitrate);
+    if (audio_track && video_track) {
+      g_print ("%s %d %d\n",
+          argv[i], video_track->esds.avg_bitrate,
+          audio_track->esds.avg_bitrate);
+    } else {
+      g_print ("audio %p video %p\n", audio_track, video_track);
+    }
 
     gss_isom_file_free (file);
   }

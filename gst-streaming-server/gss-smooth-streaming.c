@@ -122,8 +122,11 @@ gss_ism_send_chunk (GssTransaction * t, GssISM * ism,
 {
   guint8 *moof_data;
   int moof_size;
+  gboolean is_video;
 
-  gss_isom_fragment_serialize (fragment, &moof_data, &moof_size);
+  is_video = (level->video_height > 0);
+
+  gss_isom_fragment_serialize (fragment, &moof_data, &moof_size, is_video);
 
   soup_message_set_status (t->msg, SOUP_STATUS_OK);
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, moof_data,
@@ -132,6 +135,7 @@ gss_ism_send_chunk (GssTransaction * t, GssISM * ism,
       fragment->mdat_size);
 }
 
+#if 0
 static char *
 get_codec_string (guint8 * codec_data, int len)
 {
@@ -147,6 +151,7 @@ get_codec_string (guint8 * codec_data, int len)
   }
   return s;
 }
+#endif
 
 void
 gss_smooth_streaming_setup (GssServer * server)
@@ -406,7 +411,8 @@ gss_smooth_streaming_resource_get_dash_range_fragment (GssTransaction * t,
     soup_message_headers_set_content_range (t->msg->response_headers,
         ranges[0].start, ranges[0].end, sb.st_size);
 
-    soup_message_set_response (t->msg, "video/mp4",
+    soup_message_set_response (t->msg,
+        (path[0] == 'v') ? "video/mp4" : "audio/mp4",
         SOUP_MEMORY_COPY, contents + ranges[0].start,
         ranges[0].end + 1 - ranges[0].start);
 
@@ -415,19 +421,144 @@ gss_smooth_streaming_resource_get_dash_range_fragment (GssTransaction * t,
     soup_message_headers_free_ranges (t->msg->response_headers, ranges);
     g_free (contents);
   } else {
-    soup_message_set_response (t->msg, "video/mp4",
+    soup_message_set_response (t->msg,
+        (path[0] == 'v') ? "video/mp4" : "audio/mp4",
         SOUP_MEMORY_TAKE, contents, length);
   }
+
+
+}
+
+static void
+gss_smooth_streaming_resource_get_dash_live_mpd (GssTransaction * t,
+    GssISM * ism)
+{
+  GString *s = g_string_new ("");
+  int i;
+
+  t->s = s;
+
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      "application/octet-stream");
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Origin", "*");
+
+  ism->duration = 52.25 * GSS_ISM_SECOND;
+  GSS_P ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+  GSS_P ("<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" "
+      "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+      "profiles=\"urn:mpeg:dash:profile:isoff-live:2011\" "
+      "type=\"static\" mediaPresentationDuration=\"PT52.250S\" "
+      "minBufferTime=\"PT4S\">\n");
+#if 0
+  GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
+      "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
+      "  type=\"static\"\n"
+      "  mediaPresentationDuration=\"PT%dS\"\n"
+      "  minBufferTime=\"PT4S\"\n"
+      "  profiles=\"urn:mpeg:dash:profile:isoff-live:2011\">\n",
+      (int) (ism->duration / GSS_ISM_SECOND));
+#endif
+  //GSS_A ("  <BaseURL>//ism-vod/elephantsdream/</BaseURL>\n");
+  //GSS_A ("  <BaseURL>http://127.0.0.1:8080/ism-vod/elephantsdream/</BaseURL>\n");
+  GSS_P ("  <Period>\n");
+
+  GSS_A ("    <AdaptationSet "
+      "id=\"1\" "
+      "group=\"5\" "
+      "profiles=\"ccff\" "
+      "bitstreamSwitching=\"true\" "
+      "segmentAlignment=\"true\" "
+      "contentType=\"audio\" "
+      "mimeType=\"audio/mp4\" " "codecs=\"mp4a.40.2\" " "lang=\"en\">\n");
+  GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
+      "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
+      "initialization=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
+  GSS_A ("      <SegmentTimeline>\n");
+  {
+    GssISMLevel *level = &ism->audio_levels[0];
+
+    for (i = 0; i < level->n_fragments; i++) {
+      GssIsomFragment *fragment;
+      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
+          (guint64) fragment->duration);
+    }
+  }
+  GSS_A ("      </SegmentTimeline>\n");
+  GSS_A ("    </SegmentTemplate>\n");
+  for (i = 0; i < ism->n_audio_levels; i++) {
+    GssISMLevel *level = &ism->audio_levels[i];
+
+    GSS_P
+        ("      <Representation id=\"a%d\" bandwidth=\"%d\" audioSamplingRate=\"44100\"/>\n",
+        i, level->bitrate);
+  }
+  GSS_A ("    </AdaptationSet>\n");
+
+  GSS_A ("    <AdaptationSet "
+      "id=\"2\" "
+      "group=\"1\" "
+      "profiles=\"ccff\" "
+      "bitstreamSwitching=\"true\" "
+      "segmentAlignment=\"true\" "
+      "contentType=\"video\" "
+      "mimeType=\"video/mp4\" "
+      "codecs=\"avc1.640028\" "
+      "maxWidth=\"1920\" " "maxHeight=\"1080\" " "startWithSAP=\"1\">\n");
+
+  GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
+      "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
+      "initialization=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
+  GSS_A ("      <SegmentTimeline>\n");
+  {
+    GssISMLevel *level = &ism->video_levels[0];
+
+    for (i = 0; i < level->n_fragments; i++) {
+      GssIsomFragment *fragment;
+      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
+          (guint64) fragment->duration);
+    }
+  }
+  GSS_A ("      </SegmentTimeline>\n");
+  GSS_A ("    </SegmentTemplate>\n");
+  for (i = 0; i < ism->n_video_levels; i++) {
+    GssISMLevel *level = &ism->video_levels[i];
+
+    GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
+        "width=\"%d\" height=\"%d\"/>\n",
+        i, level->bitrate, level->video_width, level->video_height);
+  }
+  GSS_A ("    </AdaptationSet>\n");
+
+#if 0
+  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
+      "codecs=\"mp4a\" "
+      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
+      "bitstreamSwitching=\"true\">\n");
+  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
+      "initialization=\"$Bandwidth$/init.mp4v\" "
+      "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
+  GSS_A ("        <SegmentTimeline>\n");
+  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
+      ism->video_levels[0].n_fragments);
+  GSS_A ("        </SegmentTimeline>\n");
+  GSS_A ("      </SegmentTemplate>\n");
+#endif
+
+  GSS_A ("  </Period>\n");
+  GSS_A ("</MPD>\n");
+  GSS_A ("\n");
+
 }
 
 static gboolean
-g_hash_table_lookup_guint64 (GHashTable * hash, const char *key,
-    guint64 * value)
+parse_guint64 (const char *s, guint64 * value)
 {
-  const char *s;
   char *end;
 
-  s = g_hash_table_lookup (hash, key);
   if (s == NULL)
     return FALSE;
 
@@ -452,11 +583,15 @@ gss_smooth_streaming_resource_get_content (GssTransaction * t)
 static void
 gss_smooth_streaming_resource_get_content2 (GssTransaction * t, GssISM * ism)
 {
-  guint64 start_time;
   const char *stream;
+  const char *start_time_str;
+  const char *bitrate_str;
+  guint64 start_time;
   guint64 bitrate;
+  gboolean is_init;
   GssISMLevel *level;
   GssIsomFragment *fragment;
+  gboolean ret;
 
   //GST_ERROR ("content request");
 
@@ -467,13 +602,33 @@ gss_smooth_streaming_resource_get_content2 (GssTransaction * t, GssISM * ism)
   }
 
   stream = g_hash_table_lookup (t->query, "stream");
+  start_time_str = g_hash_table_lookup (t->query, "start_time");
+  bitrate_str = g_hash_table_lookup (t->query, "bitrate");
 
-  if (stream == NULL ||
-      !g_hash_table_lookup_guint64 (t->query, "start_time", &start_time) ||
-      !g_hash_table_lookup_guint64 (t->query, "bitrate", &bitrate)) {
-    GST_ERROR ("bad params");
+  if (stream == NULL || start_time_str == NULL || bitrate_str == NULL) {
+    GST_ERROR ("missing parameter");
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
+  }
+
+  ret = parse_guint64 (bitrate_str, &bitrate);
+  if (!ret) {
+    GST_ERROR ("bad bitrate %s", bitrate_str);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  if (strcmp (start_time_str, "init") == 0) {
+    is_init = TRUE;
+    start_time = 0;
+  } else {
+    is_init = FALSE;
+    ret = parse_guint64 (start_time_str, &start_time);
+    if (!ret) {
+      GST_ERROR ("bad start_time %s", start_time_str);
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      return;
+    }
   }
 
   if (strcmp (stream, "audio") != 0 && strcmp (stream, "video") != 0) {
@@ -489,28 +644,46 @@ gss_smooth_streaming_resource_get_content2 (GssTransaction * t, GssISM * ism)
     return;
   }
 
-  fragment = gss_isom_file_get_fragment_by_timestamp (level->file,
-      level->track_id, start_time);
-  if (fragment == NULL) {
-    GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-  //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
-  //    level->filename, fragment->offset, fragment->size);
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Origin", "*");
 
-  {
-    guint8 *mdat_data;
+  if (is_init) {
+    guint8 *data;
+    int size;
 
-    if (ism->needs_encryption) {
-      gss_playready_setup_iv (ism, level, fragment);
+    gss_isom_movie_serialize_track (level->file->movie, level->track_id,
+        &data, &size);
+
+    soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, data,
+        size);
+  } else {
+    fragment = gss_isom_file_get_fragment_by_timestamp (level->file,
+        level->track_id, start_time);
+    if (fragment == NULL) {
+      GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
+      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      return;
     }
-    mdat_data = gss_ism_assemble_chunk (t, ism, level, fragment);
-    if (ism->needs_encryption) {
-      gss_playready_encrypt_samples (fragment, mdat_data, ism->content_key);
+    //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
+    //    level->filename, fragment->offset, fragment->size);
+
+    {
+      guint8 *mdat_data;
+
+      if (ism->needs_encryption) {
+        gss_playready_setup_iv (ism, level, fragment);
+      }
+      mdat_data = gss_ism_assemble_chunk (t, ism, level, fragment);
+      if (ism->needs_encryption) {
+        gss_playready_encrypt_samples (fragment, mdat_data, ism->content_key);
+      }
+      gss_ism_send_chunk (t, ism, level, fragment, mdat_data);
     }
-    gss_ism_send_chunk (t, ism, level, fragment, mdat_data);
   }
+  GST_ERROR ("setting content type to: %s",
+      (stream[0] == 'v') ? "video/mp4" : "audio/mp4");
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      (stream[0] == 'v') ? "video/mp4" : "audio/mp4");
 }
 
 GssISM *
@@ -656,8 +829,8 @@ gss_ism_load (const char *key)
     g_free (fn);
   }
 
-  ism->playready = TRUE;
-  ism->needs_encryption = TRUE;
+  //ism->playready = TRUE;
+  //ism->needs_encryption = TRUE;
 
   g_strfreev (lines);
   g_free (contents);
@@ -698,7 +871,7 @@ load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
     ism->max_width = MAX (ism->max_width, video_track->mp4v.width);
     ism->max_height = MAX (ism->max_height, video_track->mp4v.height);
 
-    level->track_id = VIDEO_TRACK_ID;
+    level->track_id = video_track->tkhd.track_id;
     level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
     level->filename = g_strdup (filename);
     level->bitrate = video_bitrate;
@@ -707,8 +880,10 @@ load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
     level->file = file;
     level->is_h264 = TRUE;
 
+#if 0
     level->codec_data = get_codec_string (video_track->esds.codec_data,
         video_track->esds.codec_data_len);
+#endif
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
@@ -721,14 +896,15 @@ load_file (GssISM * ism, char *filename, int video_bitrate, int audio_bitrate)
     ism->n_audio_levels++;
     memset (level, 0, sizeof (GssISMLevel));
 
-    level->track_id = AUDIO_TRACK_ID;
+    level->track_id = audio_track->tkhd.track_id;
     level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
     level->file = file;
-    level->track_id = AUDIO_TRACK_ID;
     level->filename = g_strdup (filename);
     level->bitrate = audio_bitrate;
+#if 0
     level->codec_data = get_codec_string (audio_track->esds.codec_data,
         audio_track->esds.codec_data_len);
+#endif
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
   }
 
@@ -776,6 +952,8 @@ gss_smooth_streaming_get_resource (GssTransaction * t)
     gss_smooth_streaming_resource_get_dash_range_mpd (t, ism);
   } else if (strncmp (subpath, "content-range/", 14) == 0) {
     gss_smooth_streaming_resource_get_dash_range_fragment (t, ism, subpath);
+  } else if (strcmp (subpath, "manifest-live.mpd") == 0) {
+    gss_smooth_streaming_resource_get_dash_live_mpd (t, ism);
   } else {
     GST_ERROR ("not found: %s, %s", t->path, subpath);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
