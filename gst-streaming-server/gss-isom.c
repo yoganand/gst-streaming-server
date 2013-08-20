@@ -1399,7 +1399,7 @@ gss_isom_parse_esds (GssIsomFile * file, GssIsomTrack * track,
   guint32 tmp = 0;
 
   {
-    const guint8 *ptr;
+    const guint8 *ptr = NULL;
     int size = gst_byte_reader_get_remaining (br);
     gst_byte_reader_peek_data (br, size, &ptr);
     track->esds_store.size = size;
