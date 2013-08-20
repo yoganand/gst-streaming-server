@@ -464,9 +464,8 @@ gss_smooth_streaming_resource_get_dash_live_mpd (GssTransaction * t,
   //GSS_A ("  <BaseURL>http://127.0.0.1:8080/ism-vod/elephantsdream/</BaseURL>\n");
   GSS_P ("  <Period>\n");
 
-  GSS_A ("    <AdaptationSet "
-      "id=\"1\" "
-      "group=\"5\" "
+  GSS_A ("    <AdaptationSet " "id=\"1\" "
+      //"group=\"5\" "
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
@@ -497,9 +496,8 @@ gss_smooth_streaming_resource_get_dash_live_mpd (GssTransaction * t,
   }
   GSS_A ("    </AdaptationSet>\n");
 
-  GSS_A ("    <AdaptationSet "
-      "id=\"2\" "
-      "group=\"1\" "
+  GSS_A ("    <AdaptationSet " "id=\"2\" "
+      //"group=\"1\" "
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "

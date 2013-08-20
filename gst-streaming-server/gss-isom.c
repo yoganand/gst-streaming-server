@@ -394,7 +394,6 @@ gss_isom_file_fixup (GssIsomFile * file)
 
   for (j = 0; j < file->movie->n_tracks; j++) {
     track_id = file->movie->tracks[j]->tkhd.track_id;
-    GST_ERROR ("fixing up track_id %d", track_id);
     ts = 0;
     for (i = 0; i < file->n_fragments; i++) {
       if (file->fragments[i]->traf.tfhd.track_id == track_id) {
@@ -2115,7 +2114,7 @@ gss_isom_traf_serialize (AtomTraf * traf, GstByteWriter * bw, gboolean is_video)
   gss_isom_tfhd_serialize (&traf->tfhd, bw);
   gss_isom_tfdt_serialize (&traf->tfdt, bw);
   gss_isom_trun_serialize (&traf->trun, bw);
-  if (is_video) {
+  if (0 && is_video) {
     gss_isom_avcn_serialize (&traf->avcn, bw);
     gss_isom_trik_serialize (&traf->trik, bw);
   }
@@ -2878,10 +2877,12 @@ fixup_movie (GssIsomMovie * movie, gboolean is_video)
   movie->mvhd.version = 1;
   movie->mvhd.timescale = 10000000;
 
+#if 0
   movie->ainf.present = TRUE;
   movie->ainf.atom = GST_MAKE_FOURCC ('a', 'i', 'n', 'f');
   movie->ainf.size = 8;
   movie->ainf.data = g_malloc0 (8);
+#endif
 
   movie->mvex.present = TRUE;
   movie->mvex.atom = GST_MAKE_FOURCC ('m', 'v', 'e', 'x');
@@ -2937,8 +2938,10 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, int track_id,
   fixup_movie (movie, is_video);
 
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
-  gss_isom_ainf_serialize (&movie->ainf, bw);
-  gss_isom_iods_serialize (&movie->iods, bw);
+  if (0)
+    gss_isom_ainf_serialize (&movie->ainf, bw);
+  if (0)
+    gss_isom_iods_serialize (&movie->iods, bw);
   for (i = 0; i < movie->n_tracks; i++) {
     if (movie->tracks[i]->tkhd.track_id == track_id) {
       fixup_track (movie->tracks[i], is_video);
@@ -2947,6 +2950,7 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, int track_id,
     }
   }
 
+#if 0
   /* udta */
   if (1 || movie->udta.present) {
     int offset_udta;
@@ -2972,16 +2976,19 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, int track_id,
     ATOM_FINISH (bw, offset2);
     ATOM_FINISH (bw, offset_udta);
   }
+#endif
 
   /* mvex */
   offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
   gst_byte_writer_put_data (bw, movie->mvex.data, movie->mvex.size);
   ATOM_FINISH (bw, offset_udta);
 
+#if 0
   /* meta */
   offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 't', 'a'));
   gst_byte_writer_fill (bw, 0, 0x4);
   ATOM_FINISH (bw, offset_udta);
+#endif
 
   ATOM_FINISH (bw, offset);
 }
@@ -3176,8 +3183,10 @@ gss_isom_file_fragmentize (GssIsomFile * file)
       next_timestamp = gst_util_uint64_scale_int (video_timescale_ts,
           10000000, video_track->mdhd.timescale);
       samples[j].duration = next_timestamp - video_timestamp;
+#if 0
       /* FIXME fixup */
       samples[j].duration = 0x00065b9a;
+#endif
       video_timestamp = next_timestamp;
       samples[j].size = sample.size;
       samples[j].flags = 0;
@@ -3208,6 +3217,7 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
         gst_util_uint64_scale_int (video_timestamp,
             audio_track->mdhd.timescale, 10000000));
+#if 0
     /* FIXME fixup */
     if (i == 0) {
       audio_index_end++;
@@ -3215,6 +3225,7 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     if (i == 1) {
       audio_index_end += 2;
     }
+#endif
 
     audio_fragment->traf.tfhd.track_id = audio_track->tkhd.track_id;
     //audio_fragment->traf.tfhd.flags = TF_DEFAULT_SAMPLE_FLAGS;
@@ -3248,8 +3259,10 @@ gss_isom_file_fragmentize (GssIsomFile * file)
       next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
           10000000, audio_track->mdhd.timescale);
       samples[j].duration = next_timestamp - audio_timestamp;
+#if 0
       /* FIXME fixup */
       samples[j].duration = 0x00038b07;
+#endif
       audio_timestamp = next_timestamp;
 
       samples[j].size = sample.size;
