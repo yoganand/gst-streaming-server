@@ -201,6 +201,8 @@ void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
     int *size, gboolean is_video);
 void gss_isom_movie_serialize_track (GssIsomMovie * movie, int track, guint8 ** data,
     int *size);
+void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
+    int *size);
 int * gss_isom_fragment_get_sample_sizes (GssIsomFragment *fragment);
 void gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 *content_key);
