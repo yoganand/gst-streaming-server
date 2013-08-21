@@ -114,15 +114,18 @@ void
 gss_playready_setup (GssServer * server)
 {
   int i;
-  gss_server_add_file_resource (server, "/crossdomain.xml", 0, "text/xml");
-  gss_server_add_file_resource (server, "/clientaccesspolicy.xml", 0,
-      "text/xml");
-  gss_server_add_file_resource (server, "/request.cms", 0,
-      "application/vnd.ms-sstr+xml");
 
-  gss_server_add_resource (server, "/rightsmanager.asmx",
-      0, "text/xml", playready_get_resource, NULL,
-      playready_post_resource, server);
+  if (0) {
+    gss_server_add_file_resource (server, "/crossdomain.xml", 0, "text/xml");
+    gss_server_add_file_resource (server, "/clientaccesspolicy.xml", 0,
+        "text/xml");
+    gss_server_add_file_resource (server, "/request.cms", 0,
+        "application/vnd.ms-sstr+xml");
+
+    gss_server_add_resource (server, "/rightsmanager.asmx",
+        0, "text/xml", playready_get_resource, NULL,
+        playready_post_resource, server);
+  }
 
   for (i = 0; i < G_N_ELEMENTS (jpg_files); i++) {
     gss_server_add_file_resource (server, jpg_files[i], 0, "image/jpeg");
