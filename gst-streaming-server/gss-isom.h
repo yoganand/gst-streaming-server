@@ -229,9 +229,9 @@ gboolean gss_isom_sample_iter_iterate (GssIsomSampleIterator *iter);
 void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
     GssIsomSample *sample);
 
-
-
-
+void gss_isom_file_dump (GssIsomFile *file);
+void gss_isom_movie_dump (GssIsomMovie *movie);
+void gss_isom_track_dump (GssIsomTrack *track);
 
 
 G_END_DECLS
