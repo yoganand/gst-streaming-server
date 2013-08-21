@@ -1,18 +1,18 @@
 
 #include <gst-streaming-server/gss-isom.h>
-#include <gst-streaming-server/gss-isom.h>
 
 #include <stdio.h>
-
-#include <openssl/aes.h>
 
 
 #define GETTEXT_PACKAGE NULL
 
-gboolean verbose;
+gboolean verbose = FALSE;
+gboolean dump = FALSE;
 
 static GOptionEntry entries[] = {
   {"verbose", 'v', 0, G_OPTION_ARG_NONE, &verbose, "Be verbose", NULL},
+  {"dump", 'd', 0, G_OPTION_ARG_NONE, &dump, "Dump file to readable output",
+      NULL},
   {NULL}
 };
 
@@ -23,7 +23,7 @@ main (int argc, char *argv[])
   GOptionContext *context;
   int i;
 
-  context = g_option_context_new ("- ISOM parsing test");
+  context = g_option_context_new ("- ISOM manipulation tool");
   g_option_context_add_main_entries (context, entries, GETTEXT_PACKAGE);
   g_option_context_add_group (context, gst_init_get_option_group ());
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
@@ -51,10 +51,15 @@ main (int argc, char *argv[])
       continue;
     }
 
-    gss_isom_movie_serialize_track (file->movie,
-        file->movie->tracks[1]->tkhd.track_id, &data, &size);
+    if (dump) {
+      gss_isom_file_dump (file);
+    }
+    if (0) {
+      gss_isom_movie_serialize_track (file->movie,
+          file->movie->tracks[1]->tkhd.track_id, &data, &size);
 
-    g_file_set_contents ("out.mov", (gchar *) data, size, NULL);
+      g_file_set_contents ("out.mov", (gchar *) data, size, NULL);
+    }
 
     gss_isom_file_free (file);
   }
