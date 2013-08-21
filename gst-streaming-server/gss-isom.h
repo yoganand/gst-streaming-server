@@ -126,6 +126,10 @@ struct _GssIsomTrack
   AtomEsds esds;
   AtomStore esds_store;
 
+  GssIsomFragment **fragments;
+  int n_fragments;
+  int n_fragments_alloc;
+
 };
 
 
@@ -139,10 +143,6 @@ struct _GssIsomFile
   guint32 ftyp_atom;
   gboolean is_isml;
   gboolean is_mp42;
-
-  GssIsomFragment **fragments;
-  int n_fragments;
-  int n_fragments_alloc;
 
   GssIsomFragment *current_fragment;
 
@@ -212,6 +212,7 @@ GssIsomMovie *gss_isom_movie_new (void);
 void gss_isom_movie_free (GssIsomMovie * movie);
 GssIsomTrack * gss_isom_movie_get_video_track (GssIsomMovie * movie);
 GssIsomTrack * gss_isom_movie_get_audio_track (GssIsomMovie * movie);
+GssIsomTrack * gss_isom_movie_get_track_by_id (GssIsomMovie * movie, int track_id);
 
 GssIsomFragment *gss_isom_fragment_new (void);
 void gss_isom_fragment_free (GssIsomFragment * fragment);

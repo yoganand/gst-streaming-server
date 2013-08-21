@@ -142,25 +142,17 @@ gss_isom_file_free (GssIsomFile * file)
   if (file->fd > 0) {
     close (file->fd);
   }
-  g_free (file->fragments);
   g_free (file);
 }
 
 GssIsomFragment *
 gss_isom_file_get_fragment (GssIsomFile * file, int track_id, int index)
 {
-  int frag_i;
-  int i;
+  GssIsomTrack *track;
 
-  frag_i = 0;
-
-  for (i = 0; i < file->n_fragments; i++) {
-    if (file->fragments[i]->traf.tfhd.track_id == track_id) {
-      if (frag_i == index) {
-        return file->fragments[i];
-      }
-      frag_i++;
-    }
+  track = gss_isom_movie_get_track_by_id (file->movie, track_id);
+  if (track) {
+    return track->fragments[index];
   }
 
   return NULL;
@@ -170,13 +162,13 @@ GssIsomFragment *
 gss_isom_file_get_fragment_by_timestamp (GssIsomFile * file,
     int track_id, guint64 timestamp)
 {
+  GssIsomTrack *track;
   int i;
 
-  for (i = 0; i < file->n_fragments; i++) {
-    if (file->fragments[i]->traf.tfhd.track_id == track_id) {
-      if (file->fragments[i]->timestamp == timestamp) {
-        return file->fragments[i];
-      }
+  track = gss_isom_movie_get_track_by_id (file->movie, track_id);
+  for (i = 0; i < track->n_fragments; i++) {
+    if (track->fragments[i]->timestamp == timestamp) {
+      return track->fragments[i];
     }
   }
 
@@ -187,16 +179,7 @@ guint64
 gss_isom_file_get_duration (GssIsomFile * file, int track_id)
 {
   guint64 duration;
-#if 0
-  int i;
 
-  duration = 0;
-  for (i = 0; i < file->n_fragments; i++) {
-    if (file->fragments[i]->traf.tfhd.track_id == track_id) {
-      duration += file->fragments[i]->duration;
-    }
-  }
-#endif
   duration = file->movie->mvhd.duration;
 
   return duration;
@@ -205,17 +188,9 @@ gss_isom_file_get_duration (GssIsomFile * file, int track_id)
 int
 gss_isom_file_get_n_fragments (GssIsomFile * file, int track_id)
 {
-  int i;
-  int n;
-
-  n = 0;
-  for (i = 0; i < file->n_fragments; i++) {
-    if (file->fragments[i]->traf.tfhd.track_id == track_id) {
-      n++;
-    }
-  }
-
-  return n;
+  GssIsomTrack *track;
+  track = gss_isom_movie_get_track_by_id (file->movie, track_id);
+  return track->n_fragments;
 }
 
 void
@@ -282,6 +257,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'f')) {
       GstByteReader br;
       GssIsomFragment *fragment;
+      GssIsomTrack *track;
 
       gss_isom_file_load_chunk (file, file->offset, size);
       gst_byte_reader_init (&br, file->data + 8, size - 8);
@@ -290,13 +266,19 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
       gss_isom_parse_moof (file, fragment, &br);
       gss_isom_fixup_moof (fragment);
 
-      if (file->n_fragments == file->n_fragments_alloc) {
-        file->n_fragments_alloc += 100;
-        file->fragments = g_realloc (file->fragments,
-            file->n_fragments_alloc * sizeof (GssIsomFragment *));
+      track = gss_isom_movie_get_track_by_id (file->movie,
+          fragment->traf.tfhd.track_id);
+      if (track == NULL) {
+        GST_ERROR ("track not found for fragment");
+      } else {
+        if (track->n_fragments == track->n_fragments_alloc) {
+          track->n_fragments_alloc += 100;
+          track->fragments = g_realloc (track->fragments,
+              track->n_fragments_alloc * sizeof (GssIsomFragment *));
+        }
+        track->fragments[track->n_fragments] = fragment;
+        track->n_fragments++;
       }
-      file->fragments[file->n_fragments] = fragment;
-      file->n_fragments++;
       file->current_fragment = fragment;
 
       fragment->duration = gss_isom_moof_get_duration (fragment);
@@ -396,19 +378,17 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
 static void
 gss_isom_file_fixup (GssIsomFile * file)
 {
+  GssIsomTrack *track;
   guint64 ts;
-  int track_id;
   int i;
   int j;
 
   for (j = 0; j < file->movie->n_tracks; j++) {
-    track_id = file->movie->tracks[j]->tkhd.track_id;
     ts = 0;
-    for (i = 0; i < file->n_fragments; i++) {
-      if (file->fragments[i]->traf.tfhd.track_id == track_id) {
-        file->fragments[i]->timestamp = ts;
-        ts += file->fragments[i]->duration;
-      }
+    track = file->movie->tracks[j];
+    for (i = 0; i < track->n_fragments; i++) {
+      track->fragments[i]->timestamp = ts;
+      ts += track->fragments[i]->duration;
     }
   }
 }
@@ -422,6 +402,7 @@ gss_isom_track_new (void)
 void
 gss_isom_track_free (GssIsomTrack * track)
 {
+  g_free (track->fragments);
   g_free (track);
 }
 
@@ -445,6 +426,18 @@ gss_isom_movie_free (GssIsomMovie * movie)
 {
   g_free (movie->tracks);
   g_free (movie);
+}
+
+GssIsomTrack *
+gss_isom_movie_get_track_by_id (GssIsomMovie * movie, int track_id)
+{
+  int i;
+  for (i = 0; i < movie->n_tracks; i++) {
+    if (movie->tracks[i]->tkhd.track_id == track_id) {
+      return movie->tracks[i];
+    }
+  }
+  return NULL;
 }
 
 GssIsomFragment *
@@ -828,11 +821,13 @@ gss_isom_parse_avcn (GssIsomFile * file, AtomAvcn * avcn, GstByteReader * br)
 static void
 gss_isom_parse_tfdt (GssIsomFile * file, AtomTfdt * tfdt, GstByteReader * br)
 {
+  guint32 tmp;
 
   gst_byte_reader_get_uint8 (br, &tfdt->version);
   gst_byte_reader_get_uint24_be (br, &tfdt->flags);
 
   /* FIXME */
+  gst_byte_reader_get_uint32_be (br, &tmp);
 
   CHECK_END (br);
 }
@@ -3441,9 +3436,13 @@ gss_isom_file_fragmentize (GssIsomFile * file)
 
   n_fragments = video_track->stss.entry_count;
 
-  file->fragments = g_malloc0 (sizeof (GssIsomFragment *) * n_fragments * 2);
-  file->n_fragments = n_fragments * 2;
-  file->n_fragments_alloc = n_fragments * 2;
+  video_track->fragments = g_malloc0 (sizeof (GssIsomFragment *) * n_fragments);
+  video_track->n_fragments = n_fragments * 2;
+  video_track->n_fragments_alloc = n_fragments * 2;
+
+  audio_track->fragments = g_malloc0 (sizeof (GssIsomFragment *) * n_fragments);
+  audio_track->n_fragments = n_fragments * 2;
+  audio_track->n_fragments_alloc = n_fragments * 2;
 
   gss_isom_sample_iter_init (&video_iter, video_track);
   gss_isom_sample_iter_init (&audio_iter, audio_track);
@@ -3457,9 +3456,9 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     int j;
 
     audio_fragment = gss_isom_fragment_new ();
+    audio_track->fragments[i] = audio_fragment;
     video_fragment = gss_isom_fragment_new ();
-    file->fragments[i * 2 + 0] = audio_fragment;
-    file->fragments[i * 2 + 1] = video_fragment;
+    video_track->fragments[i] = video_fragment;
 
     video_fragment->mfhd.sequence_number = i;
 
