@@ -4,7 +4,7 @@ bin_PROGRAMS = \
 	gss-transcoder
 
 noinst_PROGRAMS = \
-	vts-server gss-info gss-nom
+	vts-server gss-info gss-isom-tool
 
 
 gss_server_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS)
@@ -29,10 +29,10 @@ gss_transcoder_SOURCES = \
 	gss-transcoder.c \
 	gss-transcoder.h
 
-gss_nom_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS) $(OPENSSL_CFLAGS)
-gss_nom_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS) $(OPENSSL_LIBS)
-gss_nom_SOURCES = \
-	gss-nom.c
+gss_isom_tool_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS) $(OPENSSL_CFLAGS)
+gss_isom_tool_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS) $(OPENSSL_LIBS)
+gss_isom_tool_SOURCES = \
+	gss-isom-tool.c
 
 
 
