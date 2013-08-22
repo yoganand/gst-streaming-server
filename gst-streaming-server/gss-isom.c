@@ -3793,12 +3793,9 @@ gss_isom_file_fragmentize (GssIsomFile * file)
   video_track->tkhd.track_id = 1;
   video_track->trex.track_id = 1;
   video_track->trex.default_sample_description_index = 1;
-  audio_track->tkhd.track_id = 5;
-  audio_track->trex.track_id = 5;
+  audio_track->tkhd.track_id = 2;
+  audio_track->trex.track_id = 2;
   audio_track->trex.default_sample_description_index = 1;
-
-  if (0)
-    gss_isom_stsc_dump (&audio_track->stsc);
 
   n_fragments = video_track->stss.entry_count;
 

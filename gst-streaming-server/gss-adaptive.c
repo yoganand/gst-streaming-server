@@ -406,14 +406,6 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "Access-Control-Allow-Origin", "*");
 
   GSS_P ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
-#if 0
-  GSS_P ("<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" "
-      "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-      "profiles=\"urn:mpeg:dash:profile:isoff-live:2011\" "
-      "type=\"static\" mediaPresentationDuration=\"PT52.250S\" "
-      "minBufferTime=\"PT4S\">\n");
-#endif
-#if 1
   GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
       "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
       "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
@@ -422,13 +414,9 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "  minBufferTime=\"PT4S\"\n"
       "  profiles=\"urn:mpeg:dash:profile:isoff-live:2011\">\n",
       (int) (adaptive->duration / GSS_ISM_SECOND));
-#endif
-  //GSS_A ("  <BaseURL>//ism-vod/elephantsdream/</BaseURL>\n");
-  //GSS_A ("  <BaseURL>http://127.0.0.1:8080/ism-vod/elephantsdream/</BaseURL>\n");
   GSS_P ("  <Period>\n");
 
   GSS_A ("    <AdaptationSet " "id=\"1\" "
-      //"group=\"5\" "
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
@@ -460,7 +448,6 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
   GSS_A ("    </AdaptationSet>\n");
 
   GSS_A ("    <AdaptationSet " "id=\"2\" "
-      //"group=\"1\" "
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
@@ -493,21 +480,6 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
         i, level->bitrate, level->video_width, level->video_height);
   }
   GSS_A ("    </AdaptationSet>\n");
-
-#if 0
-  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
-      "codecs=\"mp4a\" "
-      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
-      "bitstreamSwitching=\"true\">\n");
-  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
-      "initialization=\"$Bandwidth$/init.mp4v\" "
-      "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
-  GSS_A ("        <SegmentTimeline>\n");
-  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
-      adaptive->video_levels[0].n_fragments);
-  GSS_A ("        </SegmentTimeline>\n");
-  GSS_A ("      </SegmentTemplate>\n");
-#endif
 
   GSS_A ("  </Period>\n");
   GSS_A ("</MPD>\n");
