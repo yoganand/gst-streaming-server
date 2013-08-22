@@ -30,7 +30,6 @@ typedef struct _GssIsomFragment GssIsomFragment;
 typedef struct _GssIsomTrack GssIsomTrack;
 typedef struct _GssIsomMovie GssIsomMovie;
 typedef struct _GssIsomFile GssIsomFile;
-typedef struct _GssIsomFragment GssIsomFragment;
 typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
 typedef struct _GssMdatChunk GssMdatChunk;
@@ -54,7 +53,8 @@ struct _GssMdatChunk {
 
 struct _GssIsomFragment {
   int track_id;
-  guint64 moof_offset;
+  guint64 offset;
+  guint8 *moof_data;
   guint64 moof_size;
   int mdat_size;
   int n_mdat_chunks;
@@ -63,7 +63,14 @@ struct _GssIsomFragment {
   guint64 duration;
 
   AtomMfhd mfhd;
-  AtomTraf traf;
+  AtomTfhd tfhd;
+  AtomTrun trun;
+  AtomSdtp sdtp;
+  AtomUUIDSampleEncryption sample_encryption;
+  AtomAvcn avcn;
+  AtomTfdt tfdt;
+  AtomTrik trik;
+
 };
 
 struct _GssIsomMovie
@@ -85,6 +92,9 @@ struct _GssIsomMovie
   AtomStore iods;
   AtomStore mvex;
   AtomStore ainf;
+
+  AtomSidx sidx;
+  AtomMehd mehd;
 
 };
 
@@ -125,6 +135,15 @@ struct _GssIsomTrack
   AtomMp4a mp4a;
   AtomEsds esds;
   AtomStore esds_store;
+
+  /* in mvex at top level */
+  AtomTrex trex;
+
+  guint8 *header;
+  gsize header_size;
+
+  guint8 *index;
+  gsize index_size;
 
   GssIsomFragment **fragments;
   int n_fragments;
@@ -188,7 +207,7 @@ void gss_isom_file_free (GssIsomFile *file);
 gboolean gss_isom_file_parse_file (GssIsomFile *file,
     const char *filename);
 GssIsomFragment * gss_isom_file_get_fragment (GssIsomFile *file,
-    int track_id, int frag_index);
+    GssIsomTrack *track, int frag_index);
 GssIsomFragment * gss_isom_file_get_fragment_by_timestamp (
     GssIsomFile *file, int track_id, guint64 timestamp);
 int gss_isom_file_get_n_fragments (GssIsomFile *file, int track_id);
@@ -198,11 +217,12 @@ void gss_isom_file_free (GssIsomFile *file);
 void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
     int n_samples, guint64 *init_vectors, gboolean is_h264);
 void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
-    int *size, gboolean is_video);
-void gss_isom_movie_serialize_track (GssIsomMovie * movie, int track, guint8 ** data,
-    int *size);
+    gsize *size, gboolean is_video);
+void gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack *track,
+    guint8 ** data, int *size);
 void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
     int *size);
+void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size);
 int * gss_isom_fragment_get_sample_sizes (GssIsomFragment *fragment);
 void gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 *content_key);

@@ -61,6 +61,7 @@ struct _GssAdaptiveLevel
   int video_height;
 
   GssIsomFile *file;
+  GssIsomTrack *track;
   int track_id;
   gboolean is_h264;
   char *codec_data;

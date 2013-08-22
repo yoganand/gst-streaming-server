@@ -117,7 +117,7 @@ gss_adaptive_send_chunk (GssTransaction * t, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment, guint8 * mdat_data)
 {
   guint8 *moof_data;
-  int moof_size;
+  gsize moof_size;
   gboolean is_video;
 
   is_video = (level->video_height > 0);
@@ -195,7 +195,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -220,7 +220,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -269,8 +269,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
       "  minBufferTime=\"PT2S\"\n"
       "  profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\">\n",
       (int) (adaptive->duration / GSS_ISM_SECOND));
-  //GSS_A ("  <BaseURL>//adaptive-vod/elephantsdream/</BaseURL>\n");
-  //GSS_A ("  <BaseURL>http://127.0.0.1:8080/ism-vod/elephantsdream/</BaseURL>\n");
   GSS_P ("  <Period>\n");
 
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
@@ -289,16 +287,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
       "codecs=\"avc1.42401E\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-#if 0
-  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
-      "initialization=\"$Bandwidth$/init.mp4v\" "
-      "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
-  GSS_A ("        <SegmentTimeline>\n");
-  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
-      adaptive->video_levels[0].n_fragments);
-  GSS_A ("        </SegmentTimeline>\n");
-  GSS_A ("      </SegmentTemplate>\n");
-#endif
 
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
@@ -310,21 +298,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
     GSS_A ("      </Representation>\n");
   }
   GSS_A ("    </AdaptationSet>\n");
-
-#if 0
-  GSS_A ("    <AdaptationSet mimeType=\"video/mp4v\" "
-      "codecs=\"mp4a\" "
-      "segmentAlignment=\"true\" subsegmentAlignment=\"true\" "
-      "bitstreamSwitching=\"true\">\n");
-  GSS_A ("      <SegmentTemplate timescale=\"100000\" "
-      "initialization=\"$Bandwidth$/init.mp4v\" "
-      "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\">\n");
-  GSS_A ("        <SegmentTimeline>\n");
-  GSS_P ("          <S t=\"0\" d=\"500000\" r=\"%d\"/>\n",
-      adaptive->video_levels[0].n_fragments);
-  GSS_A ("        </SegmentTimeline>\n");
-  GSS_A ("      </SegmentTemplate>\n");
-#endif
 
   GSS_A ("  </Period>\n");
   GSS_A ("</MPD>\n");
@@ -470,7 +443,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -505,7 +478,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track_id, i);
+      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -631,7 +604,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     guint8 *data;
     int size;
 
-    gss_isom_movie_serialize_track (level->file->movie, level->track_id,
+    gss_isom_movie_serialize_track_ccff (level->file->movie, level->track,
         &data, &size);
 
     soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, data,
@@ -772,13 +745,15 @@ gss_adaptive_load (const char *key)
 
   GST_DEBUG ("looking for %s", key);
 
-  filename = g_strdup_printf ("adaptive-vod/%s/gss-manifest", key);
+  filename = g_strdup_printf ("ism-vod/%s/gss-manifest", key);
   ret = g_file_get_contents (filename, &contents, &length, &error);
-  g_free (filename);
   if (!ret) {
+    GST_ERROR ("failed to open %s", filename);
+    g_free (filename);
     g_error_free (error);
     return NULL;
   }
+  g_free (filename);
 
   GST_DEBUG ("loading %s", key);
 
@@ -801,7 +776,7 @@ gss_adaptive_load (const char *key)
     GST_ERROR ("fn %s video_bitrate %d audio_bitrate %d",
         fn, video_bitrate, audio_bitrate);
 
-    full_fn = g_strdup_printf ("adaptive-vod/%s/%s", key, fn);
+    full_fn = g_strdup_printf ("ism-vod/%s/%s", key, fn);
 
     load_file (adaptive, full_fn, video_bitrate, audio_bitrate);
     g_free (full_fn);
@@ -830,7 +805,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
   file = gss_isom_file_new ();
   gss_isom_file_parse_file (file, filename);
 
-  if (gss_isom_file_get_n_fragments (file, AUDIO_TRACK_ID) == 0) {
+  if (file->movie->tracks[0]->n_fragments == 0) {
     gss_isom_file_fragmentize (file);
   }
 
@@ -852,6 +827,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     adaptive->max_height = MAX (adaptive->max_height, video_track->mp4v.height);
 
     level->track_id = video_track->tkhd.track_id;
+    level->track = video_track;
     level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
     level->filename = g_strdup (filename);
     level->bitrate = video_bitrate;
@@ -877,6 +853,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     memset (level, 0, sizeof (GssAdaptiveLevel));
 
     level->track_id = audio_track->tkhd.track_id;
+    level->track = audio_track;
     level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
     level->file = file;
     level->filename = g_strdup (filename);
@@ -899,6 +876,8 @@ gss_adaptive_get_resource (GssTransaction * t)
   char *subpath;
   GssAdaptive *adaptive;
 
+  GST_ERROR ("path: %s", t->path);
+
   path = t->path + 9;
   e = strchr (path, '/');
   if (e == NULL) {
@@ -913,6 +892,7 @@ gss_adaptive_get_resource (GssTransaction * t)
   if (adaptive == NULL) {
     adaptive = gss_adaptive_load (key);
     if (adaptive == NULL) {
+      GST_ERROR ("failed to load %s", key);
       g_free (key);
       g_free (subpath);
       soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
@@ -923,7 +903,7 @@ gss_adaptive_get_resource (GssTransaction * t)
     g_free (key);
   }
 
-  GST_DEBUG ("subpath: %s", subpath);
+  GST_ERROR ("subpath: %s", subpath);
   if (strcmp (subpath, "Manifest") == 0) {
     gss_adaptive_resource_get_manifest (t, adaptive);
   } else if (strcmp (subpath, "content") == 0) {

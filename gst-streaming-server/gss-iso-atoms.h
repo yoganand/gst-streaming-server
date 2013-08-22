@@ -35,8 +35,8 @@ typedef struct _AtomUUIDSampleEncryptionSampleEntry AtomUUIDSampleEncryptionSamp
 typedef struct _AtomAvcn AtomAvcn;
 typedef struct _AtomTfdt AtomTfdt;
 typedef struct _AtomTrik AtomTrik;
-typedef struct _AtomTraf AtomTraf;
-typedef struct _AtomMoof AtomMoof;
+//typedef struct _AtomTraf AtomTraf;
+//typedef struct _AtomMoof AtomMoof;
 
 typedef struct _AtomMvhd AtomMvhd;
 typedef struct _AtomIods AtomIods;
@@ -88,6 +88,10 @@ typedef struct _AtomMeta AtomMeta;
 typedef struct _AtomIlst AtomIlst;
 typedef struct _AtomMdir AtomMdir;
 typedef struct _AtomSkip AtomSkip;
+typedef struct _AtomMehd AtomMehd;
+typedef struct _AtomTrex AtomTrex;
+typedef struct _AtomSidxEntry AtomSidxEntry;
+typedef struct _AtomSidx AtomSidx;
 typedef struct _AtomStore AtomStore;
 
 
@@ -190,6 +194,7 @@ struct _AtomTrik
   guint32 flags;
 };
 
+#if 0
 struct _AtomTraf
 {
   guint8 version;
@@ -203,11 +208,14 @@ struct _AtomTraf
   AtomTfdt tfdt;
   AtomTrik trik;
 };
+#endif
 
+#if 0
 struct _AtomMoof
 {
 
 };
+#endif
 
 /* From ISO/IEC 14496-1:2002 */
 
@@ -534,8 +542,8 @@ struct _AtomEdts
 struct _AtomElstEntry
 {
   guint64 segment_duration;
-  gint64 media_time;
-  gint16 media_rate;
+  guint64 media_time;
+  guint32 media_rate;
 };
 
 struct _AtomElst
@@ -544,7 +552,7 @@ struct _AtomElst
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomElstEntry entries;
+  AtomElstEntry *entries;
 };
 
 struct _AtomUdta
@@ -594,6 +602,50 @@ struct _AtomMdir
   gboolean present;
   guint8 version;
   guint32 flags;
+};
+
+struct _AtomMehd
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+  guint64 fragment_duration;
+};
+
+struct _AtomTrex
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+
+  guint32 track_id;
+  guint32 default_sample_description_index;
+  guint32 default_sample_duration;
+  guint32 default_sample_size;
+  guint32 default_sample_flags;
+};
+
+struct _AtomSidxEntry
+{
+  guint8 reference_type;
+  guint32 reference_size;
+  guint32 subsegment_duration;
+  guint8 starts_with_sap;
+  guint8 sap_type;
+  guint32 sap_delta_time;
+};
+
+struct _AtomSidx
+{
+  guint8 version;
+  guint32 flags;
+  guint32 reference_id;
+  guint32 timescale;
+  guint64 earliest_presentation_time;
+  guint64 first_offset;
+
+  int n_entries;
+  AtomSidxEntry *entries;
 };
 
 struct _AtomSkip
