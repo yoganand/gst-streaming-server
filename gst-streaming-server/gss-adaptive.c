@@ -573,14 +573,8 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
       "Access-Control-Allow-Origin", "*");
 
   if (is_init) {
-    guint8 *data;
-    int size;
-
-    gss_isom_movie_serialize_track_ccff (level->file->movie, level->track,
-        &data, &size);
-
-    soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, data,
-        size);
+    soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
+        level->track->ccff_header_data, level->track->ccff_header_size);
   } else {
     fragment = gss_isom_file_get_fragment_by_timestamp (level->file,
         level->track_id, start_time);

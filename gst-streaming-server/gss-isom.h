@@ -149,6 +149,8 @@ struct _GssIsomTrack
   int n_fragments;
   int n_fragments_alloc;
 
+  guint8 *ccff_header_data;
+  gsize ccff_header_size;
 };
 
 
@@ -219,7 +221,7 @@ void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
 void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
     gsize *size, gboolean is_video);
 void gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack *track,
-    guint8 ** data, int *size);
+    guint8 ** data, gsize *size);
 void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
     int *size);
 void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size);

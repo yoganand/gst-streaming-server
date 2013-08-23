@@ -2679,6 +2679,7 @@ gss_isom_stsz_serialize (AtomStsz * stsz, GstByteWriter * bw)
   ATOM_FINISH (bw, offset);
 }
 
+#ifdef unused
 static void
 gss_isom_stsc_dump (AtomStsc * stsc)
 {
@@ -2694,6 +2695,7 @@ gss_isom_stsc_dump (AtomStsc * stsc)
         stsc->entries[i].sample_description_index);
   }
 }
+#endif
 
 static void
 gss_isom_stsc_serialize (AtomStsc * stsc, GstByteWriter * bw)
@@ -3189,9 +3191,6 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
 
   is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
-  if (0)
-    fixup_movie (movie, is_video);
-
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
 
 #ifdef HACK_DASH
@@ -3229,63 +3228,7 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
   ATOM_FINISH (bw, offset_mvex);
 #endif
 
-#ifdef HACK_CCFF
-  if (0)
-    gss_isom_ainf_serialize (&movie->ainf, bw);
-  if (0)
-    gss_isom_iods_serialize (&movie->iods, bw);
-  {
-    int offset_ainf;
-    offset_ainf = ATOM_INIT (bw, GST_MAKE_FOURCC ('a', 'i', 'n', 'f'));
-    gst_byte_writer_put_uint32_be (bw, 0);
-    gst_byte_writer_put_uint32_be (bw, 0);
-    ATOM_FINISH (bw, offset_ainf);
-  }
-  {
-    int offset_iods;
-    offset_iods = ATOM_INIT (bw, GST_MAKE_FOURCC ('i', 'o', 'd', 's'));
-    gst_byte_writer_put_uint32_be (bw, 0);
-    gst_byte_writer_put_uint32_be (bw, 0x1013004f);
-    gst_byte_writer_put_uint32_be (bw, 0xffffffff);
-    gst_byte_writer_put_uint32_be (bw, 0xff0e0400);
-    gst_byte_writer_put_uint32_be (bw, 0x0000010e);
-    gst_byte_writer_put_uint32_be (bw, 0x04000000);
-    gst_byte_writer_put_uint8 (bw, 0x02);
-    ATOM_FINISH (bw, offset_iods);
-  }
-#endif
-
-  if (0)
-    fixup_track (track, is_video);
   gss_isom_track_serialize (track, bw);
-
-#ifdef HACK_CCFF
-  /* udta */
-  {
-    int offset_udta;
-    int offset_meta;
-    int offset2;
-    offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('u', 'd', 't', 'a'));
-
-    offset_meta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 't', 'a'));
-    gst_byte_writer_put_uint32_be (bw, 0);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('h', 'd', 'l', 'r'));
-    gst_byte_writer_put_data (bw, movie->hdlr.data, movie->hdlr.size);
-    ATOM_FINISH (bw, offset2);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('i', 'l', 's', 't'));
-    gst_byte_writer_put_data (bw, movie->ilst.data, movie->ilst.size);
-    ATOM_FINISH (bw, offset2);
-
-    ATOM_FINISH (bw, offset_meta);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('X', 't', 'r', 'a'));
-    gst_byte_writer_put_data (bw, movie->xtra.data, movie->xtra.size);
-    ATOM_FINISH (bw, offset2);
-    ATOM_FINISH (bw, offset_udta);
-  }
-#endif
 
 #ifdef HACK_CCFF
   {
@@ -3294,11 +3237,6 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
     /* mvex */
     offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
     offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
-#if 0
-    gst_byte_writer_put_uint32_be (bw, 0x01000000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000000);
-    gst_byte_writer_put_uint32_be (bw, 0x1f1e5c05);
-#endif
     gst_byte_writer_put_uint8 (bw, movie->mehd.version);
     gst_byte_writer_put_uint24_be (bw, movie->mehd.flags);
     if (movie->mehd.version == 0) {
@@ -3319,15 +3257,6 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
     gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_flags);
     ATOM_FINISH (bw, offset_2);
     ATOM_FINISH (bw, offset_mvex);
-  }
-#endif
-#ifdef HACK_CCFF
-  /* meta */
-  {
-    int offset_meta;
-    offset_meta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 't', 'a'));
-    gst_byte_writer_fill (bw, 0, 0x4);
-    ATOM_FINISH (bw, offset_meta);
   }
 #endif
 
@@ -3596,7 +3525,7 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
  * mp4 form. */
 void
 gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
-    guint8 ** data, int *size)
+    guint8 ** data, gsize * size)
 {
   GstByteWriter *bw;
   int offset;
@@ -3605,25 +3534,11 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
   bw = gst_byte_writer_new ();
 
   ftyp = GST_MAKE_FOURCC ('c', 'c', 'f', 'f');
-  //ftyp = GST_MAKE_FOURCC ('d', 'a', 's', 'h');
 
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('f', 't', 'y', 'p'));
   gst_byte_writer_put_uint32_le (bw, ftyp);
-  switch (ftyp) {
-    case GST_MAKE_FOURCC ('c', 'c', 'f', 'f'):
-      gst_byte_writer_put_uint32_be (bw, 0x00000001);
-      gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
-      break;
-    case GST_MAKE_FOURCC ('d', 'a', 's', 'h'):
-      gst_byte_writer_put_uint32_be (bw, 0x00000000);
-      gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
-      gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('a', 'v', 'c', '1'));
-      gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
-      break;
-    default:
-      g_assert (0);
-      break;
-  }
+  gst_byte_writer_put_uint32_be (bw, 0x00000001);
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
   ATOM_FINISH (bw, offset);
 
 #ifdef HACK_CCFF
@@ -3991,6 +3906,11 @@ gss_isom_file_fragmentize (GssIsomFile * file)
   /* FIXME */
   file->movie->mehd.fragment_duration = video_timestamp;
   file->movie->mvhd.duration = video_timestamp;
+
+  gss_isom_movie_serialize_track_ccff (file->movie, video_track,
+      &video_track->ccff_header_data, &video_track->ccff_header_size);
+  gss_isom_movie_serialize_track_ccff (file->movie, audio_track,
+      &audio_track->ccff_header_data, &audio_track->ccff_header_size);
 }
 
 int
