@@ -3125,40 +3125,6 @@ gss_isom_trex_serialize (AtomTrex * trex, GstByteWriter * bw)
 }
 
 static void
-fixup_movie (GssIsomMovie * movie, gboolean is_video)
-{
-  const guint8 data[0x34] = {
-    0x00, 0x00, 0x00, 0x14,
-    0x6d, 0x65, 0x68, 0x64, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x1f, 0x1e, 0x5c, 0x05,
-    0x00, 0x00, 0x00, 0x20, 0x74, 0x72, 0x65, 0x78, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x05,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00
-  };
-  movie->mvhd.version = 1;
-  movie->mvhd.timescale = 10000000;
-
-#if 0
-  movie->ainf.present = TRUE;
-  movie->ainf.atom = GST_MAKE_FOURCC ('a', 'i', 'n', 'f');
-  movie->ainf.size = 8;
-  movie->ainf.data = g_malloc0 (8);
-#endif
-
-  movie->mvex.present = TRUE;
-  movie->mvex.atom = GST_MAKE_FOURCC ('m', 'v', 'e', 'x');
-  movie->mvex.size = 0x34;
-  movie->mvex.data = g_memdup (data, 0x34);
-
-  if (is_video) {
-    /* for video */
-    movie->mvex.data[0x23] = 0x01;
-  }
-
-}
-
-static void
 fixup_track (GssIsomTrack * track, gboolean is_video)
 {
   track->tkhd.creation_time += 0;
@@ -3185,11 +3151,8 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
   int offset_mvex;
   int offset_2;
 #endif
-  gboolean is_video;
 
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
-
-  is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
 
@@ -3307,50 +3270,10 @@ gss_isom_moov_serialize (GssIsomMovie * movie, GstByteWriter * bw)
     gss_isom_track_serialize (movie->tracks[i], bw);
   }
 
-#if 0
-  /* udta */
-  if (1 || movie->udta.present) {
-    int offset_udta;
-    int offset_meta;
-    int offset2;
-    offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('u', 'd', 't', 'a'));
-
-    offset_meta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 't', 'a'));
-    gst_byte_writer_put_uint32_be (bw, 0);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('h', 'd', 'l', 'r'));
-    gst_byte_writer_put_data (bw, movie->hdlr.data, movie->hdlr.size);
-    ATOM_FINISH (bw, offset2);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('i', 'l', 's', 't'));
-    gst_byte_writer_put_data (bw, movie->ilst.data, movie->ilst.size);
-    ATOM_FINISH (bw, offset2);
-
-    ATOM_FINISH (bw, offset_meta);
-
-    offset2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('X', 't', 'r', 'a'));
-    gst_byte_writer_put_data (bw, movie->xtra.data, movie->xtra.size);
-    ATOM_FINISH (bw, offset2);
-    ATOM_FINISH (bw, offset_udta);
-  }
-#endif
-
-#if 0
-  /* meta */
-  offset_udta = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 't', 'a'));
-  gst_byte_writer_fill (bw, 0, 0x4);
-  ATOM_FINISH (bw, offset_udta);
-#endif
-
   /* mvex */
   if (movie->mvex.present) {
     offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
     offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
-#if 0
-    gst_byte_writer_put_uint32_be (bw, 0x01000000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000000);
-    gst_byte_writer_put_uint32_be (bw, 0x1f1e5c05);
-#endif
     gst_byte_writer_put_uint8 (bw, movie->mehd.version);
     gst_byte_writer_put_uint24_be (bw, movie->mehd.flags);
     if (movie->mehd.version == 0) {
