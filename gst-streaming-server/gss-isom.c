@@ -3109,6 +3109,21 @@ gss_isom_iods_serialize (AtomStore * iods, GstByteWriter * bw)
 }
 
 static void
+gss_isom_mehd_serialize (AtomMehd * mehd, GstByteWriter * bw)
+{
+  int offset;
+  offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
+  gst_byte_writer_put_uint8 (bw, mehd->version);
+  gst_byte_writer_put_uint24_be (bw, mehd->flags);
+  if (mehd->version == 0) {
+    gst_byte_writer_put_uint32_be (bw, mehd->fragment_duration);
+  } else {
+    gst_byte_writer_put_uint64_be (bw, mehd->fragment_duration);
+  }
+  ATOM_FINISH (bw, offset);
+}
+
+static void
 gss_isom_trex_serialize (AtomTrex * trex, GstByteWriter * bw)
 {
   int offset;
@@ -3467,45 +3482,22 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
   ATOM_FINISH (bw, offset);
 
+  offset_moov = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
+
+  gss_isom_mvhd_serialize (&movie->mvhd, bw);
+  gss_isom_track_serialize (track, bw);
+
   {
-
-    offset_moov = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
-
-    gss_isom_mvhd_serialize (&movie->mvhd, bw);
-
-    gss_isom_track_serialize (track, bw);
-
-    if (1) {
-      int offset_mvex;
-      int offset_2;
-      /* mvex */
-      offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
-      offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
-      gst_byte_writer_put_uint8 (bw, movie->mehd.version);
-      gst_byte_writer_put_uint24_be (bw, movie->mehd.flags);
-      if (movie->mehd.version == 0) {
-        gst_byte_writer_put_uint32_be (bw, movie->mehd.fragment_duration);
-      } else {
-        gst_byte_writer_put_uint64_be (bw, movie->mehd.fragment_duration);
-      }
-      ATOM_FINISH (bw, offset_2);
-
-      offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'e', 'x'));
-      gst_byte_writer_put_uint8 (bw, track->trex.version);
-      gst_byte_writer_put_uint24_be (bw, track->trex.flags);
-      gst_byte_writer_put_uint32_be (bw, track->trex.track_id);
-      gst_byte_writer_put_uint32_be (bw,
-          track->trex.default_sample_description_index);
-      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_duration);
-      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_size);
-      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_flags);
-      ATOM_FINISH (bw, offset_2);
-      ATOM_FINISH (bw, offset_mvex);
-    }
-
-    ATOM_FINISH (bw, offset_moov);
-
+    int offset_mvex;
+    //int offset_2;
+    /* mvex */
+    offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
+    gss_isom_mehd_serialize (&movie->mehd, bw);
+    gss_isom_trex_serialize (&track->trex, bw);
+    ATOM_FINISH (bw, offset_mvex);
   }
+
+  ATOM_FINISH (bw, offset_moov);
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
