@@ -3142,6 +3142,7 @@ fixup_track (GssIsomTrack * track, gboolean is_video)
   track->stts.entry_count = 0;
 }
 
+#ifdef unused
 static void
 gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
     GstByteWriter * bw)
@@ -3227,6 +3228,7 @@ gss_isom_moov_serialize_track (GssIsomMovie * movie, GssIsomTrack * track,
 
 
 }
+#endif
 
 static void
 gss_isom_moov_serialize (GssIsomMovie * movie, GstByteWriter * bw)
@@ -3453,6 +3455,7 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
   GstByteWriter *bw;
   int offset;
   guint32 ftyp;
+  int offset_moov;
 
   bw = gst_byte_writer_new ();
 
@@ -3464,17 +3467,45 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
   ATOM_FINISH (bw, offset);
 
-#ifdef HACK_CCFF
-  offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('p', 'd', 'i', 'n'));
-  gst_byte_writer_put_uint32_be (bw, 0x00000000);
-  ATOM_FINISH (bw, offset);
+  {
 
-  offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('b', 'l', 'o', 'c'));
-  gst_byte_writer_fill (bw, 0, 0x404);
-  ATOM_FINISH (bw, offset);
-#endif
+    offset_moov = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
 
-  gss_isom_moov_serialize_track (movie, track, bw);
+    gss_isom_mvhd_serialize (&movie->mvhd, bw);
+
+    gss_isom_track_serialize (track, bw);
+
+    if (1) {
+      int offset_mvex;
+      int offset_2;
+      /* mvex */
+      offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
+      offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'e', 'h', 'd'));
+      gst_byte_writer_put_uint8 (bw, movie->mehd.version);
+      gst_byte_writer_put_uint24_be (bw, movie->mehd.flags);
+      if (movie->mehd.version == 0) {
+        gst_byte_writer_put_uint32_be (bw, movie->mehd.fragment_duration);
+      } else {
+        gst_byte_writer_put_uint64_be (bw, movie->mehd.fragment_duration);
+      }
+      ATOM_FINISH (bw, offset_2);
+
+      offset_2 = ATOM_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'e', 'x'));
+      gst_byte_writer_put_uint8 (bw, track->trex.version);
+      gst_byte_writer_put_uint24_be (bw, track->trex.flags);
+      gst_byte_writer_put_uint32_be (bw, track->trex.track_id);
+      gst_byte_writer_put_uint32_be (bw,
+          track->trex.default_sample_description_index);
+      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_duration);
+      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_size);
+      gst_byte_writer_put_uint32_be (bw, track->trex.default_sample_flags);
+      ATOM_FINISH (bw, offset_2);
+      ATOM_FINISH (bw, offset_mvex);
+    }
+
+    ATOM_FINISH (bw, offset_moov);
+
+  }
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
