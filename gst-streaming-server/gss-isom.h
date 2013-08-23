@@ -33,6 +33,7 @@ typedef struct _GssIsomFile GssIsomFile;
 typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
 typedef struct _GssMdatChunk GssMdatChunk;
+typedef struct _GssChunk GssChunk;
 
 typedef enum
 {
@@ -49,6 +50,13 @@ typedef enum
 struct _GssMdatChunk {
   guint64 offset;
   guint64 size;
+};
+
+struct _GssChunk {
+  guint64 offset;
+  guint64 size;
+  guint64 source_offset;
+  guint8 *data;
 };
 
 struct _GssIsomFragment {
@@ -151,6 +159,16 @@ struct _GssIsomTrack
 
   guint8 *ccff_header_data;
   gsize ccff_header_size;
+
+  guint8 *dash_header_data;
+  gsize dash_header_size;
+
+  gsize dash_size;
+
+  int n_chunks;
+  GssChunk *chunks;
+
+  char *filename;
 };
 
 
@@ -158,6 +176,7 @@ struct _GssIsomFile
 {
   gboolean error;
   int fd;
+  char *filename;
   guint64 file_size;
   guint64 offset;
   GssIsomFtyp ftyp;
@@ -222,6 +241,8 @@ void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
     gsize *size, gboolean is_video);
 void gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack *track,
     guint8 ** data, gsize *size);
+void gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack *track,
+    guint8 ** data, gsize *size);
 void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
     int *size);
 void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size);
@@ -257,6 +278,9 @@ void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
 void gss_isom_file_dump (GssIsomFile *file);
 void gss_isom_movie_dump (GssIsomMovie *movie);
 void gss_isom_track_dump (GssIsomTrack *track);
+
+gboolean gss_isom_track_load_range (GssIsomTrack *track, guint64 start,
+    guint64 end);
 
 
 G_END_DECLS

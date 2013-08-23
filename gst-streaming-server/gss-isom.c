@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#define HACK_CCFF 1
 
 #include "config.h"
 
@@ -203,6 +204,7 @@ gss_isom_file_load_chunk (GssIsomFile * file, guint64 offset, guint64 size)
 gboolean
 gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
 {
+  file->filename = g_strdup (filename);
   file->fd = open (filename, O_RDONLY);
   if (file->fd < 0) {
     GST_ERROR ("cannot open %s", filename);
@@ -404,6 +406,57 @@ guint64
 gss_isom_track_get_n_samples (GssIsomTrack * track)
 {
   return track->stsz.sample_count;
+}
+
+gboolean
+gss_isom_track_load_range (GssIsomTrack * track, gsize start, gsize end)
+{
+  int i;
+  int fd;
+
+  fd = open (track->filename, O_RDONLY);
+  if (fd < 0) {
+    GST_ERROR ("failed to open %s", track->filename);
+    return FALSE;
+  }
+
+  /* FIXME lazy search for start chunk */
+  for (i = 0; i < track->n_chunks; i++) {
+    GssChunk *chunk = &track->chunks[i];
+    guint8 *data;
+    off_t ret;
+    ssize_t n;
+
+    if (chunk->offset + chunk->size < start)
+      continue;
+    if (chunk->offset >= end)
+      break;
+    if (chunk->data != NULL)
+      continue;
+
+    GST_DEBUG ("loading chunk %d/%d, offset=%" G_GUINT64_FORMAT " offset=%"
+        G_GUINT64_FORMAT ", size=%" G_GUINT64_FORMAT, i, track->n_chunks,
+        chunk->offset, chunk->source_offset, chunk->size);
+
+    ret = lseek (fd, chunk->source_offset, SEEK_SET);
+    if (ret == (off_t) - 1) {
+      GST_ERROR ("failed to seek");
+      close (fd);
+      return FALSE;
+    }
+    data = g_malloc (chunk->size);
+    n = read (fd, data, chunk->size);
+    if (n < chunk->size) {
+      GST_WARNING ("read failed");
+      g_free (data);
+      close (fd);
+      return FALSE;
+    }
+    chunk->data = data;
+  }
+
+  close (fd);
+  return TRUE;
 }
 
 GssIsomMovie *
@@ -1722,7 +1775,7 @@ gss_isom_parse_container_udta (GssIsomFile * file, GssIsomMovie * movie,
       size = size32;
     }
 
-    GST_ERROR ("size %08x atom %" GST_FOURCC_FORMAT, size32,
+    GST_DEBUG ("size %08x atom %" GST_FOURCC_FORMAT, size32,
         GST_FOURCC_ARGS (atom));
 
     gst_byte_reader_init_sub (&sbr, br, size - 8);
@@ -2211,12 +2264,16 @@ gss_isom_fragment_serialize (GssIsomFragment * fragment, guint8 ** data,
   bw = gst_byte_writer_new ();
 
   /* sidx */
+#if 0
+#ifdef HACK_CCFF
   {
     int offset_sidx;
     offset_sidx = ATOM_INIT (bw, GST_MAKE_FOURCC ('s', 'i', 'd', 'x'));
     gst_byte_writer_fill (bw, 0, 0x18);
     ATOM_FINISH (bw, offset_sidx);
   }
+#endif
+#endif
 
   offset_moof = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'f'));
   gss_isom_mfhd_serialize (&fragment->mfhd, bw);
@@ -2227,6 +2284,9 @@ gss_isom_fragment_serialize (GssIsomFragment * fragment, guint8 ** data,
 
   GST_WRITE_UINT32_BE ((void *) (bw->parent.data +
           fragment->trun.data_offset_fixup), bw->parent.byte + 8 - offset_moof);
+
+  gst_byte_writer_put_uint32_be (bw, fragment->mdat_size);
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
@@ -2881,15 +2941,6 @@ gss_isom_track_serialize (GssIsomTrack * track, GstByteWriter * bw)
 
   gss_isom_tkhd_serialize (&track->tkhd, bw);
 
-#ifdef HACK_DASH
-  {
-    int offset_edts;
-    offset_edts = ATOM_INIT (bw, GST_MAKE_FOURCC ('e', 'd', 't', 's'));
-    gss_isom_elst_serialize (&track->elst, bw);
-    ATOM_FINISH (bw, offset_edts);
-  }
-#endif
-
   gss_isom_tref_serialize (&track->tref, bw);
 
   /* trak/mdia */
@@ -3273,10 +3324,6 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   /* moov */
   offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
   memset (&mvhd, 0, sizeof (mvhd));
-#ifdef HACK_DASH
-  mvhd.creation_time = 0xcc6076f1;
-  mvhd.modification_time = 0xcc6076f1;
-#endif
   mvhd.timescale = track->mdhd.timescale;
   gss_isom_mvhd_serialize (&mvhd, bw);
 
@@ -3353,6 +3400,51 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
   }
 
   ATOM_FINISH (bw, offset_moov);
+
+  *size = bw->parent.byte;
+  *data = gst_byte_writer_free_and_get_data (bw);
+}
+
+void
+gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
+    guint8 ** data, gsize * size)
+{
+  GstByteWriter *bw;
+  int offset;
+  int offset_moov;
+
+  bw = gst_byte_writer_new ();
+
+  offset = ATOM_INIT (bw, GST_MAKE_FOURCC ('f', 't', 'y', 'p'));
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('d', 'a', 's', 'h'));
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('a', 'v', 'c', '1'));
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
+  ATOM_FINISH (bw, offset);
+
+  offset_moov = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
+
+  gss_isom_mvhd_serialize (&movie->mvhd, bw);
+  gss_isom_track_serialize (track, bw);
+
+  {
+    int offset_mvex;
+    //int offset_2;
+    /* mvex */
+    offset_mvex = ATOM_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
+    gss_isom_mehd_serialize (&movie->mehd, bw);
+    gss_isom_trex_serialize (&track->trex, bw);
+    ATOM_FINISH (bw, offset_mvex);
+  }
+
+  ATOM_FINISH (bw, offset_moov);
+
+  {
+    AtomSidx sidx;
+    create_sidx (&sidx, track);
+    gss_isom_sidx_serialize (&sidx, bw);
+  }
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
@@ -3466,6 +3558,52 @@ gss_isom_movie_get_audio_track (GssIsomMovie * movie)
   return NULL;
 }
 
+static void
+convert_chunks (GssIsomTrack * track)
+{
+  int i, j;
+  int n_chunks;
+  guint64 offset = 0;
+  int index;
+
+  n_chunks = 1;
+  for (i = 0; i < track->n_fragments; i++) {
+    n_chunks++;
+    n_chunks += track->fragments[i]->n_mdat_chunks;
+  }
+
+  track->n_chunks = n_chunks;
+  track->chunks = g_malloc0 (sizeof (GssChunk) * n_chunks);
+
+  index = 0;
+
+  track->chunks[index].size = track->dash_header_size;
+  track->chunks[index].data = track->dash_header_data;
+  track->chunks[index].offset = offset;
+  track->chunks[index].source_offset = -1;
+  offset += track->chunks[index].size;
+  index++;
+
+  for (i = 0; i < track->n_fragments; i++) {
+    GssIsomFragment *fragment = track->fragments[i];
+    track->chunks[index].size = fragment->moof_size;
+    track->chunks[index].data = fragment->moof_data;
+    track->chunks[index].offset = offset;
+    track->chunks[index].source_offset = -1;
+    offset += track->chunks[index].size;
+    index++;
+
+    for (j = 0; j < fragment->n_mdat_chunks; j++) {
+      track->chunks[index].size = fragment->chunks[j].size;
+      track->chunks[index].data = NULL;
+      track->chunks[index].offset = offset;
+      track->chunks[index].source_offset = fragment->chunks[j].offset;
+      offset += track->chunks[index].size;
+      index++;
+    }
+  }
+}
+
 void
 gss_isom_file_fragmentize (GssIsomFile * file)
 {
@@ -3505,6 +3643,9 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     GST_ERROR ("no audio track");
     return;
   }
+
+  video_track->filename = file->filename;
+  audio_track->filename = file->filename;
 
   video_track->tkhd.track_id = 1;
   video_track->trex.track_id = 1;
@@ -3699,6 +3840,9 @@ gss_isom_file_fragmentize (GssIsomFile * file)
     audio_index += n_samples;
   }
 
+  video_track->dash_size = video_offset;
+  audio_track->dash_size = audio_offset;
+
   file->movie->mvhd.timescale = 10000000;
   fixup_track (video_track, TRUE);
   fixup_track (audio_track, FALSE);
@@ -3712,6 +3856,17 @@ gss_isom_file_fragmentize (GssIsomFile * file)
       &video_track->ccff_header_data, &video_track->ccff_header_size);
   gss_isom_movie_serialize_track_ccff (file->movie, audio_track,
       &audio_track->ccff_header_data, &audio_track->ccff_header_size);
+
+  gss_isom_movie_serialize_track_dash (file->movie, video_track,
+      &video_track->dash_header_data, &video_track->dash_header_size);
+  gss_isom_movie_serialize_track_dash (file->movie, audio_track,
+      &audio_track->dash_header_data, &audio_track->dash_header_size);
+
+  video_track->dash_size += video_track->dash_header_size;
+  audio_track->dash_size += audio_track->dash_header_size;
+
+  convert_chunks (video_track);
+  convert_chunks (audio_track);
 }
 
 int

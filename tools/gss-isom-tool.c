@@ -8,11 +8,13 @@
 
 gboolean verbose = FALSE;
 gboolean dump = FALSE;
+gboolean fragment = FALSE;
 
 static GOptionEntry entries[] = {
   {"verbose", 'v', 0, G_OPTION_ARG_NONE, &verbose, "Be verbose", NULL},
   {"dump", 'd', 0, G_OPTION_ARG_NONE, &dump, "Dump file to readable output",
       NULL},
+  {"fragment", 'd', 0, G_OPTION_ARG_NONE, &fragment, "Fragment file", NULL},
   {NULL}
 };
 
@@ -54,10 +56,25 @@ main (int argc, char *argv[])
     if (dump) {
       gss_isom_file_dump (file);
     }
-    if (0) {
-      gss_isom_movie_serialize_track (file->movie,
-          file->movie->tracks[1]->tkhd.track_id, &data, &size);
+    if (fragment) {
+      int j;
+      GssIsomTrack *track;
 
+      gss_isom_file_fragmentize (file);
+
+      track = file->movie->tracks[0];
+
+      g_print ("n_fragmenst: %d\n", track->n_fragments);
+      for (j = 0; j < track->n_fragments; j++) {
+        g_print ("fragment: %d\n", j);
+        g_print ("  offset: %" G_GUINT64_FORMAT "\n",
+            track->fragments[j]->offset);
+        g_print ("  moof_size: %" G_GUINT64_FORMAT "\n",
+            track->fragments[j]->moof_size);
+        g_print ("  mdat_size: %d\n", track->fragments[j]->mdat_size);
+      }
+
+      gss_isom_track_serialize_dash (track, &data, &size);
       g_file_set_contents ("out.mov", (gchar *) data, size, NULL);
     }
 

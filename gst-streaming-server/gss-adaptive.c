@@ -125,8 +125,9 @@ gss_adaptive_send_chunk (GssTransaction * t, GssAdaptive * adaptive,
   gss_isom_fragment_serialize (fragment, &moof_data, &moof_size, is_video);
 
   soup_message_set_status (t->msg, SOUP_STATUS_OK);
+  /* strip off mdat header at end of moof_data */
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, moof_data,
-      moof_size);
+      moof_size - 8);
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
       fragment->mdat_size);
 }
@@ -281,6 +282,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
         i, level->bitrate);
     GSS_P ("        <BaseURL>content-range/a%d</BaseURL>\n", i);
     GSS_A ("      </Representation>\n");
+    break;
   }
   GSS_A ("    </AdaptationSet>\n");
 
@@ -296,6 +298,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
         i, level->bitrate, level->video_width, level->video_height);
     GSS_P ("        <BaseURL>content-range/v%d</BaseURL>\n", i);
     GSS_A ("      </Representation>\n");
+    break;
   }
   GSS_A ("    </AdaptationSet>\n");
 
@@ -310,15 +313,13 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     GssAdaptive * adaptive, const char *path)
 {
   gboolean ret;
-  char *contents;
-  gsize length;
-  GError *error = NULL;
-  GStatBuf sb;
   gboolean have_range;
   SoupRange *ranges;
   int n_ranges;
   int index;
   GssAdaptiveLevel *level;
+  gsize start, end;
+  int i;
 
   soup_message_headers_replace (t->msg->response_headers,
       "Access-Control-Allow-Origin", "*");
@@ -330,12 +331,17 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     GST_ERROR ("bad path: %s", path);
     return;
   }
-  index = strtol (path + 1, NULL, 10);
+  index = strtoul (path + 1, NULL, 10);
 
+  level = NULL;
   if (path[0] == 'a') {
-    level = &adaptive->audio_levels[index];
+    if (index < adaptive->n_audio_levels) {
+      level = &adaptive->audio_levels[index];
+    }
   } else {
-    level = &adaptive->video_levels[index];
+    if (index < adaptive->n_video_levels) {
+      level = &adaptive->video_levels[index];
+    }
   }
 
   if (level == NULL) {
@@ -343,52 +349,73 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     return;
   }
 
-  g_stat (level->filename, &sb);
-
   if (t->msg->method == SOUP_METHOD_HEAD) {
+    GST_DEBUG ("%s: HEAD", path);
     soup_message_headers_set_content_length (t->msg->response_headers,
-        sb.st_size);
+        level->track->dash_size);
     return;
   }
 
   have_range = soup_message_headers_get_ranges (t->msg->request_headers,
-      sb.st_size, &ranges, &n_ranges);
-
-  ret = g_file_get_contents (level->filename, &contents, &length, &error);
-  if (!ret) {
-    g_error_free (error);
-    GST_WARNING ("missing file %s", level->filename);
-    return;
-  }
-  //gss_soup_dump_request_headers (t->msg);
+      level->track->dash_size, &ranges, &n_ranges);
 
   if (have_range) {
     if (n_ranges != 1) {
       GST_ERROR ("too many ranges");
     }
+    start = ranges[0].start;
+    end = ranges[0].end + 1;
+  } else {
+    start = 0;
+    end = level->track->dash_size;
+  }
+  GST_DEBUG ("%s: range: %ld-%ld", path, start, end);
 
-    GST_DEBUG ("handling Range: %" G_GSIZE_FORMAT "-%" G_GSIZE_FORMAT,
-        ranges[0].start, ranges[0].end);
+  ret = gss_isom_track_load_range (level->track, start, end);
+  if (!ret) {
+    GST_ERROR ("failed to load range");
+    return;
+  }
 
+  /* FIXME lazy search for start chunk */
+  for (i = 0; i < level->track->n_chunks; i++) {
+    GssChunk *chunk = &level->track->chunks[i];
+    gsize offset_in_chunk;
+    gsize size;
+
+    if (chunk->offset + chunk->size < start)
+      continue;
+    if (chunk->offset >= end)
+      break;
+
+    g_assert (chunk->data != NULL);
+
+    if (start > chunk->offset) {
+      offset_in_chunk = start - chunk->offset;
+    } else {
+      offset_in_chunk = 0;
+    }
+    size = MIN (end, chunk->offset + chunk->size) -
+        (chunk->offset + offset_in_chunk);
+
+    soup_message_body_append (t->msg->response_body,
+        SOUP_MEMORY_COPY, chunk->data + offset_in_chunk, size);
+  }
+  soup_message_body_complete (t->msg->response_body);
+
+  if (have_range) {
     soup_message_headers_set_content_range (t->msg->response_headers,
-        ranges[0].start, ranges[0].end, sb.st_size);
-
-    soup_message_set_response (t->msg,
-        (path[0] == 'v') ? "video/mp4" : "audio/mp4",
-        SOUP_MEMORY_COPY, contents + ranges[0].start,
-        ranges[0].end + 1 - ranges[0].start);
+        ranges[0].start, ranges[0].end, level->track->dash_size);
 
     soup_message_set_status (t->msg, SOUP_STATUS_PARTIAL_CONTENT);
 
     soup_message_headers_free_ranges (t->msg->response_headers, ranges);
-    g_free (contents);
   } else {
-    soup_message_set_response (t->msg,
-        (path[0] == 'v') ? "video/mp4" : "audio/mp4",
-        SOUP_MEMORY_TAKE, contents, length);
+    soup_message_set_status (t->msg, SOUP_STATUS_OK);
   }
 
-
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      (path[0] == 'v') ? "video/mp4" : "audio/mp4");
 }
 
 static void
@@ -869,7 +896,7 @@ gss_adaptive_get_resource (GssTransaction * t)
     g_free (key);
   }
 
-  GST_ERROR ("subpath: %s", subpath);
+  GST_DEBUG ("subpath: %s", subpath);
   if (strcmp (subpath, "Manifest") == 0) {
     gss_adaptive_resource_get_manifest (t, adaptive);
   } else if (strcmp (subpath, "content") == 0) {
