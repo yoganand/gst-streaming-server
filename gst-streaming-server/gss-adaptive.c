@@ -132,7 +132,6 @@ gss_adaptive_send_chunk (GssTransaction * t, GssAdaptive * adaptive,
       fragment->mdat_size);
 }
 
-#if 0
 static char *
 get_codec_string (guint8 * codec_data, int len)
 {
@@ -148,7 +147,6 @@ get_codec_string (guint8 * codec_data, int len)
   }
   return s;
 }
-#endif
 
 void
 gss_adaptive_setup (GssServer * server)
@@ -829,10 +827,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->file = file;
     level->is_h264 = TRUE;
 
-#if 0
     level->codec_data = get_codec_string (video_track->esds.codec_data,
         video_track->esds.codec_data_len);
-#endif
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
@@ -851,10 +847,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->file = file;
     level->filename = g_strdup (filename);
     level->bitrate = audio_bitrate;
-#if 0
     level->codec_data = get_codec_string (audio_track->esds.codec_data,
         audio_track->esds.codec_data_len);
-#endif
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
   }
 
