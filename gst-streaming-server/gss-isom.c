@@ -47,7 +47,7 @@ typedef struct _Container Container;
 struct _Container
 {
   guint32 atom;
-  void (*parse) (GssIsomParser * file, GssIsomTrack * track,
+  void (*parse) (GssIsomParser * parser, GssIsomTrack * track,
       GstByteReader * br);
   Container *atoms;
 };
@@ -73,40 +73,40 @@ const guint8 uuid_protection_header[16] = {
 };
 
 
-static gboolean file_read (GssIsomParser * file, guint8 * buffer,
+static gboolean file_read (GssIsomParser * parser, guint8 * buffer,
     guint64 offset, guint64 n_bytes);
-static void gss_isom_parse_ftyp (GssIsomParser * file, guint64 offset,
+static void gss_isom_parse_ftyp (GssIsomParser * parser, guint64 offset,
     guint64 size);
-static void gss_isom_parse_moof (GssIsomParser * file,
+static void gss_isom_parse_moof (GssIsomParser * parser,
     GssIsomFragment * fragment, GstByteReader * br);
-static void gss_isom_parse_traf (GssIsomParser * file,
+static void gss_isom_parse_traf (GssIsomParser * parser,
     GssIsomFragment * fragment, GstByteReader * br);
-static void gss_isom_parse_mfhd (GssIsomParser * file,
+static void gss_isom_parse_mfhd (GssIsomParser * parser,
     GssIsomFragment * fragment, GstByteReader * br);
-static void gss_isom_parse_tfhd (GssIsomParser * file, GssBoxTfhd * tfhd,
+static void gss_isom_parse_tfhd (GssIsomParser * parser, GssBoxTfhd * tfhd,
     GstByteReader * br);
-static void gss_isom_parse_trun (GssIsomParser * file, GssBoxTrun * trun,
+static void gss_isom_parse_trun (GssIsomParser * parser, GssBoxTrun * trun,
     GstByteReader * br);
-static void gss_isom_parse_sdtp (GssIsomParser * file, GssBoxSdtp * sdtp,
+static void gss_isom_parse_sdtp (GssIsomParser * parser, GssBoxSdtp * sdtp,
     GstByteReader * br, int sample_count);
-static void gss_isom_parse_mfra (GssIsomParser * file, guint64 offset,
+static void gss_isom_parse_mfra (GssIsomParser * parser, guint64 offset,
     guint64 size);
-static void gss_isom_parse_sample_encryption (GssIsomParser * file,
+static void gss_isom_parse_sample_encryption (GssIsomParser * parser,
     GssBoxUUIDSampleEncryption * se, GstByteReader * br);
-static void gss_isom_parse_avcn (GssIsomParser * file, GssBoxAvcn * avcn,
+static void gss_isom_parse_avcn (GssIsomParser * parser, GssBoxAvcn * avcn,
     GstByteReader * br);
-static void gss_isom_parse_tfdt (GssIsomParser * file, GssBoxTfdt * tfdt,
+static void gss_isom_parse_tfdt (GssIsomParser * parser, GssBoxTfdt * tfdt,
     GstByteReader * br);
-static void gss_isom_parse_trik (GssIsomParser * file, GssBoxTrik * trik,
+static void gss_isom_parse_trik (GssIsomParser * parser, GssBoxTrik * trik,
     GstByteReader * br);
-static void gss_isom_parse_moov (GssIsomParser * file, GssIsomMovie * movie,
+static void gss_isom_parse_moov (GssIsomParser * parser, GssIsomMovie * movie,
     GstByteReader * br);
 static void gss_isom_fixup_moof (GssIsomFragment * fragment);
-static void gss_isom_parser_fixup (GssIsomParser * file);
-static void gss_isom_parse_container (GssIsomParser * file,
+static void gss_isom_parser_fixup (GssIsomParser * parser);
+static void gss_isom_parse_container (GssIsomParser * parser,
     GssIsomTrack * track, GstByteReader * br, Container * atoms,
     guint32 parent_atom);
-static void gss_isom_parse_ignore (GssIsomParser * file, GssIsomTrack * track,
+static void gss_isom_parse_ignore (GssIsomParser * parser, GssIsomTrack * track,
     GstByteReader * br);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
@@ -126,43 +126,43 @@ static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
 GssIsomParser *
 gss_isom_parser_new (void)
 {
-  GssIsomParser *file;
+  GssIsomParser *parser;
 
-  file = g_malloc0 (sizeof (GssIsomParser));
+  parser = g_malloc0 (sizeof (GssIsomParser));
 
-  return file;
+  return parser;
 }
 
 void
-gss_isom_parser_dump (GssIsomParser * file)
+gss_isom_parser_dump (GssIsomParser * parser)
 {
-  gss_isom_movie_dump (file->movie);
+  gss_isom_movie_dump (parser->movie);
 }
 
 void
-gss_isom_parser_free (GssIsomParser * file)
+gss_isom_parser_free (GssIsomParser * parser)
 {
-  if (file->fd > 0) {
-    close (file->fd);
+  if (parser->fd > 0) {
+    close (parser->fd);
   }
-  g_free (file);
+  g_free (parser);
 }
 
 GssIsomFragment *
-gss_isom_parser_get_fragment (GssIsomParser * file, GssIsomTrack * track,
+gss_isom_parser_get_fragment (GssIsomParser * parser, GssIsomTrack * track,
     int index)
 {
   return track->fragments[index];
 }
 
 GssIsomFragment *
-gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * file,
+gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * parser,
     int track_id, guint64 timestamp)
 {
   GssIsomTrack *track;
   int i;
 
-  track = gss_isom_movie_get_track_by_id (file->movie, track_id);
+  track = gss_isom_movie_get_track_by_id (parser->movie, track_id);
   for (i = 0; i < track->n_fragments; i++) {
     if (track->fragments[i]->timestamp == timestamp) {
       return track->fragments[i];
@@ -173,42 +173,43 @@ gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * file,
 }
 
 guint64
-gss_isom_parser_get_duration (GssIsomParser * file, int track_id)
+gss_isom_parser_get_duration (GssIsomParser * parser, int track_id)
 {
   guint64 duration;
 
-  duration = file->movie->mvhd.duration;
+  duration = parser->movie->mvhd.duration;
 
   return duration;
 }
 
 int
-gss_isom_parser_get_n_fragments (GssIsomParser * file, int track_id)
+gss_isom_parser_get_n_fragments (GssIsomParser * parser, int track_id)
 {
   GssIsomTrack *track;
-  track = gss_isom_movie_get_track_by_id (file->movie, track_id);
+  track = gss_isom_movie_get_track_by_id (parser->movie, track_id);
   return track->n_fragments;
 }
 
 void
-gss_isom_parser_load_chunk (GssIsomParser * file, guint64 offset, guint64 size)
+gss_isom_parser_load_chunk (GssIsomParser * parser, guint64 offset,
+    guint64 size)
 {
-  if (file->data) {
-    g_free (file->data);
+  if (parser->data) {
+    g_free (parser->data);
   }
-  file->data = g_malloc (size);
-  file->data_offset = offset;
-  file->data_size = size;
+  parser->data = g_malloc (size);
+  parser->data_offset = offset;
+  parser->data_size = size;
 
-  file_read (file, file->data, file->data_offset, file->data_size);
+  file_read (parser, parser->data, parser->data_offset, parser->data_size);
 }
 
 gboolean
-gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
+gss_isom_parser_parse_file (GssIsomParser * parser, const char *filename)
 {
-  file->filename = g_strdup (filename);
-  file->fd = open (filename, O_RDONLY);
-  if (file->fd < 0) {
+  parser->filename = g_strdup (filename);
+  parser->fd = open (filename, O_RDONLY);
+  if (parser->fd < 0) {
     GST_ERROR ("cannot open %s", filename);
     return FALSE;
   }
@@ -217,25 +218,25 @@ gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
     int ret;
     struct stat sb;
 
-    ret = fstat (file->fd, &sb);
+    ret = fstat (parser->fd, &sb);
     if (ret < 0) {
       GST_ERROR ("stat failed");
-      close (file->fd);
-      file->fd = -1;
+      close (parser->fd);
+      parser->fd = -1;
       return FALSE;
     }
-    file->file_size = sb.st_size;
+    parser->file_size = sb.st_size;
   }
 
-  file->offset = 0;
-  while (!file->error && file->offset < file->file_size) {
+  parser->offset = 0;
+  while (!parser->error && parser->offset < parser->file_size) {
     guint8 buffer[16];
     guint64 size = 0;
     guint32 size32 = 0;
     guint32 atom = 0;
     GstByteReader br;
 
-    file_read (file, buffer, file->offset, 16);
+    file_read (parser, buffer, parser->offset, 16);
     gst_byte_reader_init (&br, buffer, 16);
 
     gst_byte_reader_get_uint32_be (&br, &size32);
@@ -243,28 +244,28 @@ gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
     if (size32 == 1) {
       gst_byte_reader_get_uint64_be (&br, &size);
     } else if (size32 == 0) {
-      size = file->file_size - file->offset;
+      size = parser->file_size - parser->offset;
     } else {
       size = size32;
     }
 
     if (atom == GST_MAKE_FOURCC ('f', 't', 'y', 'p')) {
-      gss_isom_parser_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (parser, parser->offset, size);
 
-      gss_isom_parse_ftyp (file, file->offset, size);
+      gss_isom_parse_ftyp (parser, parser->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'f')) {
       GstByteReader br;
       GssIsomFragment *fragment;
       GssIsomTrack *track;
 
-      gss_isom_parser_load_chunk (file, file->offset, size);
-      gst_byte_reader_init (&br, file->data + 8, size - 8);
+      gss_isom_parser_load_chunk (parser, parser->offset, size);
+      gst_byte_reader_init (&br, parser->data + 8, size - 8);
 
       fragment = gss_isom_fragment_new ();
-      gss_isom_parse_moof (file, fragment, &br);
+      gss_isom_parse_moof (parser, fragment, &br);
       gss_isom_fixup_moof (fragment);
 
-      track = gss_isom_movie_get_track_by_id (file->movie,
+      track = gss_isom_movie_get_track_by_id (parser->movie,
           fragment->tfhd.track_id);
       if (track == NULL) {
         GST_ERROR ("track not found for fragment");
@@ -277,47 +278,47 @@ gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
         track->fragments[track->n_fragments] = fragment;
         track->n_fragments++;
       }
-      file->current_fragment = fragment;
+      parser->current_fragment = fragment;
 
       fragment->duration = gss_isom_moof_get_duration (fragment);
-      fragment->offset = file->offset;
+      fragment->offset = parser->offset;
       fragment->moof_size = size;
     } else if (atom == GST_MAKE_FOURCC ('m', 'd', 'a', 't')) {
-      if (file->is_isml && file->current_fragment == NULL) {
+      if (parser->is_isml && parser->current_fragment == NULL) {
         GST_ERROR ("mdat with no moof, broken file");
-        file->error = TRUE;
-        close (file->fd);
-        file->fd = -1;
+        parser->error = TRUE;
+        close (parser->fd);
+        parser->fd = -1;
         return FALSE;
       }
 
-      if (file->is_isml) {
-        file->current_fragment->mdat_size = size;
+      if (parser->is_isml) {
+        parser->current_fragment->mdat_size = size;
 
-        file->current_fragment->n_mdat_chunks = 1;
-        file->current_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * 1);
-        file->current_fragment->chunks[0].offset = file->offset + 8;
-        file->current_fragment->chunks[0].size = size - 8;
+        parser->current_fragment->n_mdat_chunks = 1;
+        parser->current_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * 1);
+        parser->current_fragment->chunks[0].offset = parser->offset + 8;
+        parser->current_fragment->chunks[0].size = size - 8;
       }
     } else if (atom == GST_MAKE_FOURCC ('m', 'f', 'r', 'a')) {
-      gss_isom_parse_mfra (file, file->offset, size);
+      gss_isom_parse_mfra (parser, parser->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'v')) {
       GstByteReader br;
       guint8 *data;
       GssIsomMovie *movie;
 
       data = g_malloc (size);
-      file_read (file, data, file->offset, size);
+      file_read (parser, data, parser->offset, size);
       gst_byte_reader_init (&br, data + 8, size - 8);
 
       movie = gss_isom_movie_new ();
-      gss_isom_parse_moov (file, movie, &br);
+      gss_isom_parse_moov (parser, movie, &br);
 
-      file->movie = movie;
+      parser->movie = movie;
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       guint8 uuid[16];
 
-      file_read (file, uuid, file->offset + 8, 16);
+      file_read (parser, uuid, parser->offset + 8, 16);
 
       if (memcmp (uuid, uuid_xmp_data, 16) == 0) {
 
@@ -337,53 +338,53 @@ gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
     } else if (atom == GST_MAKE_FOURCC ('s', 'i', 'd', 'x')) {
       GST_ERROR ("sidx");
     } else if (atom == GST_MAKE_FOURCC ('p', 'd', 'i', 'n')) {
-      gss_isom_parser_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (parser, parser->offset, size);
 
-      file->pdin.present = TRUE;
-      file->pdin.atom = atom;
-      file->pdin.size = size - 8;
-      gst_byte_reader_dup_data (&br, size - 8, &file->pdin.data);
+      parser->pdin.present = TRUE;
+      parser->pdin.atom = atom;
+      parser->pdin.size = size - 8;
+      gst_byte_reader_dup_data (&br, size - 8, &parser->pdin.data);
     } else if (atom == GST_MAKE_FOURCC ('b', 'l', 'o', 'c')) {
-      gss_isom_parser_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (parser, parser->offset, size);
 
-      file->bloc.present = TRUE;
-      file->bloc.atom = atom;
-      file->bloc.size = size - 8;
-      gst_byte_reader_dup_data (&br, size - 8, &file->bloc.data);
+      parser->bloc.present = TRUE;
+      parser->bloc.atom = atom;
+      parser->bloc.size = size - 8;
+      gst_byte_reader_dup_data (&br, size - 8, &parser->bloc.data);
     } else {
       GST_WARNING ("unknown atom %" GST_FOURCC_FORMAT
           " at offset %" G_GINT64_MODIFIER "x, size %" G_GUINT64_FORMAT,
-          GST_FOURCC_ARGS (atom), file->offset, size);
+          GST_FOURCC_ARGS (atom), parser->offset, size);
     }
 
-    file->offset += size;
+    parser->offset += size;
   }
 
-  if (file->error) {
+  if (parser->error) {
     GST_ERROR ("file error");
-    close (file->fd);
-    file->fd = -1;
+    close (parser->fd);
+    parser->fd = -1;
     return FALSE;
   }
 
-  gss_isom_parser_fixup (file);
+  gss_isom_parser_fixup (parser);
 
-  close (file->fd);
-  file->fd = -1;
+  close (parser->fd);
+  parser->fd = -1;
   return TRUE;
 }
 
 static void
-gss_isom_parser_fixup (GssIsomParser * file)
+gss_isom_parser_fixup (GssIsomParser * parser)
 {
   GssIsomTrack *track;
   guint64 ts;
   int i;
   int j;
 
-  for (j = 0; j < file->movie->n_tracks; j++) {
+  for (j = 0; j < parser->movie->n_tracks; j++) {
     ts = 0;
-    track = file->movie->tracks[j];
+    track = parser->movie->tracks[j];
     for (i = 0; i < track->n_fragments; i++) {
       track->fragments[i]->timestamp = ts;
       ts += track->fragments[i]->duration;
