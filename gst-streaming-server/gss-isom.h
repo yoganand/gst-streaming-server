@@ -21,7 +21,7 @@
 #ifndef _GSS_ISOM_H
 #define _GSS_ISOM_H
 
-#include "gss-iso-atoms.h"
+#include "gss-isom-boxes.h"
 #include "gss-server.h"
 
 G_BEGIN_DECLS
@@ -70,14 +70,14 @@ struct _GssIsomFragment {
   guint64 timestamp;
   guint64 duration;
 
-  AtomMfhd mfhd;
-  AtomTfhd tfhd;
-  AtomTrun trun;
-  AtomSdtp sdtp;
-  AtomUUIDSampleEncryption sample_encryption;
-  AtomAvcn avcn;
-  AtomTfdt tfdt;
-  AtomTrik trik;
+  GssBoxMfhd mfhd;
+  GssBoxTfhd tfhd;
+  GssBoxTrun trun;
+  GssBoxSdtp sdtp;
+  GssBoxUUIDSampleEncryption sample_encryption;
+  GssBoxAvcn avcn;
+  GssBoxTfdt tfdt;
+  GssBoxTrik trik;
 
 };
 
@@ -86,66 +86,66 @@ struct _GssIsomMovie
   int n_tracks;
   GssIsomTrack **tracks;
 
-  AtomMvhd mvhd;
+  GssBoxMvhd mvhd;
 
-  AtomUdta udta;
+  GssBoxUdta udta;
   /* udta */
-  AtomStore meta;
-  AtomStore hdlr;
-  AtomStore ilst;
-  AtomMdir mdir;
-  AtomStore xtra;
+  GssBoxStore meta;
+  GssBoxStore hdlr;
+  GssBoxStore ilst;
+  GssBoxMdir mdir;
+  GssBoxStore xtra;
 
-  AtomSkip skip;
-  AtomStore iods;
-  AtomStore mvex;
-  AtomStore ainf;
+  GssBoxSkip skip;
+  GssBoxStore iods;
+  GssBoxStore mvex;
+  GssBoxStore ainf;
 
-  AtomSidx sidx;
-  AtomMehd mehd;
+  GssBoxSidx sidx;
+  GssBoxMehd mehd;
 
 };
 
 struct _GssIsomTrack
 {
-  AtomTkhd tkhd;
-  AtomTref tref;
+  GssBoxTkhd tkhd;
+  GssBoxTref tref;
 
   /* inside edts */
-  AtomElst elst;
+  GssBoxElst elst;
 
   /* inside mdia */
-  AtomMdhd mdhd;
-  AtomHdlr hdlr;
+  GssBoxMdhd mdhd;
+  GssBoxHdlr hdlr;
 
   /* inside mdia/minf */
-  AtomVmhd vmhd;
-  AtomSmhd smhd;
-  AtomHmhd hmhd;
+  GssBoxVmhd vmhd;
+  GssBoxSmhd smhd;
+  GssBoxHmhd hmhd;
   /* mpeg stream headers (?) */
 
   /* inside mdia/minf/dinf */
-  AtomDref dref;
+  GssBoxDref dref;
 
   /* inside mdia/minf/stbl */
-  AtomStts stts;
-  AtomCtts ctts;
-  AtomStss stss;
-  AtomStsd stsd;
-  AtomStsz stsz;
-  AtomStsc stsc;
-  AtomStco stco;
-  AtomStsh stsh;
-  AtomStdp stdp;
+  GssBoxStts stts;
+  GssBoxCtts ctts;
+  GssBoxStss stss;
+  GssBoxStsd stsd;
+  GssBoxStsz stsz;
+  GssBoxStsc stsc;
+  GssBoxStco stco;
+  GssBoxStsh stsh;
+  GssBoxStdp stdp;
 
   /* inside mdia/minf/stbl/stsd */
-  AtomMp4v mp4v;
-  AtomMp4a mp4a;
-  AtomEsds esds;
-  AtomStore esds_store;
+  GssBoxMp4v mp4v;
+  GssBoxMp4a mp4a;
+  GssBoxEsds esds;
+  GssBoxStore esds_store;
 
   /* in mvex at top level */
-  AtomTrex trex;
+  GssBoxTrex trex;
 
   guint8 *header;
   gsize header_size;
@@ -194,8 +194,8 @@ struct _GssIsomFile
   guint64 data_offset;
   guint64 data_size;
 
-  AtomStore pdin;
-  AtomStore bloc;
+  GssBoxStore pdin;
+  GssBoxStore bloc;
 };
 
 struct _GssIsomSampleIterator

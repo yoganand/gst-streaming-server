@@ -22,80 +22,80 @@
 
 #include <glib.h>
 
-/* Atom definitions */
+/* GssBox definitions */
 
-typedef struct _AtomMfhd AtomMfhd;
-typedef struct _AtomTfhd AtomTfhd;
-typedef struct _AtomTrun AtomTrun;
-typedef struct _AtomTrunSample AtomTrunSample;
-typedef struct _AtomSdtp AtomSdtp;
-typedef struct _AtomUUIDSampleEncryption AtomUUIDSampleEncryption;
-typedef struct _AtomUUIDSampleEncryptionSample AtomUUIDSampleEncryptionSample;
-typedef struct _AtomUUIDSampleEncryptionSampleEntry AtomUUIDSampleEncryptionSampleEntry;
-typedef struct _AtomAvcn AtomAvcn;
-typedef struct _AtomTfdt AtomTfdt;
-typedef struct _AtomTrik AtomTrik;
-//typedef struct _AtomTraf AtomTraf;
-//typedef struct _AtomMoof AtomMoof;
+typedef struct _GssBoxMfhd GssBoxMfhd;
+typedef struct _GssBoxTfhd GssBoxTfhd;
+typedef struct _GssBoxTrun GssBoxTrun;
+typedef struct _GssBoxTrunSample GssBoxTrunSample;
+typedef struct _GssBoxSdtp GssBoxSdtp;
+typedef struct _GssBoxUUIDSampleEncryption GssBoxUUIDSampleEncryption;
+typedef struct _GssBoxUUIDSampleEncryptionSample GssBoxUUIDSampleEncryptionSample;
+typedef struct _GssBoxUUIDSampleEncryptionSampleEntry GssBoxUUIDSampleEncryptionSampleEntry;
+typedef struct _GssBoxAvcn GssBoxAvcn;
+typedef struct _GssBoxTfdt GssBoxTfdt;
+typedef struct _GssBoxTrik GssBoxTrik;
+//typedef struct _GssBoxTraf GssBoxTraf;
+//typedef struct _GssBoxMoof GssBoxMoof;
 
-typedef struct _AtomMvhd AtomMvhd;
-typedef struct _AtomIods AtomIods;
-typedef struct _AtomAinf AtomAinf;
-typedef struct _AtomTrak AtomTrak;
-typedef struct _AtomTkhd AtomTkhd;
-typedef struct _AtomTref AtomTref;
-typedef struct _AtomMdia AtomMdia;
-typedef struct _AtomMdhd AtomMdhd;
-typedef struct _AtomHdlr AtomHdlr;
-typedef struct _AtomMinf AtomMinf;
-typedef struct _AtomVmhd AtomVmhd;
-typedef struct _AtomSmhd AtomSmhd;
-typedef struct _AtomHmhd AtomHmhd;
-typedef struct _AtomDinf AtomDinf;
-typedef struct _AtomUrl_ AtomUrl_;
-typedef struct _AtomUrn_ AtomUrn_;
-typedef struct _AtomDrefEntry AtomDrefEntry;
-typedef struct _AtomDref AtomDref;
-typedef struct _AtomStbl AtomStbl;
-typedef struct _AtomSttsEntry AtomSttsEntry;
-typedef struct _AtomStts AtomStts;
-typedef struct _AtomCttsEntry AtomCttsEntry;
-typedef struct _AtomCtts AtomCtts;
-typedef struct _AtomEsds AtomEsds;
-typedef struct _AtomMp4v AtomMp4v;
-typedef struct _AtomMp4a AtomMp4a;
-typedef struct _AtomMp4s AtomMp4s;
-typedef struct _AtomStsd AtomStsd;
-typedef struct _AtomStsdEntry AtomStsdEntry;
-typedef struct _AtomStsz AtomStsz;
-typedef struct _AtomStscEntry AtomStscEntry;
-typedef struct _AtomStsc AtomStsc;
-typedef struct _AtomStco AtomStco;
-typedef struct _AtomStss AtomStss;
-typedef struct _AtomStshEntry AtomStshEntry;
-typedef struct _AtomStsh AtomStsh;
-typedef struct _AtomStdp AtomStdp;
-typedef struct _AtomEdts AtomEdts;
-typedef struct _AtomElstEntry AtomElstEntry;
-typedef struct _AtomElst AtomElst;
-typedef struct _AtomUdta AtomUdta;
-typedef struct _AtomCprt AtomCprt;
-typedef struct _AtomUUIDProtectionHeader AtomUUIDProtectionHeader;
-typedef struct _AtomMoov AtomMoov;
-typedef struct _AtomParser AtomParser;
-typedef struct _AtomMvex AtomMvex;
-typedef struct _AtomMeta AtomMeta;
-typedef struct _AtomIlst AtomIlst;
-typedef struct _AtomMdir AtomMdir;
-typedef struct _AtomSkip AtomSkip;
-typedef struct _AtomMehd AtomMehd;
-typedef struct _AtomTrex AtomTrex;
-typedef struct _AtomSidxEntry AtomSidxEntry;
-typedef struct _AtomSidx AtomSidx;
-typedef struct _AtomStore AtomStore;
+typedef struct _GssBoxMvhd GssBoxMvhd;
+typedef struct _GssBoxIods GssBoxIods;
+typedef struct _GssBoxAinf GssBoxAinf;
+typedef struct _GssBoxTrak GssBoxTrak;
+typedef struct _GssBoxTkhd GssBoxTkhd;
+typedef struct _GssBoxTref GssBoxTref;
+typedef struct _GssBoxMdia GssBoxMdia;
+typedef struct _GssBoxMdhd GssBoxMdhd;
+typedef struct _GssBoxHdlr GssBoxHdlr;
+typedef struct _GssBoxMinf GssBoxMinf;
+typedef struct _GssBoxVmhd GssBoxVmhd;
+typedef struct _GssBoxSmhd GssBoxSmhd;
+typedef struct _GssBoxHmhd GssBoxHmhd;
+typedef struct _GssBoxDinf GssBoxDinf;
+typedef struct _GssBoxUrl_ GssBoxUrl_;
+typedef struct _GssBoxUrn_ GssBoxUrn_;
+typedef struct _GssBoxDrefEntry GssBoxDrefEntry;
+typedef struct _GssBoxDref GssBoxDref;
+typedef struct _GssBoxStbl GssBoxStbl;
+typedef struct _GssBoxSttsEntry GssBoxSttsEntry;
+typedef struct _GssBoxStts GssBoxStts;
+typedef struct _GssBoxCttsEntry GssBoxCttsEntry;
+typedef struct _GssBoxCtts GssBoxCtts;
+typedef struct _GssBoxEsds GssBoxEsds;
+typedef struct _GssBoxMp4v GssBoxMp4v;
+typedef struct _GssBoxMp4a GssBoxMp4a;
+typedef struct _GssBoxMp4s GssBoxMp4s;
+typedef struct _GssBoxStsd GssBoxStsd;
+typedef struct _GssBoxStsdEntry GssBoxStsdEntry;
+typedef struct _GssBoxStsz GssBoxStsz;
+typedef struct _GssBoxStscEntry GssBoxStscEntry;
+typedef struct _GssBoxStsc GssBoxStsc;
+typedef struct _GssBoxStco GssBoxStco;
+typedef struct _GssBoxStss GssBoxStss;
+typedef struct _GssBoxStshEntry GssBoxStshEntry;
+typedef struct _GssBoxStsh GssBoxStsh;
+typedef struct _GssBoxStdp GssBoxStdp;
+typedef struct _GssBoxEdts GssBoxEdts;
+typedef struct _GssBoxElstEntry GssBoxElstEntry;
+typedef struct _GssBoxElst GssBoxElst;
+typedef struct _GssBoxUdta GssBoxUdta;
+typedef struct _GssBoxCprt GssBoxCprt;
+typedef struct _GssBoxUUIDProtectionHeader GssBoxUUIDProtectionHeader;
+typedef struct _GssBoxMoov GssBoxMoov;
+typedef struct _GssBoxParser GssBoxParser;
+typedef struct _GssBoxMvex GssBoxMvex;
+typedef struct _GssBoxMeta GssBoxMeta;
+typedef struct _GssBoxIlst GssBoxIlst;
+typedef struct _GssBoxMdir GssBoxMdir;
+typedef struct _GssBoxSkip GssBoxSkip;
+typedef struct _GssBoxMehd GssBoxMehd;
+typedef struct _GssBoxTrex GssBoxTrex;
+typedef struct _GssBoxSidxEntry GssBoxSidxEntry;
+typedef struct _GssBoxSidx GssBoxSidx;
+typedef struct _GssBoxStore GssBoxStore;
 
 
-struct _AtomMfhd
+struct _GssBoxMfhd
 {
   guint8 version;
   guint32 flags;
@@ -103,7 +103,7 @@ struct _AtomMfhd
   guint32 sequence_number;
 };
 
-struct _AtomTfhd
+struct _GssBoxTfhd
 {
   guint8 version;
   guint32 flags;
@@ -114,7 +114,7 @@ struct _AtomTfhd
   guint32 default_sample_flags;
 };
 
-struct _AtomTrun
+struct _GssBoxTrun
 {
   guint8 version;
   guint32 flags;
@@ -123,7 +123,7 @@ struct _AtomTrun
   guint32 data_offset;
   guint32 first_sample_flags;
 
-  AtomTrunSample *samples;
+  GssBoxTrunSample *samples;
 
   /* This is a special field used while writing: it stores the offset
    * to the data_offset location, so it can be fixed up once we know
@@ -131,7 +131,7 @@ struct _AtomTrun
   int data_offset_fixup;
 };
 
-struct _AtomTrunSample
+struct _GssBoxTrunSample
 {
   guint32 duration;
   guint32 size;
@@ -139,7 +139,7 @@ struct _AtomTrunSample
   guint32 composition_time_offset;
 };
 
-struct _AtomSdtp
+struct _GssBoxSdtp
 {
   guint8 version;
   guint32 flags;
@@ -148,7 +148,7 @@ struct _AtomSdtp
 
 };
 
-struct _AtomUUIDSampleEncryption
+struct _GssBoxUUIDSampleEncryption
 {
   gboolean present;
   guint8 version;
@@ -157,30 +157,30 @@ struct _AtomUUIDSampleEncryption
   guint8 iv_size;
   guint8 kid[16];
   guint32 sample_count;
-  AtomUUIDSampleEncryptionSample *samples;
+  GssBoxUUIDSampleEncryptionSample *samples;
 };
 
 #define MAX_IV_SIZE 16
-struct _AtomUUIDSampleEncryptionSample
+struct _GssBoxUUIDSampleEncryptionSample
 {
   guint64 iv;
   guint16 num_entries;
-  AtomUUIDSampleEncryptionSampleEntry *entries;
+  GssBoxUUIDSampleEncryptionSampleEntry *entries;
 };
 
-struct _AtomUUIDSampleEncryptionSampleEntry
+struct _GssBoxUUIDSampleEncryptionSampleEntry
 {
   guint16 bytes_of_clear_data;
   guint32 bytes_of_encrypted_data;
 };
 
-struct _AtomAvcn
+struct _GssBoxAvcn
 {
   guint8 version;
   guint32 flags;
 };
 
-struct _AtomTfdt
+struct _GssBoxTfdt
 {
   guint8 version;
   guint32 flags;
@@ -188,30 +188,30 @@ struct _AtomTfdt
   guint64 start_time;
 };
 
-struct _AtomTrik
+struct _GssBoxTrik
 {
   guint8 version;
   guint32 flags;
 };
 
 #if 0
-struct _AtomTraf
+struct _GssBoxTraf
 {
   guint8 version;
   guint32 flags;
 
-  AtomTfhd tfhd;
-  AtomTrun trun;
-  AtomSdtp sdtp;
-  AtomUUIDSampleEncryption sample_encryption;
-  AtomAvcn avcn;
-  AtomTfdt tfdt;
-  AtomTrik trik;
+  GssBoxTfhd tfhd;
+  GssBoxTrun trun;
+  GssBoxSdtp sdtp;
+  GssBoxUUIDSampleEncryption sample_encryption;
+  GssBoxAvcn avcn;
+  GssBoxTfdt tfdt;
+  GssBoxTrik trik;
 };
 #endif
 
 #if 0
-struct _AtomMoof
+struct _GssBoxMoof
 {
 
 };
@@ -219,7 +219,7 @@ struct _AtomMoof
 
 /* From ISO/IEC 14496-1:2002 */
 
-struct _AtomMvhd {
+struct _GssBoxMvhd {
   guint8 version;
   guint32 flags;
   guint64 creation_time;
@@ -229,14 +229,14 @@ struct _AtomMvhd {
   guint32 next_track_id;
 };
 
-struct _AtomIods
+struct _GssBoxIods
 {
   guint8 version;
   guint32 flags;
   /* object descriptor */
 };
 
-struct _AtomAinf
+struct _GssBoxAinf
 {
   gboolean present;
   guint8 version;
@@ -245,7 +245,7 @@ struct _AtomAinf
   /* FIXME */
 };
 
-struct _AtomTkhd
+struct _GssBoxTkhd
 {
   gboolean present;
   guint8 version;
@@ -262,7 +262,7 @@ struct _AtomTkhd
   guint32 height;
 };
 
-struct _AtomTref
+struct _GssBoxTref
 {
   gboolean present;
   /* contains other stuff */
@@ -270,13 +270,13 @@ struct _AtomTref
   guint32 *track_ids;
 };
 
-struct _AtomMdia
+struct _GssBoxMdia
 {
   gboolean present;
   /* container */
 };
 
-struct _AtomMdhd
+struct _GssBoxMdhd
 {
   gboolean present;
   guint8 version;
@@ -288,7 +288,7 @@ struct _AtomMdhd
   char language_code[4];
 };
 
-struct _AtomHdlr
+struct _GssBoxHdlr
 {
   gboolean present;
   guint8 version;
@@ -297,27 +297,27 @@ struct _AtomHdlr
   char *name;
 };
 
-struct _AtomMinf
+struct _GssBoxMinf
 {
   gboolean present;
   /* container */
 };
 
-struct _AtomVmhd
+struct _GssBoxVmhd
 {
   gboolean present;
   guint8 version;
   guint32 flags;
 };
 
-struct _AtomSmhd
+struct _GssBoxSmhd
 {
   gboolean present;
   guint8 version;
   guint32 flags;
 };
 
-struct _AtomHmhd
+struct _GssBoxHmhd
 {
   gboolean present;
   guint8 version;
@@ -328,13 +328,13 @@ struct _AtomHmhd
   guint32 avgbitrate;
 };
 
-struct _AtomDinf
+struct _GssBoxDinf
 {
   gboolean present;
   /* container */
 };
 
-struct _AtomUrl_
+struct _GssBoxUrl_
 {
   gboolean present;
   guint8 version;
@@ -342,7 +342,7 @@ struct _AtomUrl_
   char *location;
 };
 
-struct _AtomUrn_
+struct _GssBoxUrn_
 {
   gboolean present;
   guint8 version;
@@ -351,59 +351,59 @@ struct _AtomUrn_
   char *location;
 };
 
-struct _AtomDrefEntry {
+struct _GssBoxDrefEntry {
   guint32 atom;
   guint8 entry_version;
   guint32 entry_flags;
-  struct _AtomUrn_ urn_;
-  struct _AtomUrl_ url_;
+  struct _GssBoxUrn_ urn_;
+  struct _GssBoxUrl_ url_;
 };
 
-struct _AtomDref
+struct _GssBoxDref
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomDrefEntry *entries;
+  struct _GssBoxDrefEntry *entries;
 };
 
-struct _AtomStbl
+struct _GssBoxStbl
 {
   /* container */
 };
 
-struct _AtomSttsEntry
+struct _GssBoxSttsEntry
 {
   guint32 sample_count;
   gint32 sample_delta;
 };
 
-struct _AtomStts
+struct _GssBoxStts
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomSttsEntry *entries;
+  struct _GssBoxSttsEntry *entries;
 };
 
-struct _AtomCttsEntry
+struct _GssBoxCttsEntry
 {
   guint32 sample_count;
   guint32 sample_offset;
 };
 
-struct _AtomCtts
+struct _GssBoxCtts
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomCttsEntry *entries;
+  struct _GssBoxCttsEntry *entries;
 };
 
-struct _AtomEsds
+struct _GssBoxEsds
 {
   gboolean present;
   /* ES descriptor */
@@ -421,50 +421,50 @@ struct _AtomEsds
   guint8 *codec_data;
 };
 
-struct _AtomMp4v
+struct _GssBoxMp4v
 {
   gboolean present;
   guint16 data_reference_index;
   guint16 width;
   guint16 height;
-  struct _AtomEsds es;
+  struct _GssBoxEsds es;
 
 };
 
-struct _AtomMp4a
+struct _GssBoxMp4a
 {
   gboolean present;
   guint16 data_reference_index;
   guint16 channel_count;
   guint16 sample_size;
   guint32 sample_rate;
-  struct _AtomEsds es;
+  struct _GssBoxEsds es;
 };
 
-struct _AtomMp4s
+struct _GssBoxMp4s
 {
   gboolean present;
   guint16 data_reference_index;
-  struct _AtomEsds es;
+  struct _GssBoxEsds es;
 };
 
-struct _AtomStsdEntry
+struct _GssBoxStsdEntry
 {
   guint32 atom;
 
 };
 
-struct _AtomStsd
+struct _GssBoxStsd
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  AtomStsdEntry *entries;
+  GssBoxStsdEntry *entries;
 
 };
 
-struct _AtomStsz
+struct _GssBoxStsz
 {
   gboolean present;
   guint8 version;
@@ -474,7 +474,7 @@ struct _AtomStsz
   guint32 *sample_sizes;
 };
 
-struct _AtomStscEntry
+struct _GssBoxStscEntry
 {
   gboolean present;
   guint32 first_chunk;
@@ -482,17 +482,17 @@ struct _AtomStscEntry
   guint32 sample_description_index;
 };
 
-struct _AtomStsc
+struct _GssBoxStsc
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomStscEntry *entries;
+  struct _GssBoxStscEntry *entries;
 };
 
 /* This is for both stco and co64 */
-struct _AtomStco
+struct _GssBoxStco
 {
   gboolean present;
   guint8 version;
@@ -501,7 +501,7 @@ struct _AtomStco
   guint64 *chunk_offsets;
 };
 
-struct _AtomStss
+struct _GssBoxStss
 {
   gboolean present;
   guint8 version;
@@ -510,23 +510,23 @@ struct _AtomStss
   guint32 *sample_numbers;
 };
 
-struct _AtomStshEntry
+struct _GssBoxStshEntry
 {
   gboolean present;
   guint32 shadowed_sample_number;
   guint32 sync_sample_number;
 };
 
-struct _AtomStsh
+struct _GssBoxStsh
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  struct _AtomStshEntry *entries;
+  struct _GssBoxStshEntry *entries;
 };
 
-struct _AtomStdp
+struct _GssBoxStdp
 {
   gboolean present;
   guint8 version;
@@ -534,34 +534,34 @@ struct _AtomStdp
   guint16 *priorities;
 };
 
-struct _AtomEdts
+struct _GssBoxEdts
 {
   /* container */
 };
 
-struct _AtomElstEntry
+struct _GssBoxElstEntry
 {
   guint64 segment_duration;
   guint64 media_time;
   guint32 media_rate;
 };
 
-struct _AtomElst
+struct _GssBoxElst
 {
   gboolean present;
   guint8 version;
   guint32 flags;
   guint32 entry_count;
-  AtomElstEntry *entries;
+  GssBoxElstEntry *entries;
 };
 
-struct _AtomUdta
+struct _GssBoxUdta
 {
   gboolean present;
   /* container */
 };
 
-struct _AtomCprt
+struct _GssBoxCprt
 {
   gboolean present;
   guint8 version;
@@ -570,41 +570,41 @@ struct _AtomCprt
   char *notice;
 };
 
-struct _AtomTrak
+struct _GssBoxTrak
 {
   /* container */
 
-  AtomTkhd tkhd;
-  AtomTref tref;
-  AtomMdia mdia;
+  GssBoxTkhd tkhd;
+  GssBoxTref tref;
+  GssBoxMdia mdia;
 };
 
-struct _AtomMvex
+struct _GssBoxMvex
 {
 };
 
-struct _AtomMeta
-{
-  gboolean present;
-  guint8 version;
-  guint32 flags;
-};
-
-struct _AtomIlst
+struct _GssBoxMeta
 {
   gboolean present;
   guint8 version;
   guint32 flags;
 };
 
-struct _AtomMdir
+struct _GssBoxIlst
 {
   gboolean present;
   guint8 version;
   guint32 flags;
 };
 
-struct _AtomMehd
+struct _GssBoxMdir
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+};
+
+struct _GssBoxMehd
 {
   gboolean present;
   guint8 version;
@@ -612,7 +612,7 @@ struct _AtomMehd
   guint64 fragment_duration;
 };
 
-struct _AtomTrex
+struct _GssBoxTrex
 {
   gboolean present;
   guint8 version;
@@ -625,7 +625,7 @@ struct _AtomTrex
   guint32 default_sample_flags;
 };
 
-struct _AtomSidxEntry
+struct _GssBoxSidxEntry
 {
   guint8 reference_type;
   guint32 reference_size;
@@ -635,7 +635,7 @@ struct _AtomSidxEntry
   guint32 sap_delta_time;
 };
 
-struct _AtomSidx
+struct _GssBoxSidx
 {
   guint8 version;
   guint32 flags;
@@ -645,14 +645,14 @@ struct _AtomSidx
   guint64 first_offset;
 
   int n_entries;
-  AtomSidxEntry *entries;
+  GssBoxSidxEntry *entries;
 };
 
-struct _AtomSkip
+struct _GssBoxSkip
 {
 };
 
-struct _AtomStore
+struct _GssBoxStore
 {
   guint32 atom;
   gboolean present;
@@ -660,7 +660,7 @@ struct _AtomStore
   int size;
 };
 
-struct _AtomUUIDProtectionHeader
+struct _GssBoxUUIDProtectionHeader
 {
   guint8 version;
   guint32 flags;
@@ -690,15 +690,15 @@ enum TfFlags
   TF_DURATION_IS_EMPTY = 0x010000       /* sample-composition-time-offsets-presents */
 };
 
-struct _AtomMoov
+struct _GssBoxMoov
 {
   guint8 version;
   guint32 flags;
 
-  AtomMvhd mvhd;
-  AtomTrak trak;
-  AtomUdta udta;
-  AtomMvex mvex;
+  GssBoxMvhd mvhd;
+  GssBoxTrak trak;
+  GssBoxUdta udta;
+  GssBoxMvex mvex;
 };
 
 #endif

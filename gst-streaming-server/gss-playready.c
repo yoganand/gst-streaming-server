@@ -300,8 +300,8 @@ void
 gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 * content_key)
 {
-  AtomTrun *trun = &fragment->trun;
-  AtomUUIDSampleEncryption *se = &fragment->sample_encryption;
+  GssBoxTrun *trun = &fragment->trun;
+  GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
   guint64 sample_offset;
   int i;
 
