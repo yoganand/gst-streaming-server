@@ -91,7 +91,7 @@ enum
 static void gss_server_resource_main_page (GssTransaction * transaction);
 static void gss_server_resource_list (GssTransaction * transaction);
 static void gss_server_resource_about (GssTransaction * t);
-
+static void gss_asset_get_resource (GssTransaction * t);
 
 /* GssServer internals */
 static void gss_server_resource_callback (SoupServer * soupserver,
@@ -788,6 +788,9 @@ gss_server_setup_resources (GssServer * server)
       "/sign_in_blue.png", 0, "image/png",
       gss_data_sign_in_blue_png, gss_data_sign_in_blue_png_len);
 
+  gss_server_add_resource (server, "/assets/", GSS_RESOURCE_PREFIX,
+      NULL, gss_asset_get_resource, NULL, NULL, NULL);
+
   gss_playready_setup (server);
 }
 
@@ -1316,4 +1319,39 @@ gss_server_resource_about (GssTransaction * t)
   GSS_P ("</pre>\n");
 
   gss_html_footer (t);
+}
+
+static void
+gss_asset_get_resource (GssTransaction * t)
+{
+  const char *filename;
+  gboolean ret;
+  gchar *contents;
+  gsize size;
+  GError *error = NULL;
+  const char *media_type;
+
+  filename = t->path + 1;
+
+  GST_DEBUG ("path: %s", filename);
+
+  ret = g_file_get_contents (filename, &contents, &size, &error);
+  if (!ret) {
+    g_error_free (error);
+    GST_WARNING ("missing file %s", filename);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  if (g_str_has_suffix (filename, ".html")) {
+    media_type = GSS_TEXT_HTML;
+  } else if (g_str_has_suffix (filename, ".js")) {
+    media_type = "text/javascript";
+  } else {
+    media_type = "application/octet-stream";
+  }
+
+  soup_message_set_response (t->msg, media_type, SOUP_MEMORY_TAKE,
+      contents, size);
+  soup_message_set_status (t->msg, SOUP_STATUS_OK);
 }
