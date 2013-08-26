@@ -728,6 +728,7 @@ create_key_id (const char *key_string)
   g_checksum_update (checksum, (const guint8 *) key_string, -1);
   g_checksum_update (checksum,
       (const guint8 *) "KThMK9Tibb+X9qRuTvwOchPRwH+4hV05yZXnx7C", -1);
+  size = 20;
   g_checksum_get_digest (checksum, bytes, &size);
   g_checksum_free (checksum);
 
