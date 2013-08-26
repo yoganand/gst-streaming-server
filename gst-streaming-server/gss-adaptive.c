@@ -275,10 +275,16 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
+    GssIsomTrack *track = level->track;
 
     GSS_P ("      <Representation id=\"a%d\" bandwidth=\"%d\">\n",
         i, level->bitrate);
     GSS_P ("        <BaseURL>content-range/a%d</BaseURL>\n", i);
+    GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
+        G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
+        G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
+        track->dash_header_size + track->index_size - 1, (gsize) 0,
+        track->dash_header_size - 1);
     GSS_A ("      </Representation>\n");
     break;
   }
@@ -290,11 +296,17 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
+    GssIsomTrack *track = level->track;
 
     GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
         "width=\"%d\" height=\"%d\">\n",
         i, level->bitrate, level->video_width, level->video_height);
     GSS_P ("        <BaseURL>content-range/v%d</BaseURL>\n", i);
+    GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
+        G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
+        G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
+        track->dash_header_size + track->index_size - 1, (gsize) 0,
+        track->dash_header_size - 1);
     GSS_A ("      </Representation>\n");
     break;
   }
