@@ -47,7 +47,8 @@ typedef struct _Container Container;
 struct _Container
 {
   guint32 atom;
-  void (*parse) (GssIsomFile * file, GssIsomTrack * track, GstByteReader * br);
+  void (*parse) (GssIsomParser * file, GssIsomTrack * track,
+      GstByteReader * br);
   Container *atoms;
 };
 
@@ -72,40 +73,40 @@ const guint8 uuid_protection_header[16] = {
 };
 
 
-static gboolean file_read (GssIsomFile * file, guint8 * buffer,
+static gboolean file_read (GssIsomParser * file, guint8 * buffer,
     guint64 offset, guint64 n_bytes);
-static void gss_isom_parse_ftyp (GssIsomFile * file, guint64 offset,
+static void gss_isom_parse_ftyp (GssIsomParser * file, guint64 offset,
     guint64 size);
-static void gss_isom_parse_moof (GssIsomFile * file,
+static void gss_isom_parse_moof (GssIsomParser * file,
     GssIsomFragment * fragment, GstByteReader * br);
-static void gss_isom_parse_traf (GssIsomFile * file, GssIsomFragment * fragment,
+static void gss_isom_parse_traf (GssIsomParser * file,
+    GssIsomFragment * fragment, GstByteReader * br);
+static void gss_isom_parse_mfhd (GssIsomParser * file,
+    GssIsomFragment * fragment, GstByteReader * br);
+static void gss_isom_parse_tfhd (GssIsomParser * file, GssBoxTfhd * tfhd,
     GstByteReader * br);
-static void gss_isom_parse_mfhd (GssIsomFile * file, GssIsomFragment * fragment,
+static void gss_isom_parse_trun (GssIsomParser * file, GssBoxTrun * trun,
     GstByteReader * br);
-static void gss_isom_parse_tfhd (GssIsomFile * file, GssBoxTfhd * tfhd,
-    GstByteReader * br);
-static void gss_isom_parse_trun (GssIsomFile * file, GssBoxTrun * trun,
-    GstByteReader * br);
-static void gss_isom_parse_sdtp (GssIsomFile * file, GssBoxSdtp * sdtp,
+static void gss_isom_parse_sdtp (GssIsomParser * file, GssBoxSdtp * sdtp,
     GstByteReader * br, int sample_count);
-static void gss_isom_parse_mfra (GssIsomFile * file, guint64 offset,
+static void gss_isom_parse_mfra (GssIsomParser * file, guint64 offset,
     guint64 size);
-static void gss_isom_parse_sample_encryption (GssIsomFile * file,
+static void gss_isom_parse_sample_encryption (GssIsomParser * file,
     GssBoxUUIDSampleEncryption * se, GstByteReader * br);
-static void gss_isom_parse_avcn (GssIsomFile * file, GssBoxAvcn * avcn,
+static void gss_isom_parse_avcn (GssIsomParser * file, GssBoxAvcn * avcn,
     GstByteReader * br);
-static void gss_isom_parse_tfdt (GssIsomFile * file, GssBoxTfdt * tfdt,
+static void gss_isom_parse_tfdt (GssIsomParser * file, GssBoxTfdt * tfdt,
     GstByteReader * br);
-static void gss_isom_parse_trik (GssIsomFile * file, GssBoxTrik * trik,
+static void gss_isom_parse_trik (GssIsomParser * file, GssBoxTrik * trik,
     GstByteReader * br);
-static void gss_isom_parse_moov (GssIsomFile * file, GssIsomMovie * movie,
+static void gss_isom_parse_moov (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br);
 static void gss_isom_fixup_moof (GssIsomFragment * fragment);
-static void gss_isom_file_fixup (GssIsomFile * file);
-static void gss_isom_parse_container (GssIsomFile * file,
+static void gss_isom_parser_fixup (GssIsomParser * file);
+static void gss_isom_parse_container (GssIsomParser * file,
     GssIsomTrack * track, GstByteReader * br, Container * atoms,
     guint32 parent_atom);
-static void gss_isom_parse_ignore (GssIsomFile * file, GssIsomTrack * track,
+static void gss_isom_parse_ignore (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
@@ -122,24 +123,24 @@ static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
 } while(0)
 
 
-GssIsomFile *
-gss_isom_file_new (void)
+GssIsomParser *
+gss_isom_parser_new (void)
 {
-  GssIsomFile *file;
+  GssIsomParser *file;
 
-  file = g_malloc0 (sizeof (GssIsomFile));
+  file = g_malloc0 (sizeof (GssIsomParser));
 
   return file;
 }
 
 void
-gss_isom_file_dump (GssIsomFile * file)
+gss_isom_parser_dump (GssIsomParser * file)
 {
   gss_isom_movie_dump (file->movie);
 }
 
 void
-gss_isom_file_free (GssIsomFile * file)
+gss_isom_parser_free (GssIsomParser * file)
 {
   if (file->fd > 0) {
     close (file->fd);
@@ -148,13 +149,14 @@ gss_isom_file_free (GssIsomFile * file)
 }
 
 GssIsomFragment *
-gss_isom_file_get_fragment (GssIsomFile * file, GssIsomTrack * track, int index)
+gss_isom_parser_get_fragment (GssIsomParser * file, GssIsomTrack * track,
+    int index)
 {
   return track->fragments[index];
 }
 
 GssIsomFragment *
-gss_isom_file_get_fragment_by_timestamp (GssIsomFile * file,
+gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * file,
     int track_id, guint64 timestamp)
 {
   GssIsomTrack *track;
@@ -171,7 +173,7 @@ gss_isom_file_get_fragment_by_timestamp (GssIsomFile * file,
 }
 
 guint64
-gss_isom_file_get_duration (GssIsomFile * file, int track_id)
+gss_isom_parser_get_duration (GssIsomParser * file, int track_id)
 {
   guint64 duration;
 
@@ -181,7 +183,7 @@ gss_isom_file_get_duration (GssIsomFile * file, int track_id)
 }
 
 int
-gss_isom_file_get_n_fragments (GssIsomFile * file, int track_id)
+gss_isom_parser_get_n_fragments (GssIsomParser * file, int track_id)
 {
   GssIsomTrack *track;
   track = gss_isom_movie_get_track_by_id (file->movie, track_id);
@@ -189,7 +191,7 @@ gss_isom_file_get_n_fragments (GssIsomFile * file, int track_id)
 }
 
 void
-gss_isom_file_load_chunk (GssIsomFile * file, guint64 offset, guint64 size)
+gss_isom_parser_load_chunk (GssIsomParser * file, guint64 offset, guint64 size)
 {
   if (file->data) {
     g_free (file->data);
@@ -202,7 +204,7 @@ gss_isom_file_load_chunk (GssIsomFile * file, guint64 offset, guint64 size)
 }
 
 gboolean
-gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
+gss_isom_parser_parse_file (GssIsomParser * file, const char *filename)
 {
   file->filename = g_strdup (filename);
   file->fd = open (filename, O_RDONLY);
@@ -247,7 +249,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
     }
 
     if (atom == GST_MAKE_FOURCC ('f', 't', 'y', 'p')) {
-      gss_isom_file_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (file, file->offset, size);
 
       gss_isom_parse_ftyp (file, file->offset, size);
     } else if (atom == GST_MAKE_FOURCC ('m', 'o', 'o', 'f')) {
@@ -255,7 +257,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
       GssIsomFragment *fragment;
       GssIsomTrack *track;
 
-      gss_isom_file_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (file, file->offset, size);
       gst_byte_reader_init (&br, file->data + 8, size - 8);
 
       fragment = gss_isom_fragment_new ();
@@ -335,14 +337,14 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
     } else if (atom == GST_MAKE_FOURCC ('s', 'i', 'd', 'x')) {
       GST_ERROR ("sidx");
     } else if (atom == GST_MAKE_FOURCC ('p', 'd', 'i', 'n')) {
-      gss_isom_file_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (file, file->offset, size);
 
       file->pdin.present = TRUE;
       file->pdin.atom = atom;
       file->pdin.size = size - 8;
       gst_byte_reader_dup_data (&br, size - 8, &file->pdin.data);
     } else if (atom == GST_MAKE_FOURCC ('b', 'l', 'o', 'c')) {
-      gss_isom_file_load_chunk (file, file->offset, size);
+      gss_isom_parser_load_chunk (file, file->offset, size);
 
       file->bloc.present = TRUE;
       file->bloc.atom = atom;
@@ -364,7 +366,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
     return FALSE;
   }
 
-  gss_isom_file_fixup (file);
+  gss_isom_parser_fixup (file);
 
   close (file->fd);
   file->fd = -1;
@@ -372,7 +374,7 @@ gss_isom_file_parse_file (GssIsomFile * file, const char *filename)
 }
 
 static void
-gss_isom_file_fixup (GssIsomFile * file)
+gss_isom_parser_fixup (GssIsomParser * file)
 {
   GssIsomTrack *track;
   guint64 ts;
@@ -503,7 +505,8 @@ gss_isom_fragment_free (GssIsomFragment * fragment)
 
 
 static gboolean
-file_read (GssIsomFile * file, guint8 * buffer, guint64 offset, guint64 n_bytes)
+file_read (GssIsomParser * file, guint8 * buffer, guint64 offset,
+    guint64 n_bytes)
 {
   off_t ret;
   ssize_t n;
@@ -532,7 +535,7 @@ file_read (GssIsomFile * file, guint8 * buffer, guint64 offset, guint64 n_bytes)
 
 
 static void
-gss_isom_parse_ftyp (GssIsomFile * file, guint64 offset, guint64 size)
+gss_isom_parse_ftyp (GssIsomParser * file, guint64 offset, guint64 size)
 {
   GstByteReader br;
   guint8 *data;
@@ -600,7 +603,7 @@ gst_byte_reader_init_sub (GstByteReader * sbr, const GstByteReader * br,
 }
 
 static void
-gss_isom_parse_moof (GssIsomFile * file, GssIsomFragment * fragment,
+gss_isom_parse_moof (GssIsomParser * file, GssIsomFragment * fragment,
     GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -647,7 +650,7 @@ gss_isom_parse_moof (GssIsomFile * file, GssIsomFragment * fragment,
 }
 
 static void
-gss_isom_parse_traf (GssIsomFile * file, GssIsomFragment * fragment,
+gss_isom_parse_traf (GssIsomParser * file, GssIsomFragment * fragment,
     GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -704,7 +707,7 @@ gss_isom_parse_traf (GssIsomFile * file, GssIsomFragment * fragment,
 }
 
 static void
-gss_isom_parse_mfhd (GssIsomFile * file, GssIsomFragment * fragment,
+gss_isom_parse_mfhd (GssIsomParser * file, GssIsomFragment * fragment,
     GstByteReader * br)
 {
   GssBoxMfhd *mfhd = &fragment->mfhd;
@@ -715,7 +718,8 @@ gss_isom_parse_mfhd (GssIsomFile * file, GssIsomFragment * fragment,
 }
 
 static void
-gss_isom_parse_tfhd (GssIsomFile * file, GssBoxTfhd * tfhd, GstByteReader * br)
+gss_isom_parse_tfhd (GssIsomParser * file, GssBoxTfhd * tfhd,
+    GstByteReader * br)
 {
 
   gst_byte_reader_get_uint8 (br, &tfhd->version);
@@ -737,7 +741,8 @@ gss_isom_parse_tfhd (GssIsomFile * file, GssBoxTfhd * tfhd, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_trun (GssIsomFile * file, GssBoxTrun * trun, GstByteReader * br)
+gss_isom_parse_trun (GssIsomParser * file, GssBoxTrun * trun,
+    GstByteReader * br)
 {
   int i;
 
@@ -802,8 +807,8 @@ gss_isom_moof_get_duration (GssIsomFragment * fragment)
 }
 
 static void
-gss_isom_parse_sdtp (GssIsomFile * file, GssBoxSdtp * sdtp, GstByteReader * br,
-    int sample_count)
+gss_isom_parse_sdtp (GssIsomParser * file, GssBoxSdtp * sdtp,
+    GstByteReader * br, int sample_count)
 {
   int i;
 
@@ -818,7 +823,7 @@ gss_isom_parse_sdtp (GssIsomFile * file, GssBoxSdtp * sdtp, GstByteReader * br,
 }
 
 static void
-gss_isom_parse_sample_encryption (GssIsomFile * file,
+gss_isom_parse_sample_encryption (GssIsomParser * file,
     GssBoxUUIDSampleEncryption * se, GstByteReader * br)
 {
   int i;
@@ -860,7 +865,8 @@ gss_isom_parse_sample_encryption (GssIsomFile * file,
 }
 
 static void
-gss_isom_parse_avcn (GssIsomFile * file, GssBoxAvcn * avcn, GstByteReader * br)
+gss_isom_parse_avcn (GssIsomParser * file, GssBoxAvcn * avcn,
+    GstByteReader * br)
 {
 
   gst_byte_reader_get_uint8 (br, &avcn->version);
@@ -872,7 +878,8 @@ gss_isom_parse_avcn (GssIsomFile * file, GssBoxAvcn * avcn, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_tfdt (GssIsomFile * file, GssBoxTfdt * tfdt, GstByteReader * br)
+gss_isom_parse_tfdt (GssIsomParser * file, GssBoxTfdt * tfdt,
+    GstByteReader * br)
 {
   guint32 tmp;
 
@@ -886,7 +893,8 @@ gss_isom_parse_tfdt (GssIsomFile * file, GssBoxTfdt * tfdt, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_trik (GssIsomFile * file, GssBoxTrik * trik, GstByteReader * br)
+gss_isom_parse_trik (GssIsomParser * file, GssBoxTrik * trik,
+    GstByteReader * br)
 {
 
   gst_byte_reader_get_uint8 (br, &trik->version);
@@ -898,7 +906,7 @@ gss_isom_parse_trik (GssIsomFile * file, GssBoxTrik * trik, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_mfra (GssIsomFile * file, guint64 offset, guint64 size)
+gss_isom_parse_mfra (GssIsomParser * file, guint64 offset, guint64 size)
 {
   /* ignored for now */
   GST_DEBUG ("FIXME parse mfra atom");
@@ -936,7 +944,8 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
 }
 
 static void
-gss_isom_parse_mvhd (GssIsomFile * file, GssBoxMvhd * mvhd, GstByteReader * br)
+gss_isom_parse_mvhd (GssIsomParser * file, GssBoxMvhd * mvhd,
+    GstByteReader * br)
 {
   int i;
   guint32 tmp = 0;
@@ -978,7 +987,7 @@ gss_isom_parse_mvhd (GssIsomFile * file, GssBoxMvhd * mvhd, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_tkhd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_tkhd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxTkhd *tkhd = &track->tkhd;
@@ -1021,7 +1030,7 @@ gss_isom_parse_tkhd (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_tref (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_tref (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxTref *tref = &track->tref;
@@ -1033,7 +1042,7 @@ gss_isom_parse_tref (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_elst (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_elst (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxElst *elst = &track->elst;
@@ -1085,7 +1094,7 @@ unpack_language_code (char *language, guint16 code)
 }
 
 static void
-gss_isom_parse_mdhd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_mdhd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxMdhd *mdhd = &track->mdhd;
@@ -1126,7 +1135,7 @@ gst_byte_reader_dump (GstByteReader * br)
 }
 
 gboolean
-get_string (GssIsomFile * file, GstByteReader * br, gchar ** string)
+get_string (GssIsomParser * file, GstByteReader * br, gchar ** string)
 {
   gboolean ret;
   guint8 len = 0;
@@ -1179,7 +1188,7 @@ put_string (GstByteWriter * bw, gchar * s, gboolean nul_terminated)
 }
 
 static void
-gss_isom_parse_hdlr (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_hdlr (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxHdlr *hdlr = &track->hdlr;
@@ -1199,7 +1208,7 @@ gss_isom_parse_hdlr (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_vmhd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_vmhd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxVmhd *vmhd = &track->vmhd;
@@ -1212,7 +1221,7 @@ gss_isom_parse_vmhd (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_smhd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_smhd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxSmhd *smhd = &track->smhd;
@@ -1225,7 +1234,7 @@ gss_isom_parse_smhd (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_hmhd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_hmhd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxHmhd *hmhd = &track->hmhd;
@@ -1244,7 +1253,7 @@ gss_isom_parse_hmhd (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_dref (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_dref (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxDref *dref = &track->dref;
@@ -1292,7 +1301,7 @@ gss_isom_parse_dref (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stts (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stts (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStts *stts = &track->stts;
@@ -1311,7 +1320,7 @@ gss_isom_parse_stts (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_ctts (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_ctts (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxCtts *ctts = &track->ctts;
@@ -1330,7 +1339,7 @@ gss_isom_parse_ctts (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stsz (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stsz (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStsz *stsz = &track->stsz;
@@ -1351,7 +1360,7 @@ gss_isom_parse_stsz (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stsc (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stsc (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStsc *stsc = &track->stsc;
@@ -1372,7 +1381,7 @@ gss_isom_parse_stsc (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stco (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stco (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStco *stco = &track->stco;
@@ -1392,7 +1401,7 @@ gss_isom_parse_stco (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_co64 (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_co64 (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStco *stco = &track->stco;
@@ -1410,7 +1419,7 @@ gss_isom_parse_co64 (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stss (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stss (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStss *stss = &track->stss;
@@ -1428,7 +1437,7 @@ gss_isom_parse_stss (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stsh (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stsh (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStsh *stsh = &track->stsh;
@@ -1448,7 +1457,7 @@ gss_isom_parse_stsh (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_stdp (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stdp (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStdp *stdp = &track->stdp;
@@ -1466,7 +1475,7 @@ gss_isom_parse_stdp (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_esds (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_esds (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxEsds *esds = &track->esds;
@@ -1535,7 +1544,7 @@ gss_isom_parse_esds (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_avcC (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_avcC (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxEsds *esds = &track->esds;
@@ -1553,7 +1562,7 @@ static Container stsd_atoms[] = {
 };
 
 static void
-gss_isom_parse_stsd (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_stsd (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssBoxStsd *stsd = &track->stsd;
@@ -1647,7 +1656,7 @@ gss_isom_parse_stsd (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_ignore (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_ignore (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GST_FIXME ("ingoring atom");
@@ -1716,7 +1725,7 @@ static Container trak_atoms[] = {
 
 
 static void
-gss_isom_parse_container (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_container (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br, Container * atoms, guint32 parent_atom)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -1758,7 +1767,7 @@ gss_isom_parse_container (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_container_udta (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_container_udta (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br, Container * atoms, guint32 parent_atom)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -1805,7 +1814,7 @@ gss_isom_parse_container_udta (GssIsomFile * file, GssIsomMovie * movie,
 }
 
 static void
-gss_isom_parse_udta_meta (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_udta_meta (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   //GssIsomMovie *movie = (void *)track;
@@ -1822,7 +1831,7 @@ gss_isom_parse_store (GssBoxStore * store, GstByteReader * br)
 }
 
 static void
-gss_isom_parse_xtra (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_xtra (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssIsomMovie *movie = (void *) track;
@@ -1830,7 +1839,7 @@ gss_isom_parse_xtra (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_udta_hdlr (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_udta_hdlr (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssIsomMovie *movie = (void *) track;
@@ -1838,7 +1847,7 @@ gss_isom_parse_udta_hdlr (GssIsomFile * file, GssIsomTrack * track,
 }
 
 static void
-gss_isom_parse_ilst (GssIsomFile * file, GssIsomTrack * track,
+gss_isom_parse_ilst (GssIsomParser * file, GssIsomTrack * track,
     GstByteReader * br)
 {
   GssIsomMovie *movie = (void *) track;
@@ -1862,7 +1871,7 @@ static Container udta_atoms[] = {
 };
 
 static void
-gss_isom_parse_udta (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_udta (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   gss_isom_parse_container_udta (file, movie, br, udta_atoms,
@@ -1870,33 +1879,34 @@ gss_isom_parse_udta (GssIsomFile * file, GssIsomMovie * movie,
 }
 
 static void
-gss_isom_parse_mvex (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_mvex (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   gss_isom_parse_store (&movie->mvex, br);
 }
 
 static void
-gss_isom_parse_skip (GssIsomFile * file, GssBoxSkip * skip, GstByteReader * br)
+gss_isom_parse_skip (GssIsomParser * file, GssBoxSkip * skip,
+    GstByteReader * br)
 {
 }
 
 static void
-gss_isom_parse_iods (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_iods (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   gss_isom_parse_store (&movie->iods, br);
 }
 
 static void
-gss_isom_parse_meta (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_meta (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   gss_isom_parse_store (&movie->meta, br);
 }
 
 static void
-gss_isom_parse_moov (GssIsomFile * file, GssIsomMovie * movie,
+gss_isom_parse_moov (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   while (gst_byte_reader_get_remaining (br) >= 8) {
@@ -3607,7 +3617,7 @@ convert_chunks (GssIsomTrack * track)
 }
 
 void
-gss_isom_file_fragmentize (GssIsomFile * file)
+gss_isom_parser_fragmentize (GssIsomParser * file)
 {
   GssIsomTrack *video_track;
   GssIsomTrack *audio_track;

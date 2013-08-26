@@ -194,7 +194,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -219,7 +219,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -456,7 +456,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -490,7 +490,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_file_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -601,7 +601,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
         level->track->ccff_header_data, level->track->ccff_header_size);
   } else {
-    fragment = gss_isom_file_get_fragment_by_timestamp (level->file,
+    fragment = gss_isom_parser_get_fragment_by_timestamp (level->file,
         level->track_id, start_time);
     if (fragment == NULL) {
       GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
@@ -789,19 +789,19 @@ static void
 load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     int audio_bitrate)
 {
-  GssIsomFile *file;
+  GssIsomParser *file;
   GssIsomTrack *video_track;
   GssIsomTrack *audio_track;
 
-  file = gss_isom_file_new ();
-  gss_isom_file_parse_file (file, filename);
+  file = gss_isom_parser_new ();
+  gss_isom_parser_parse_file (file, filename);
 
   if (file->movie->tracks[0]->n_fragments == 0) {
-    gss_isom_file_fragmentize (file);
+    gss_isom_parser_fragmentize (file);
   }
 
   if (adaptive->duration == 0) {
-    adaptive->duration = gss_isom_file_get_duration (file, VIDEO_TRACK_ID);
+    adaptive->duration = gss_isom_parser_get_duration (file, VIDEO_TRACK_ID);
   }
 
   video_track = gss_isom_movie_get_video_track (file->movie);
@@ -819,7 +819,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
 
     level->track_id = video_track->tkhd.track_id;
     level->track = video_track;
-    level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
+    level->n_fragments =
+        gss_isom_parser_get_n_fragments (file, level->track_id);
     level->filename = g_strdup (filename);
     level->bitrate = video_bitrate;
     level->video_width = video_track->mp4v.width;
@@ -843,7 +844,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
 
     level->track_id = audio_track->tkhd.track_id;
     level->track = audio_track;
-    level->n_fragments = gss_isom_file_get_n_fragments (file, level->track_id);
+    level->n_fragments =
+        gss_isom_parser_get_n_fragments (file, level->track_id);
     level->file = file;
     level->filename = g_strdup (filename);
     level->bitrate = audio_bitrate;

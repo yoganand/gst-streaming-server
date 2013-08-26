@@ -40,27 +40,27 @@ main (int argc, char *argv[])
   }
 
   for (i = 1; i < argc; i++) {
-    GssIsomFile *file;
+    GssIsomParser *file;
     gboolean ret;
     guint8 *data;
     int size;
 
-    file = gss_isom_file_new ();
+    file = gss_isom_parser_new ();
 
-    ret = gss_isom_file_parse_file (file, argv[i]);
+    ret = gss_isom_parser_parse_file (file, argv[i]);
     if (!ret) {
       g_print ("parse failed");
       continue;
     }
 
     if (dump) {
-      gss_isom_file_dump (file);
+      gss_isom_parser_dump (file);
     }
     if (fragment) {
       int j;
       GssIsomTrack *track;
 
-      gss_isom_file_fragmentize (file);
+      gss_isom_parser_fragmentize (file);
 
       track = file->movie->tracks[0];
 
@@ -78,7 +78,7 @@ main (int argc, char *argv[])
       g_file_set_contents ("out.mov", (gchar *) data, size, NULL);
     }
 
-    gss_isom_file_free (file);
+    gss_isom_parser_free (file);
   }
 
   return 0;

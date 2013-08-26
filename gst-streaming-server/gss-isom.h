@@ -29,7 +29,7 @@ G_BEGIN_DECLS
 typedef struct _GssIsomFragment GssIsomFragment;
 typedef struct _GssIsomTrack GssIsomTrack;
 typedef struct _GssIsomMovie GssIsomMovie;
-typedef struct _GssIsomFile GssIsomFile;
+typedef struct _GssIsomParser GssIsomParser;
 typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
 typedef struct _GssMdatChunk GssMdatChunk;
@@ -172,7 +172,7 @@ struct _GssIsomTrack
 };
 
 
-struct _GssIsomFile
+struct _GssIsomParser
 {
   gboolean error;
   int fd;
@@ -223,17 +223,16 @@ struct _GssIsomSample
 };
 
 
-GssIsomFile *gss_isom_file_new (void);
-void gss_isom_file_free (GssIsomFile *file);
-gboolean gss_isom_file_parse_file (GssIsomFile *file,
+GssIsomParser *gss_isom_parser_new (void);
+void gss_isom_parser_free (GssIsomParser *file);
+gboolean gss_isom_parser_parse_file (GssIsomParser *file,
     const char *filename);
-GssIsomFragment * gss_isom_file_get_fragment (GssIsomFile *file,
+GssIsomFragment * gss_isom_parser_get_fragment (GssIsomParser *file,
     GssIsomTrack *track, int frag_index);
-GssIsomFragment * gss_isom_file_get_fragment_by_timestamp (
-    GssIsomFile *file, int track_id, guint64 timestamp);
-int gss_isom_file_get_n_fragments (GssIsomFile *file, int track_id);
-guint64 gss_isom_file_get_duration (GssIsomFile *file, int track_id);
-void gss_isom_file_free (GssIsomFile *file);
+GssIsomFragment * gss_isom_parser_get_fragment_by_timestamp (
+    GssIsomParser *file, int track_id, guint64 timestamp);
+int gss_isom_parser_get_n_fragments (GssIsomParser *file, int track_id);
+guint64 gss_isom_parser_get_duration (GssIsomParser *file, int track_id);
 
 void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
     int n_samples, guint64 *init_vectors, gboolean is_h264);
@@ -260,7 +259,7 @@ GssIsomTrack * gss_isom_movie_get_track_by_id (GssIsomMovie * movie, int track_i
 GssIsomFragment *gss_isom_fragment_new (void);
 void gss_isom_fragment_free (GssIsomFragment * fragment);
 
-void gss_isom_file_fragmentize (GssIsomFile *file);
+void gss_isom_parser_fragmentize (GssIsomParser *file);
 
 guint64 gss_isom_track_get_n_samples (GssIsomTrack *track);
 
@@ -275,7 +274,7 @@ gboolean gss_isom_sample_iter_iterate (GssIsomSampleIterator *iter);
 void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
     GssIsomSample *sample);
 
-void gss_isom_file_dump (GssIsomFile *file);
+void gss_isom_parser_dump (GssIsomParser *file);
 void gss_isom_movie_dump (GssIsomMovie *movie);
 void gss_isom_track_dump (GssIsomTrack *track);
 

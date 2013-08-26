@@ -38,14 +38,14 @@ main (int argc, char *argv[])
   }
 
   for (i = 1; i < argc; i++) {
-    GssIsomFile *file;
+    GssIsomParser *file;
     GssIsomTrack *video_track;
     GssIsomTrack *audio_track;
     gboolean ret;
 
-    file = gss_isom_file_new ();
+    file = gss_isom_parser_new ();
 
-    ret = gss_isom_file_parse_file (file, argv[i]);
+    ret = gss_isom_parser_parse_file (file, argv[i]);
     if (!ret) {
       g_print ("parse failed");
       continue;
@@ -61,7 +61,7 @@ main (int argc, char *argv[])
       g_print ("audio %p video %p\n", audio_track, video_track);
     }
 
-    gss_isom_file_free (file);
+    gss_isom_parser_free (file);
   }
 
   return 0;
