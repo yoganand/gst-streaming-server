@@ -655,6 +655,7 @@ gss_adaptive_new (void)
 void
 gss_adaptive_free (GssAdaptive * adaptive)
 {
+  gss_isom_parser_free (adaptive->parser);
 
   g_free (adaptive->audio_levels);
   g_free (adaptive->video_levels);
@@ -807,6 +808,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
   GssIsomTrack *audio_track;
 
   file = gss_isom_parser_new ();
+  adaptive->parser = file;
   gss_isom_parser_parse_file (file, filename);
 
   if (file->movie->tracks[0]->n_fragments == 0) {
@@ -922,4 +924,12 @@ gss_adaptive_get_resource (GssTransaction * t)
   }
 
   g_free (subpath);
+}
+
+void
+_gss_adaptive_deinit (void)
+{
+  if (adaptive_cache) {
+    g_hash_table_unref (adaptive_cache);
+  }
 }

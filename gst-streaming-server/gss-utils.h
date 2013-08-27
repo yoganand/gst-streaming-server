@@ -37,6 +37,7 @@
 
 G_BEGIN_DECLS
 
+void _gss_utils_deinit (void);
 char * gss_utils_get_time_string (void);
 char * gss_utils_get_ip_address_string (const char *interface);
 char * gss_utils_gethostname (void);

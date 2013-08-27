@@ -147,11 +147,11 @@ struct _GssIsomTrack
   /* in mvex at top level */
   GssBoxTrex trex;
 
-  guint8 *header;
-  gsize header_size;
+  //guint8 *header;
+  //gsize header_size;
 
-  guint8 *index;
-  gsize index_size;
+  //guint8 *index;
+  //gsize index_size;
 
   GssIsomFragment **fragments;
   int n_fragments;

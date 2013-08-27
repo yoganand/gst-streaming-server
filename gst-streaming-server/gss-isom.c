@@ -315,6 +315,7 @@ gss_isom_parser_parse_file (GssIsomParser * parser, const char *filename)
       gss_isom_parse_moov (parser, movie, &br);
 
       parser->movie = movie;
+      g_free (data);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       guint8 uuid[16];
 
@@ -401,6 +402,25 @@ gss_isom_track_new (void)
 void
 gss_isom_track_free (GssIsomTrack * track)
 {
+  int i;
+  if (track->chunks) {
+    for (i = 0; i < track->n_chunks; i++) {
+      if (track->chunks[i].data) {
+        g_free (track->chunks[i].data);
+      }
+    }
+    g_free (track->chunks);
+  }
+  g_free (track->hdlr.name);
+  g_free (track->dref.entries);
+  g_free (track->stts.entries);
+  g_free (track->ctts.entries);
+  g_free (track->esds.codec_data);
+  g_free (track->stsd.entries);
+  g_free (track->stsz.sample_sizes);
+  g_free (track->stco.chunk_offsets);
+  g_free (track->stss.sample_numbers);
+  g_free (track->stsh.entries);
   g_free (track->fragments);
   g_free (track);
 }

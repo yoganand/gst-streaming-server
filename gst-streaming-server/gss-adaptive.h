@@ -49,6 +49,8 @@ struct _GssAdaptive
   guint8 *kid;
   gsize kid_len;
   guint8 *content_key;
+
+  GssIsomParser *parser;
 };
 
 struct _GssAdaptiveLevel
@@ -74,6 +76,7 @@ GssAdaptiveLevel *gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video
 
 
 void gss_adaptive_setup (GssServer * server);
+void _gss_adaptive_deinit (void);
 
 G_END_DECLS
 

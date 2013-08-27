@@ -319,3 +319,9 @@ gss_uuid_to_string (guint8 * uuid)
       uuid[8],
       uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
 }
+
+void
+_gss_utils_deinit (void)
+{
+  close (get_random_fd ());
+}

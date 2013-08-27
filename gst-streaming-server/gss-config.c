@@ -29,6 +29,7 @@
 #include "gss-server.h"
 #include "gss-html.h"
 #include "gss-transaction.h"
+#include "gss-adaptive.h"
 
 #include <libxml/parser.h>
 
@@ -132,6 +133,8 @@ gss_init (void)
 void
 gss_deinit (void)
 {
+  _gss_utils_deinit ();
+  _gss_adaptive_deinit ();
 }
 
 void
