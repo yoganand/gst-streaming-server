@@ -162,6 +162,7 @@ struct _GssIsomTrack
 
   guint8 *dash_header_data;
   gsize dash_header_size;
+  gsize dash_header_and_sidx_size;
 
   gsize dash_size;
 
@@ -241,7 +242,7 @@ void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
 void gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack *track,
     guint8 ** data, gsize *size);
 void gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack *track,
-    guint8 ** data, gsize *size);
+    guint8 ** data, gsize *header_size, gsize *size);
 void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
     int *size);
 void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size);

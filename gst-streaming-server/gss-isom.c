@@ -3420,7 +3420,7 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
 
 void
 gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
-    guint8 ** data, gsize * size)
+    guint8 ** data, gsize * header_size, gsize * size)
 {
   GstByteWriter *bw;
   int offset;
@@ -3452,6 +3452,8 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
   }
 
   BOX_FINISH (bw, offset_moov);
+
+  *header_size = bw->parent.byte;
 
   {
     GssBoxSidx sidx;
@@ -3590,7 +3592,7 @@ convert_chunks (GssIsomTrack * track)
 
   index = 0;
 
-  track->chunks[index].size = track->dash_header_size;
+  track->chunks[index].size = track->dash_header_and_sidx_size;
   track->chunks[index].data = track->dash_header_data;
   track->chunks[index].offset = offset;
   track->chunks[index].source_offset = -1;
@@ -3871,12 +3873,14 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       &audio_track->ccff_header_data, &audio_track->ccff_header_size);
 
   gss_isom_movie_serialize_track_dash (file->movie, video_track,
-      &video_track->dash_header_data, &video_track->dash_header_size);
+      &video_track->dash_header_data, &video_track->dash_header_size,
+      &video_track->dash_header_and_sidx_size);
   gss_isom_movie_serialize_track_dash (file->movie, audio_track,
-      &audio_track->dash_header_data, &audio_track->dash_header_size);
+      &audio_track->dash_header_data, &audio_track->dash_header_size,
+      &audio_track->dash_header_and_sidx_size);
 
-  video_track->dash_size += video_track->dash_header_size;
-  audio_track->dash_size += audio_track->dash_header_size;
+  video_track->dash_size += video_track->dash_header_and_sidx_size;
+  audio_track->dash_size += audio_track->dash_header_and_sidx_size;
 
   convert_chunks (video_track);
   convert_chunks (audio_track);

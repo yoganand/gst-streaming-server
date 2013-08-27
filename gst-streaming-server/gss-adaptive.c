@@ -283,7 +283,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
-        track->dash_header_size + track->index_size - 1, (gsize) 0,
+        track->dash_header_and_sidx_size - 1, (gsize) 0,
         track->dash_header_size - 1);
     GSS_A ("      </Representation>\n");
     break;
@@ -305,7 +305,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
-        track->dash_header_size + track->index_size - 1, (gsize) 0,
+        track->dash_header_and_sidx_size - 1, (gsize) 0,
         track->dash_header_size - 1);
     GSS_A ("      </Representation>\n");
     break;
