@@ -50,12 +50,13 @@ struct _GssAdaptive
   gsize kid_len;
   guint8 *content_key;
 
-  GssIsomParser *parser;
+  int n_parsers;
+  GssIsomParser *parsers[20];
 };
 
 struct _GssAdaptiveLevel
 {
-  const char *filename;
+  char *filename;
 
   int n_fragments;
   int bitrate;

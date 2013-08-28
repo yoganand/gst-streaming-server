@@ -655,10 +655,28 @@ gss_adaptive_new (void)
 void
 gss_adaptive_free (GssAdaptive * adaptive)
 {
-  gss_isom_parser_free (adaptive->parser);
+  int i;
 
+  GST_ERROR ("adaptive free: n_parsers=%d", adaptive->n_parsers);
+  for (i = 0; i < adaptive->n_parsers; i++) {
+    gss_isom_parser_free (adaptive->parsers[i]);
+  }
+
+  for (i = 0; i < adaptive->n_audio_levels; i++) {
+    adaptive->audio_levels[i].track = NULL;
+    adaptive->audio_levels[i].file = NULL;
+    g_free (adaptive->audio_levels[i].codec_data);
+    g_free (adaptive->audio_levels[i].filename);
+  }
+  for (i = 0; i < adaptive->n_video_levels; i++) {
+    adaptive->video_levels[i].track = NULL;
+    adaptive->video_levels[i].file = NULL;
+    g_free (adaptive->video_levels[i].codec_data);
+    g_free (adaptive->video_levels[i].filename);
+  }
   g_free (adaptive->audio_levels);
   g_free (adaptive->video_levels);
+  g_free (adaptive->kid);
   g_free (adaptive);
 }
 
@@ -808,7 +826,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
   GssIsomTrack *audio_track;
 
   file = gss_isom_parser_new ();
-  adaptive->parser = file;
+  adaptive->parsers[adaptive->n_parsers] = file;
+  adaptive->n_parsers++;
   gss_isom_parser_parse_file (file, filename);
 
   if (file->movie->tracks[0]->n_fragments == 0) {

@@ -292,6 +292,7 @@ static void
 gss_server_finalize (GObject * object)
 {
   GssServer *server = GSS_SERVER (object);
+  int i;
 
   g_list_free_full (server->programs, g_object_unref);
 
@@ -304,6 +305,10 @@ gss_server_finalize (GObject * object)
   g_list_free (server->admin_resources);
 
   g_hash_table_unref (server->resources);
+  for (i = 0; i < server->n_prefix_resources; i++) {
+    gss_resource_free (server->prefix_resources[i]);
+  }
+  g_free (server->prefix_resources);
   gss_metrics_free (server->metrics);
   g_free (server->base_url);
   g_free (server->base_url_https);

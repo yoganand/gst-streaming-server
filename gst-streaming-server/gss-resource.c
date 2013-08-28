@@ -34,6 +34,7 @@ gss_resource_free (GssResource * resource)
 {
   g_free (resource->name);
   g_free (resource->etag);
+  g_free (resource->location);
   if (resource->destroy) {
     resource->destroy (resource);
   }

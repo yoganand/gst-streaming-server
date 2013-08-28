@@ -142,6 +142,10 @@ gss_isom_parser_dump (GssIsomParser * parser)
 void
 gss_isom_parser_free (GssIsomParser * parser)
 {
+  gss_isom_movie_free (parser->movie);
+
+  g_free (parser->filename);
+  g_free (parser->data);
   if (parser->fd > 0) {
     close (parser->fd);
   }
@@ -396,7 +400,9 @@ gss_isom_parser_fixup (GssIsomParser * parser)
 GssIsomTrack *
 gss_isom_track_new (void)
 {
-  return g_malloc0 (sizeof (GssIsomTrack));
+  GssIsomTrack *track;
+  track = g_malloc0 (sizeof (GssIsomTrack));
+  return track;
 }
 
 void
@@ -410,6 +416,13 @@ gss_isom_track_free (GssIsomTrack * track)
       }
     }
     g_free (track->chunks);
+    track->chunks = NULL;
+  }
+  if (track->fragments) {
+    for (i = 0; i < track->n_fragments; i++) {
+      gss_isom_fragment_free (track->fragments[i]);
+    }
+    g_free (track->fragments);
   }
   g_free (track->hdlr.name);
   g_free (track->dref.entries);
@@ -420,8 +433,10 @@ gss_isom_track_free (GssIsomTrack * track)
   g_free (track->stsz.sample_sizes);
   g_free (track->stco.chunk_offsets);
   g_free (track->stss.sample_numbers);
+  g_free (track->stsc.entries);
   g_free (track->stsh.entries);
-  g_free (track->fragments);
+  g_free (track->esds_store.data);
+  g_free (track->ccff_header_data);
   g_free (track);
 }
 
@@ -494,6 +509,12 @@ gss_isom_movie_new (void)
 void
 gss_isom_movie_free (GssIsomMovie * movie)
 {
+  int i;
+  for (i = 0; i < movie->n_tracks; i++) {
+    gss_isom_track_free (movie->tracks[i]);
+  }
+  g_free (movie->hdlr.data);
+  g_free (movie->ilst.data);
   g_free (movie->tracks);
   g_free (movie);
 }
@@ -521,6 +542,10 @@ gss_isom_fragment_new (void)
 void
 gss_isom_fragment_free (GssIsomFragment * fragment)
 {
+  g_free (fragment->trun.samples);
+  g_free (fragment->sdtp.sample_flags);
+  g_free (fragment->sample_encryption.samples);
+  g_free (fragment->chunks);
   g_free (fragment);
 }
 
@@ -614,6 +639,7 @@ gss_isom_parse_ftyp (GssIsomParser * file, guint64 offset, guint64 size)
           GST_FOURCC_ARGS (atom));
     }
   }
+  g_free (data);
 }
 
 static void
@@ -1372,6 +1398,7 @@ gss_isom_parse_stsz (GssIsomParser * file, GssIsomTrack * track,
   gst_byte_reader_get_uint32_be (br, &stsz->sample_count);
   if (stsz->sample_size == 0) {
     stsz->sample_sizes = g_malloc0 (sizeof (guint32) * stsz->sample_count);
+    GST_ERROR ("stsz: %p", track->stsz.sample_sizes);
     for (i = 0; i < stsz->sample_count; i++) {
       gst_byte_reader_get_uint32_be (br, &stsz->sample_sizes[i]);
     }
@@ -2530,7 +2557,6 @@ gss_isom_stts_serialize (GssBoxStts * stts, GstByteWriter * bw)
   gst_byte_writer_put_uint8 (bw, stts->version);
   gst_byte_writer_put_uint24_be (bw, stts->flags);
   gst_byte_writer_put_uint32_be (bw, stts->entry_count);
-  stts->entries = g_malloc0 (sizeof (GssBoxSttsEntry) * stts->entry_count);
   for (i = 0; i < stts->entry_count; i++) {
     gst_byte_writer_put_uint32_be (bw, stts->entries[i].sample_count);
     gst_byte_writer_put_int32_be (bw, stts->entries[i].sample_delta);
@@ -2550,7 +2576,6 @@ gss_isom_ctts_serialize (GssBoxCtts * ctts, GstByteWriter * bw)
   gst_byte_writer_put_uint8 (bw, ctts->version);
   gst_byte_writer_put_uint24_be (bw, ctts->flags);
   gst_byte_writer_put_uint32_be (bw, ctts->entry_count);
-  ctts->entries = g_malloc0 (sizeof (GssBoxCttsEntry) * ctts->entry_count);
   for (i = 0; i < ctts->entry_count; i++) {
     gst_byte_writer_put_uint32_be (bw, ctts->entries[i].sample_count);
     gst_byte_writer_put_uint32_be (bw, ctts->entries[i].sample_offset);
@@ -2570,7 +2595,6 @@ gss_isom_stss_serialize (GssBoxStss * stss, GstByteWriter * bw)
   gst_byte_writer_put_uint8 (bw, stss->version);
   gst_byte_writer_put_uint24_be (bw, stss->flags);
   gst_byte_writer_put_uint32_be (bw, stss->entry_count);
-  stss->sample_numbers = g_malloc0 (sizeof (guint32) * stss->entry_count);
   for (i = 0; i < stss->entry_count; i++) {
     gst_byte_writer_put_uint32_be (bw, stss->sample_numbers[i]);
   }
@@ -2761,7 +2785,6 @@ gss_isom_stsz_serialize (GssBoxStsz * stsz, GstByteWriter * bw)
   gst_byte_writer_put_uint32_be (bw, stsz->sample_size);
   gst_byte_writer_put_uint32_be (bw, stsz->sample_count);
   if (stsz->sample_size == 0) {
-    stsz->sample_sizes = g_malloc0 (sizeof (guint32) * stsz->sample_count);
     for (i = 0; i < stsz->sample_count; i++) {
       gst_byte_writer_put_uint32_be (bw, stsz->sample_sizes[i]);
     }
@@ -3479,6 +3502,7 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
     GssBoxSidx sidx;
     create_sidx (&sidx, track);
     gss_isom_sidx_serialize (&sidx, bw);
+    g_free (sidx.entries);
   }
 
   *size = bw->parent.byte;
