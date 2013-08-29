@@ -1398,7 +1398,6 @@ gss_isom_parse_stsz (GssIsomParser * file, GssIsomTrack * track,
   gst_byte_reader_get_uint32_be (br, &stsz->sample_count);
   if (stsz->sample_size == 0) {
     stsz->sample_sizes = g_malloc0 (sizeof (guint32) * stsz->sample_count);
-    GST_ERROR ("stsz: %p", track->stsz.sample_sizes);
     for (i = 0; i < stsz->sample_count; i++) {
       gst_byte_reader_get_uint32_be (br, &stsz->sample_sizes[i]);
     }
@@ -1641,7 +1640,6 @@ gss_isom_parse_stsd (GssIsomParser * file, GssIsomTrack * track,
         atom == GST_MAKE_FOURCC ('e', 'n', 'c', 'a')) {
       GssBoxMp4a *mp4a = &track->mp4a;
 
-      GST_ERROR ("mp4a");
       mp4a->present = TRUE;
       gst_byte_reader_skip (&sbr, 6);
       gst_byte_reader_get_uint16_be (&sbr, &mp4a->data_reference_index);

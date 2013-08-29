@@ -657,7 +657,6 @@ gss_adaptive_free (GssAdaptive * adaptive)
 {
   int i;
 
-  GST_ERROR ("adaptive free: n_parsers=%d", adaptive->n_parsers);
   for (i = 0; i < adaptive->n_parsers; i++) {
     gss_isom_parser_free (adaptive->parsers[i]);
   }
@@ -796,7 +795,7 @@ gss_adaptive_load (const char *key)
     if (!ret)
       continue;
 
-    GST_ERROR ("fn %s video_bitrate %d audio_bitrate %d",
+    GST_DEBUG ("fn %s video_bitrate %d audio_bitrate %d",
         fn, video_bitrate, audio_bitrate);
 
     full_fn = g_strdup_printf ("ism-vod/%s/%s", key, fn);
