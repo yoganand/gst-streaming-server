@@ -42,11 +42,14 @@ struct _GssTransaction {
   GString *s;
   GString *script;
   int id;
+  guint64 start_time;
+  guint64 completion_time;
 };
 
 void gss_transaction_redirect (GssTransaction * t, const char *target);
 void gss_transaction_error (GssTransaction * t, const char *message);
 void gss_transaction_delay (GssTransaction *t, int msec);
+void gss_transaction_dump (GssTransaction *t);
 
 gchar *gss_json_gobject_to_data (GObject * gobject, gsize * length);
 

@@ -242,7 +242,7 @@ gss_server_init (GssServer * server)
   server->metrics = gss_metrics_new ();
 
   server->resources = g_hash_table_new_full (g_str_hash, g_str_equal,
-      g_free, (GDestroyNotify) gss_resource_free);
+      NULL, (GDestroyNotify) gss_resource_free);
 
   server->client_session = soup_session_async_new ();
 
@@ -1063,6 +1063,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   transaction->client = client;
   transaction->resource = resource;
   transaction->session = session;
+  transaction->start_time = g_get_real_time ();
 
   if (resource->flags & GSS_RESOURCE_HTTP_ONLY) {
     if (soupserver != server->server) {
@@ -1105,6 +1106,9 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     soup_message_body_append (msg->response_body, SOUP_MEMORY_TAKE,
         content, len);
   }
+  transaction->completion_time = g_get_real_time ();
+
+  //gss_transaction_dump (transaction);
 
   g_free (transaction);
 }

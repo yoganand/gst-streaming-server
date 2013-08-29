@@ -899,7 +899,7 @@ gss_adaptive_get_resource (GssTransaction * t)
   char *subpath;
   GssAdaptive *adaptive;
 
-  GST_ERROR ("path: %s", t->path);
+  GST_DEBUG ("path: %s", t->path);
 
   path = t->path + 9;
   e = strchr (path, '/');

@@ -326,3 +326,28 @@ gss_json_serialize_pspec (const GValue * real_value, GParamSpec * pspec)
 
   return retval;
 }
+
+void
+gss_transaction_dump (GssTransaction * t)
+{
+  SoupMessageHeadersIter iter;
+  const char *name;
+  const char *value;
+
+  g_print ("Request: %s %s\n", t->msg->method, t->path);
+  g_print ("Status: %d\n", t->msg->status_code);
+  g_print ("Time: %" G_GUINT64_FORMAT "\n", t->completion_time - t->start_time);
+  g_print ("Request Headers:\n");
+  soup_message_headers_iter_init (&iter, t->msg->request_headers);
+  while (soup_message_headers_iter_next (&iter, &name, &value)) {
+    g_print ("  %s: %s\n", name, value);
+  }
+
+  g_print ("Response Headers:\n");
+  soup_message_headers_iter_init (&iter, t->msg->response_headers);
+  while (soup_message_headers_iter_next (&iter, &name, &value)) {
+    g_print ("  %s: %s\n", name, value);
+  }
+  g_print ("\n");
+
+}
