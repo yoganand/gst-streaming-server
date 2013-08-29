@@ -1,13 +1,32 @@
 #!/bin/sh
 
 
-gst-launch-0.10 videotestsrc is_live=1 ! \
-  video/x-raw-yuv,width=640,height=360,framerate=30000/1001 ! \
-  x264enc tune=zerolatency profile=baseline sync-lookahead=0 \
+user=admin
+password=admin
+
+host=localhost:8443
+
+curlopts="$curlopts --insecure"
+curlcmd="--data username=$user --data password=$password"
+
+session_url=`curl -s $curlopts -w '%{redirect_url}' $curlcmd https://$host/login\?redirect_url=/admin/status -o /dev/null`
+
+
+echo session url $session_url
+
+
+url=$(echo $session_url | sed 's,\?,stream-0?,')
+curl -s $curlopts --data enabled=true --data push-method=http-put \
+  --data default-type=m2ts-h264main-aac $url >/dev/null
+
+gst-launch-1.0 videotestsrc is_live=1 ! \
+  video/x-raw,format=I420,width=640,height=360,framerate=30000/1001 ! \
+  x264enc tune=zerolatency sync-lookahead=0 \
     pass=cbr rc-lookahead=0 bitrate=600 key-int-max=4000 ! \
+  video/x-h264,profile=main ! \
   mpegtsmux name=mux ! \
   queue ! \
-  souphttpclientsink location=http://localhost:8080/stream0 \
+  souphttpclientsink location=http://localhost:8080/stream-0 \
   audiotestsrc is-live=true wave=ticks volume=0.2 ! \
   audioconvert ! faac ! \
   queue ! mux.
