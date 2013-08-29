@@ -245,7 +245,11 @@ gss_stream_create_push_pipeline (GssStream * stream, int push_fd)
       break;
     case GSS_STREAM_TYPE_M2TS_H264BASE_AAC:
     case GSS_STREAM_TYPE_M2TS_H264MAIN_AAC:
+#if GST_CHECK_VERSION(1,0,0)
+      g_string_append (pipe_desc, "tsparse name=parse ! ");
+#else
       g_string_append (pipe_desc, "mpegtsparse name=parse ! ");
+#endif
       break;
     case GSS_STREAM_TYPE_WEBM:
       g_string_append (pipe_desc, "matroskaparse name=parse ! ");
