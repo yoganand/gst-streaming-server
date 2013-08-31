@@ -335,8 +335,23 @@ gss_transaction_dump (GssTransaction * t)
   const char *value;
 
   g_print ("Request: %s %s\n", t->msg->method, t->path);
+  if (t->query) {
+    GHashTableIter iter;
+    char *key, *value;
+
+    g_hash_table_iter_init (&iter, t->query);
+    while (g_hash_table_iter_next (&iter, (gpointer) & key, (gpointer) & value)) {
+      g_print ("  %s=%s\n", key, value);
+    }
+  }
+  if (t->msg->method == SOUP_METHOD_POST) {
+    g_print ("Content:\n%s\n", t->msg->request_body->data);
+  }
+  g_print ("From: %s\n",
+      soup_address_get_physical (soup_client_context_get_address (t->client)));
   g_print ("Status: %d\n", t->msg->status_code);
-  g_print ("Time: %" G_GUINT64_FORMAT "\n", t->completion_time - t->start_time);
+  g_print ("Response Latency: %" G_GUINT64_FORMAT " us\n",
+      t->completion_time - t->start_time);
   g_print ("Request Headers:\n");
   soup_message_headers_iter_init (&iter, t->msg->request_headers);
   while (soup_message_headers_iter_next (&iter, &name, &value)) {
