@@ -675,6 +675,7 @@ gss_adaptive_free (GssAdaptive * adaptive)
   }
   g_free (adaptive->audio_levels);
   g_free (adaptive->video_levels);
+  g_free (adaptive->content_id);
   g_free (adaptive->kid);
   g_free (adaptive);
 }
@@ -781,6 +782,7 @@ gss_adaptive_load (const char *key)
 
   adaptive = gss_adaptive_new ();
 
+  adaptive->content_id = g_strdup (key);
   adaptive->kid = create_key_id (key);
   adaptive->kid_len = 16;
 

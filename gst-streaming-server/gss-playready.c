@@ -235,9 +235,10 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
       "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
       //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
       "<CUSTOMATTRIBUTES>"
+      "<CONTENT_ID>%s</CONTENT_ID>"
       "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
       "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
-      "</DATA>" "</WRMHEADER>", kid_base64, la_url);
+      "</DATA>" "</WRMHEADER>", kid_base64, adaptive->content_id, la_url);
   g_free (kid_base64);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);

@@ -31,6 +31,7 @@ typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
 
 struct _GssAdaptive
 {
+  char *content_id;
   guint64 duration;
 
   int max_width;
