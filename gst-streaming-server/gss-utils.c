@@ -325,3 +325,21 @@ _gss_utils_deinit (void)
 {
   close (get_random_fd ());
 }
+
+char *
+gss_base64url_encode (const guint8 * data, int len)
+{
+  int i;
+  char *base64;
+
+  base64 = g_base64_encode (data, len);
+
+  for (i = 0; base64[i]; i++) {
+    if (base64[i] == '+')
+      base64[i] = '-';
+    else if (base64[i] == '/')
+      base64[i] = '_';
+  }
+
+  return base64;
+}
