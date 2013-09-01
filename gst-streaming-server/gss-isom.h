@@ -69,6 +69,7 @@ struct _GssIsomFragment {
   GssMdatChunk *chunks;
   guint64 timestamp;
   guint64 duration;
+  int index;
 
   GssBoxMfhd mfhd;
   GssBoxTfhd tfhd;

@@ -255,22 +255,6 @@ gss_playready_setup (GssServer * server)
 }
 
 
-/* This is the key seed used by the demo Playready server at
- * http://playready.directtaps.net/pr/svc/rightsmanager.asmx
- * As it is public, it is completely useless as a *private*
- * key seed.  */
-guint8 *
-gss_playready_get_default_key_seed (void)
-{
-  guint8 default_seed[30] = { 0x5D, 0x50, 0x68, 0xBE, 0xC9, 0xB3, 0x84,
-    0xFF, 0x60, 0x44, 0x86, 0x71, 0x59, 0xF1, 0x6D, 0x6B, 0x75,
-    0x55, 0x44, 0xFC, 0xD5, 0x11, 0x69, 0x89, 0xB1, 0xAC, 0xC4,
-    0x27, 0x8E, 0x88
-  };
-
-  return g_memdup (default_seed, 30);
-}
-
 /*
  * Description of this algorithm is in "PlayReady Header Object",
  * available at:
@@ -376,14 +360,13 @@ gss_playready_setup_iv (GssPlayready * playready, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment)
 {
   guint64 *init_vectors;
-  guint64 iv;
   int i;
   int n_samples;
-
-  gss_utils_get_random_bytes ((guint8 *) & iv, 8);
+  guint64 iv;
 
   n_samples = gss_isom_fragment_get_n_samples (fragment);
   init_vectors = g_malloc (n_samples * sizeof (guint64));
+  iv = level->iv + ((guint64) fragment->index << 32);
   for (i = 0; i < n_samples; i++) {
     init_vectors[i] = iv + i;
   }

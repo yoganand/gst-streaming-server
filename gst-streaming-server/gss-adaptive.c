@@ -783,6 +783,9 @@ gss_adaptive_load (GssServer * server, const char *key)
 
   adaptive = gss_adaptive_new ();
 
+  adaptive->playready = TRUE;
+  adaptive->needs_encryption = TRUE;
+
   adaptive->content_id = g_strdup (key);
   adaptive->kid = create_key_id (key);
   adaptive->kid_len = 16;
@@ -810,9 +813,6 @@ gss_adaptive_load (GssServer * server, const char *key)
     g_free (full_fn);
     g_free (fn);
   }
-
-  //adaptive->playready = TRUE;
-  //adaptive->needs_encryption = TRUE;
 
   g_strfreev (lines);
   g_free (contents);

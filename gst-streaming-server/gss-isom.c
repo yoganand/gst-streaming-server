@@ -280,6 +280,7 @@ gss_isom_parser_parse_file (GssIsomParser * parser, const char *filename)
               track->n_fragments_alloc * sizeof (GssIsomFragment *));
         }
         track->fragments[track->n_fragments] = fragment;
+        fragment->index = track->n_fragments;
         track->n_fragments++;
       }
       parser->current_fragment = fragment;
@@ -3734,8 +3735,10 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
     audio_fragment = gss_isom_fragment_new ();
     audio_track->fragments[i] = audio_fragment;
+    audio_fragment->index = i;
     video_fragment = gss_isom_fragment_new ();
     video_track->fragments[i] = video_fragment;
+    video_fragment->index = i;
 
     video_fragment->mfhd.sequence_number = i;
 
