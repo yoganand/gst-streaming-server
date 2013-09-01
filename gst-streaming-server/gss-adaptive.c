@@ -890,6 +890,11 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
 
     level->codec_data = get_codec_string (video_track->esds.codec_data,
         video_track->esds.codec_data_len);
+    level->codec = g_strdup_printf ("avc1.%02x%02x%02x",
+        video_track->esds.codec_data[1],
+        video_track->esds.codec_data[2], video_track->esds.codec_data[3]);
+    generate_iv (level, filename, video_track->tkhd.track_id);
+
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
@@ -912,6 +917,9 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->codec_data = get_codec_string (audio_track->esds.codec_data,
         audio_track->esds.codec_data_len);
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
+    /* FIXME hard-coded AAC LC */
+    level->codec = g_strdup ("mp4a.40.2");
+    generate_iv (level, filename, video_track->tkhd.track_id);
   }
 
 }
