@@ -155,7 +155,7 @@ gss_playready_set_key_seed_hex (GssPlayready * playready, const char *key_seed)
   }
   for (i = 0; i < 30; i++) {
     playready->key_seed[i] =
-        (g_ascii_xdigit_value (key_seed[i * 2]) << 4) ||
+        (g_ascii_xdigit_value (key_seed[i * 2]) << 4) |
         g_ascii_xdigit_value (key_seed[i * 2 + 1]);
   }
 }
