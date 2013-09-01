@@ -26,6 +26,9 @@
 
 G_BEGIN_DECLS
 
+/* 128-bit AES key */
+#define GSS_ADAPTIVE_KEY_LENGTH 16
+
 typedef struct _GssAdaptive GssAdaptive;
 typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
 
@@ -49,7 +52,7 @@ struct _GssAdaptive
 
   guint8 *kid;
   gsize kid_len;
-  guint8 *content_key;
+  guint8 content_key[GSS_ADAPTIVE_KEY_LENGTH];
 
   int n_parsers;
   GssIsomParser *parsers[20];
@@ -70,6 +73,9 @@ struct _GssAdaptiveLevel
   gboolean is_h264;
   char *codec_data;
   int audio_rate;
+  char *codec;
+
+  guint64 iv;
 };
 
 GssAdaptive *gss_adaptive_new (void);

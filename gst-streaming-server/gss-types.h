@@ -40,6 +40,8 @@ typedef struct _GssMetrics GssMetrics;
 typedef struct _GssResource GssResource;
 typedef struct _GssSession GssSession;
 typedef struct _GssTransaction GssTransaction;
+typedef struct _GssPlayready GssPlayready;
+typedef struct _GssPlayreadyClass GssPlayreadyClass;
 
 
 G_END_DECLS

@@ -234,7 +234,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
         "SystemID=\"9a04f079-9840-4286-ab92-e65be0885f95\">");
 
     prot_header_base64 = gss_playready_get_protection_header_base64 (adaptive,
-        "http://playready.directtaps.net/pr/svc/rightsmanager.asmx");
+        t->server->playready->license_url);
     GSS_P ("%s", prot_header_base64);
     g_free (prot_header_base64);
 
@@ -627,7 +627,8 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
       guint8 *mdat_data;
 
       if (adaptive->needs_encryption) {
-        gss_playready_setup_iv (adaptive, level, fragment);
+        gss_playready_setup_iv (t->server->playready, adaptive, level,
+            fragment);
       }
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
       if (adaptive->needs_encryption) {
@@ -755,7 +756,7 @@ create_key_id (const char *key_string)
 }
 
 static GssAdaptive *
-gss_adaptive_load (const char *key)
+gss_adaptive_load (GssServer * server, const char *key)
 {
   GssAdaptive *adaptive;
   int i;
@@ -785,6 +786,9 @@ gss_adaptive_load (const char *key)
   adaptive->content_id = g_strdup (key);
   adaptive->kid = create_key_id (key);
   adaptive->kid_len = 16;
+
+  gss_playready_generate_key (server->playready, adaptive->content_key,
+      adaptive->kid, adaptive->kid_len);
 
   lines = g_strsplit (contents, "\n", 0);
   for (i = 0; lines[i]; i++) {
@@ -816,6 +820,27 @@ gss_adaptive_load (const char *key)
   GST_DEBUG ("loading done");
 
   return adaptive;
+}
+
+static void
+generate_iv (GssAdaptiveLevel * level, const char *filename, int track_id)
+{
+  GChecksum *csum;
+  char *s;
+  gsize size;
+  guint8 bytes[20];
+
+  s = g_strdup_printf ("%s:%d", filename, track_id);
+
+  csum = g_checksum_new (G_CHECKSUM_SHA1);
+  g_checksum_update (csum, (guchar *) s, -1);
+  g_free (s);
+
+  size = 20;
+  g_checksum_get_digest (csum, (guchar *) bytes, &size);
+  memcpy (&level->iv, bytes, sizeof (level->iv));
+
+  g_checksum_free (csum);
 }
 
 static void
@@ -914,7 +939,7 @@ gss_adaptive_get_resource (GssTransaction * t)
 
   adaptive = g_hash_table_lookup (adaptive_cache, key);
   if (adaptive == NULL) {
-    adaptive = gss_adaptive_load (key);
+    adaptive = gss_adaptive_load (t->server, key);
     if (adaptive == NULL) {
       GST_ERROR ("failed to load %s", key);
       g_free (key);

@@ -109,6 +109,8 @@ struct _GssServer
 
   GssAddrRangeList *admin_arl;
   GssAddrRangeList *kiosk_arl;
+
+  GssPlayready *playready;
 };
 
 struct _GssServerClass

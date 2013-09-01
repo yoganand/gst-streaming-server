@@ -24,6 +24,157 @@
 
 #include <openssl/aes.h>
 
+enum
+{
+  PROP_LICENSE_URL = 1,
+  PROP_KEY_SEED,
+};
+
+#define DEFAULT_LICENSE_URL "http://playready.directtaps.net/pr/svc/rightsmanager.asmx"
+/* This is the key seed used by the demo Playready server at
+ * http://playready.directtaps.net/pr/svc/rightsmanager.asmx
+ * As it is public, it is completely useless as a *private*
+ * key seed.  */
+#define DEFAULT_KEY_SEED "5D5068BEC9B384FF6044867159F16D6B755544FCD5116989B1ACC4278E88"
+
+
+static void gss_playready_finalize (GObject * object);
+static void gss_playready_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec);
+static void gss_playready_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec);
+
+static GssObject *parent_class;
+
+G_DEFINE_TYPE (GssPlayready, gss_playready, GSS_TYPE_OBJECT);
+
+static void
+gss_playready_init (GssPlayready * playready)
+{
+  playready->license_url = g_strdup (DEFAULT_LICENSE_URL);
+  gss_playready_set_key_seed_hex (playready, DEFAULT_KEY_SEED);
+}
+
+static void
+gss_playready_class_init (GssPlayreadyClass * playready_class)
+{
+  G_OBJECT_CLASS (playready_class)->set_property = gss_playready_set_property;
+  G_OBJECT_CLASS (playready_class)->get_property = gss_playready_get_property;
+  G_OBJECT_CLASS (playready_class)->finalize = gss_playready_finalize;
+
+  g_object_class_install_property (G_OBJECT_CLASS (playready_class),
+      PROP_LICENSE_URL, g_param_spec_string ("license-url", "License URL",
+          "URL for the license server.", DEFAULT_LICENSE_URL,
+          (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+  g_object_class_install_property (G_OBJECT_CLASS (playready_class),
+      PROP_KEY_SEED, g_param_spec_string ("key-seed", "Key Seed",
+          "Private key seed used to generate content keys from content IDs.",
+          DEFAULT_KEY_SEED,
+          (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+
+  parent_class = g_type_class_peek_parent (playready_class);
+}
+
+static void
+gss_playready_finalize (GObject * object)
+{
+  GssPlayready *playready = GSS_PLAYREADY (object);
+
+  g_free (playready->license_url);
+  g_free (playready->key_seed);
+
+  G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
+gss_playready_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GssPlayready *playready;
+
+  playready = GSS_PLAYREADY (object);
+
+  switch (prop_id) {
+    case PROP_LICENSE_URL:
+      g_free (playready->license_url);
+      playready->license_url = g_value_dup_string (value);
+      break;
+    case PROP_KEY_SEED:
+      gss_playready_set_key_seed_hex (playready, g_value_get_string (value));
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
+  }
+}
+
+static void
+gss_playready_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GssPlayready *playready;
+
+  playready = GSS_PLAYREADY (object);
+
+  switch (prop_id) {
+    case PROP_LICENSE_URL:
+      g_value_set_string (value, playready->license_url);
+      break;
+    case PROP_KEY_SEED:
+      g_value_take_string (value, gss_playready_get_key_seed_hex (playready));
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
+  }
+}
+
+GssPlayready *
+gss_playready_new (void)
+{
+  return g_object_new (GSS_TYPE_PLAYREADY, NULL);
+}
+
+void
+gss_playready_set_key_seed_hex (GssPlayready * playready, const char *key_seed)
+{
+  int i;
+
+  if (strlen (key_seed) != 60) {
+    GST_ERROR_OBJECT (playready,
+        "PlayReady key seed wrong length (should be 60 kex characters)");
+    return;
+  }
+
+  for (i = 0; i < 60; i++) {
+    if (!g_ascii_isxdigit (key_seed[i])) {
+      GST_ERROR_OBJECT (playready,
+          "PlayReady key seed contains non-hexidecimal characters");
+      return;
+    }
+  }
+  for (i = 0; i < 30; i++) {
+    playready->key_seed[i] =
+        (g_ascii_xdigit_value (key_seed[i * 2]) << 4) ||
+        g_ascii_xdigit_value (key_seed[i * 2 + 1]);
+  }
+}
+
+char *
+gss_playready_get_key_seed_hex (GssPlayready * playready)
+{
+  int i;
+  char *s;
+  s = g_malloc (61);
+  for (i = 0; i < 30; i++) {
+#define HEXCHAR(x) (((x)<10) ? '0'+(x) : 'a'+((x)-10))
+    s[2 * i] = HEXCHAR ((playready->key_seed[i] >> 4) & 0xf);
+    s[2 * i + 1] = HEXCHAR (playready->key_seed[i] & 0xf);
+  }
+  s[60] = 0;
+  return s;
+}
+
 
 static SoupSession *session;
 
@@ -127,15 +278,14 @@ gss_playready_get_default_key_seed (void)
  * Direct link:
  *   http://download.microsoft.com/download/2/0/2/202E5BD8-36C6-4DB8-9178-12472F8B119E/PlayReady%20Header%20Object%204-15-2013.docx
  */
-guint8 *
-gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
-    guint8 * kid, int kid_len)
+void
+gss_playready_generate_key (GssPlayready * playready, guint8 * key,
+    const guint8 * kid, int kid_len)
 {
   GChecksum *checksum;
   guint8 *hash_a;
   guint8 *hash_b;
   guint8 *hash_c;
-  guint8 *key;
   gsize size;
   int i;
 
@@ -145,24 +295,23 @@ gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
   hash_b = g_malloc (size);
   hash_c = g_malloc (size);
 
-  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, playready->key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
   g_checksum_get_digest (checksum, hash_a, &size);
 
   g_checksum_reset (checksum);
-  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, playready->key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
-  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, playready->key_seed, 30);
   g_checksum_get_digest (checksum, hash_b, &size);
 
   g_checksum_reset (checksum);
-  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, playready->key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
-  g_checksum_update (checksum, key_seed, 30);
+  g_checksum_update (checksum, playready->key_seed, 30);
   g_checksum_update (checksum, kid, kid_len);
   g_checksum_get_digest (checksum, hash_c, &size);
 
-  key = g_malloc (16);
   for (i = 0; i < 16; i++) {
     key[i] = hash_a[i] ^ hash_a[i + 16] ^ hash_b[i] ^ hash_b[i + 16] ^
         hash_c[i] ^ hash_c[i + 16];
@@ -172,8 +321,6 @@ gss_playready_generate_key (guint8 * key_seed, int key_seed_len,
   g_free (hash_a);
   g_free (hash_b);
   g_free (hash_c);
-
-  return key;
 }
 
 
@@ -225,20 +372,7 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
 }
 
 void
-gss_adaptive_generate_content_key (GssAdaptive * adaptive)
-{
-  guint8 *seed;
-
-  seed = gss_playready_get_default_key_seed ();
-
-  adaptive->content_key = gss_playready_generate_key (seed, 30, adaptive->kid,
-      adaptive->kid_len);
-
-  g_free (seed);
-}
-
-void
-gss_playready_setup_iv (GssAdaptive * adaptive,
+gss_playready_setup_iv (GssPlayready * playready, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment)
 {
   guint64 *init_vectors;
@@ -256,10 +390,6 @@ gss_playready_setup_iv (GssAdaptive * adaptive,
   gss_isom_fragment_set_sample_encryption (fragment, n_samples,
       init_vectors, level->is_h264);
   g_free (init_vectors);
-
-  if (adaptive->content_key == NULL) {
-    gss_adaptive_generate_content_key (adaptive);
-  }
 }
 
 void
