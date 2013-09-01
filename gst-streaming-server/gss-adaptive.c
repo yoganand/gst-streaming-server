@@ -271,14 +271,14 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_P ("  <Period>\n");
 
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
-      "codecs=\"mp4a.40.5\" lang=\"en\" "
+      "lang=\"en\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
     GssIsomTrack *track = level->track;
 
-    GSS_P ("      <Representation id=\"a%d\" bandwidth=\"%d\">\n",
-        i, level->bitrate);
+    GSS_P ("      <Representation id=\"a%d\" codecs=\"%s\" bandwidth=\"%d\">\n",
+        i, level->codec, level->bitrate);
     GSS_P ("        <BaseURL>content-range/a%d</BaseURL>\n", i);
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
@@ -291,7 +291,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    </AdaptationSet>\n");
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
-      "codecs=\"avc1.42401E\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
 
   for (i = 0; i < adaptive->n_video_levels; i++) {
@@ -299,8 +298,9 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
     GssIsomTrack *track = level->track;
 
     GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
-        "width=\"%d\" height=\"%d\">\n",
-        i, level->bitrate, level->video_width, level->video_height);
+        "codecs=\"%s\" width=\"%d\" height=\"%d\">\n",
+        i, level->bitrate, level->codec,
+        level->video_width, level->video_height);
     GSS_P ("        <BaseURL>content-range/v%d</BaseURL>\n", i);
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
@@ -457,8 +457,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
-      "contentType=\"audio\" "
-      "mimeType=\"audio/mp4\" " "codecs=\"mp4a.40.2\" " "lang=\"en\">\n");
+      "contentType=\"audio\" " "mimeType=\"audio/mp4\" " "lang=\"en\">\n");
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
       "initialization=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
@@ -478,19 +477,18 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
 
-    GSS_P
-        ("      <Representation id=\"a%d\" bandwidth=\"%d\" audioSamplingRate=\"%d\"/>\n",
-        i, level->bitrate, level->audio_rate);
+    GSS_P ("      <Representation id=\"a%d\" codecs=\"%s\" "
+        "bandwidth=\"%d\" audioSamplingRate=\"%d\"/>\n",
+        i, level->codec, level->bitrate, level->audio_rate);
   }
   GSS_A ("    </AdaptationSet>\n");
 
-  GSS_A ("    <AdaptationSet " "id=\"2\" "
+  GSS_P ("    <AdaptationSet " "id=\"2\" "
       "profiles=\"ccff\" "
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
       "contentType=\"video\" "
       "mimeType=\"video/mp4\" "
-      "codecs=\"avc1.640028\" "
       "maxWidth=\"1920\" " "maxHeight=\"1080\" " "startWithSAP=\"1\">\n");
 
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
@@ -513,8 +511,9 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
 
     GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
-        "width=\"%d\" height=\"%d\"/>\n",
-        i, level->bitrate, level->video_width, level->video_height);
+        "codecs=\"%s\" width=\"%d\" height=\"%d\"/>\n",
+        i, level->bitrate, level->codec,
+        level->video_width, level->video_height);
   }
   GSS_A ("    </AdaptationSet>\n");
 
