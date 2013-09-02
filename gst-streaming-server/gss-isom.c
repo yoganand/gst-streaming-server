@@ -2118,6 +2118,7 @@ gss_isom_trun_serialize (GssBoxTrun * trun, GstByteWriter * bw)
   BOX_FINISH (bw, offset);
 }
 
+#ifdef unused
 static void
 gss_isom_trun_dump (GssBoxTrun * trun)
 {
@@ -2150,6 +2151,7 @@ gss_isom_trun_dump (GssBoxTrun * trun)
   }
 
 }
+#endif
 
 
 static void
@@ -2330,22 +2332,9 @@ gss_isom_fragment_serialize (GssIsomFragment * fragment, guint8 ** data,
 
   bw = gst_byte_writer_new ();
 
-  /* sidx */
-#if 0
-#ifdef HACK_CCFF
-  {
-    int offset_sidx;
-    offset_sidx = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'i', 'd', 'x'));
-    gst_byte_writer_fill (bw, 0, 0x18);
-    BOX_FINISH (bw, offset_sidx);
-  }
-#endif
-#endif
-
   offset_moof = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'f'));
   gss_isom_mfhd_serialize (&fragment->mfhd, bw);
   gss_isom_traf_serialize (fragment, bw, is_video);
-  //gss_isom_xmp_data_serialize (&moof->xmp_data, bw);
 
   BOX_FINISH (bw, offset_moof);
 
@@ -3396,8 +3385,6 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   gss_isom_trex_serialize (&track->trex, bw);
   BOX_FINISH (bw, offset_mvex);
 
-  if (0)
-    fixup_track (track, is_video);
   gss_isom_track_serialize (track, bw);
 
   BOX_FINISH (bw, offset);
@@ -3532,45 +3519,9 @@ gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data, int *size)
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
   BOX_FINISH (bw, offset);
 
-#if 0
-  offset = BOX_INIT (bw, GST_MAKE_FOURCC ('p', 'd', 'i', 'n'));
-  gst_byte_writer_put_uint32_be (bw, 0x00000000);
-  BOX_FINISH (bw, offset);
-#endif
-
-#if 0
-  offset = BOX_INIT (bw, GST_MAKE_FOURCC ('b', 'l', 'o', 'c'));
-  gst_byte_writer_fill (bw, 0, 0x404);
-  BOX_FINISH (bw, offset);
-#endif
-
   gss_isom_moov_serialize (movie, bw);
 
   gss_isom_sidx_serialize (&movie->sidx, bw);
-#if 0
-  {
-    int offset_sidx;
-    int i;
-    const guint32 sizes[37] = {
-      0x0b15bf, 0x0b093c, 0x0ae23e
-    };
-    offset_sidx = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'i', 'd', 'x'));
-    gst_byte_writer_put_uint32_be (bw, 0x00000000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000001);
-    gst_byte_writer_put_uint32_be (bw, 90000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000000);
-    gst_byte_writer_put_uint32_be (bw, 0x00000025);
-    for (i = 0; i < 37; i++) {
-      gst_byte_writer_put_uint32_be (bw, sizes[i]);
-      gst_byte_writer_put_uint32_be (bw, 450450);
-      gst_byte_writer_put_uint32_be (bw, 0x90000000);
-    }
-
-    //gst_byte_writer_fill (bw, 0, 0x1d4);
-    BOX_FINISH (bw, offset_sidx);
-  }
-#endif
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
@@ -3749,8 +3700,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     video_fragment->mfhd.sequence_number = i;
 
     video_fragment->tfhd.track_id = video_track->tkhd.track_id;
-    //video_fragment->tfhd.flags =
-    //    TF_DEFAULT_SAMPLE_DURATION | TF_DEFAULT_SAMPLE_FLAGS;
     video_fragment->tfhd.flags = 0;
     video_fragment->tfhd.default_sample_duration = 0x061a80;
     video_fragment->tfhd.default_sample_size = 0;
@@ -3792,10 +3741,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       next_timestamp = gst_util_uint64_scale_int (video_timescale_ts,
           10000000, video_track->mdhd.timescale);
       samples[j].duration = next_timestamp - video_timestamp;
-#if 0
-      /* FIXME fixup */
-      samples[j].duration = 0x00065b9a;
-#endif
       video_timestamp = next_timestamp;
       samples[j].size = sample.size;
       samples[j].flags = 0;
@@ -3812,11 +3757,9 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     }
     video_fragment->trun.samples = samples;
     /* FIXME not all strictly necessary, should be handled in serializer */
-#if 0
     video_fragment->trun.flags =
-        TR_SAMPLE_SIZE | TR_DATA_OFFSET | TR_FIRST_SAMPLE_FLAGS |
+        TR_SAMPLE_SIZE | TR_SAMPLE_DURATION | TR_DATA_OFFSET |
         TR_SAMPLE_COMPOSITION_TIME_OFFSETS;
-#endif
     video_fragment->trun.flags = 0x0b01;
     video_fragment->trun.first_sample_flags = 0x40;
     video_fragment->duration = video_timestamp - video_fragment->timestamp;
@@ -3826,18 +3769,8 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
         gst_util_uint64_scale_int (video_timestamp,
             audio_track->mdhd.timescale, 10000000));
-#if 0
-    /* FIXME fixup */
-    if (i == 0) {
-      audio_index_end++;
-    }
-    if (i == 1) {
-      audio_index_end += 2;
-    }
-#endif
 
     audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
-    //audio_fragment->tfhd.flags = TF_DEFAULT_SAMPLE_FLAGS;
     audio_fragment->tfhd.flags = 0;
     audio_fragment->tfhd.default_sample_duration = 0;
     audio_fragment->tfhd.default_sample_size = 0;
@@ -3868,10 +3801,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
           10000000, audio_track->mdhd.timescale);
       samples[j].duration = next_timestamp - audio_timestamp;
-#if 0
-      /* FIXME fixup */
-      samples[j].duration = 0x00038b07;
-#endif
       audio_timestamp = next_timestamp;
 
       samples[j].size = sample.size;
@@ -3889,8 +3818,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     /* FIXME not all strictly necessary, should be handled in serializer */
     audio_fragment->trun.flags =
         TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_DATA_OFFSET;
-    if (0)
-      gss_isom_trun_dump (&audio_fragment->trun);
     audio_fragment->duration = audio_timestamp - audio_fragment->timestamp;
 
     audio_index += n_samples;
