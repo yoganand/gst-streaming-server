@@ -625,10 +625,6 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     {
       guint8 *mdat_data;
 
-      if (adaptive->needs_encryption) {
-        gss_playready_setup_iv (t->server->playready, adaptive, level,
-            fragment);
-      }
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
       if (adaptive->needs_encryption) {
         gss_playready_encrypt_samples (fragment, mdat_data,
@@ -784,6 +780,7 @@ gss_adaptive_load (GssServer * server, const char *key)
 
   adaptive = gss_adaptive_new ();
 
+  adaptive->server = server;
   adaptive->playready = TRUE;
   adaptive->needs_encryption = TRUE;
 
@@ -861,6 +858,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     gss_isom_parser_fragmentize (file);
   }
 
+
   if (adaptive->duration == 0) {
     adaptive->duration = gss_isom_parser_get_duration (file, VIDEO_TRACK_ID);
   }
@@ -868,6 +866,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
   video_track = gss_isom_movie_get_video_track (file->movie);
   if (video_track) {
     GssAdaptiveLevel *level;
+    int i;
 
     adaptive->video_levels = g_realloc (adaptive->video_levels,
         (adaptive->n_video_levels + 1) * sizeof (GssAdaptiveLevel));
@@ -896,11 +895,17 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
         video_track->esds.codec_data[2], video_track->esds.codec_data[3]);
     generate_iv (level, filename, video_track->tkhd.track_id);
 
+    for (i = 0; i < video_track->n_fragments; i++) {
+      GssIsomFragment *fragment = video_track->fragments[i];
+      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+          fragment);
+    }
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track) {
     GssAdaptiveLevel *level;
+    int i;
 
     adaptive->audio_levels = g_realloc (adaptive->audio_levels,
         (adaptive->n_audio_levels + 1) * sizeof (GssAdaptiveLevel));
@@ -921,6 +926,12 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     /* FIXME hard-coded AAC LC */
     level->codec = g_strdup ("mp4a.40.2");
     generate_iv (level, filename, video_track->tkhd.track_id);
+
+    for (i = 0; i < audio_track->n_fragments; i++) {
+      GssIsomFragment *fragment = audio_track->fragments[i];
+      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+          fragment);
+    }
   }
 
 }

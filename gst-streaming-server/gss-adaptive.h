@@ -34,6 +34,7 @@ typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
 
 struct _GssAdaptive
 {
+  GssServer *server;
   char *content_id;
   guint64 duration;
 
