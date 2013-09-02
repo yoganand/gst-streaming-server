@@ -868,6 +868,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     GssAdaptiveLevel *level;
     int i;
 
+    gss_isom_track_prepare_streaming (file->movie, video_track);
+
     adaptive->video_levels = g_realloc (adaptive->video_levels,
         (adaptive->n_video_levels + 1) * sizeof (GssAdaptiveLevel));
     level = adaptive->video_levels + adaptive->n_video_levels;
@@ -906,6 +908,8 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
   if (audio_track) {
     GssAdaptiveLevel *level;
     int i;
+
+    gss_isom_track_prepare_streaming (file->movie, audio_track);
 
     adaptive->audio_levels = g_realloc (adaptive->audio_levels,
         (adaptive->n_audio_levels + 1) * sizeof (GssAdaptiveLevel));

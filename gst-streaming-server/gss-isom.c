@@ -3818,11 +3818,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     video_fragment->trun.flags = 0x0b01;
     video_fragment->trun.first_sample_flags = 0x40;
     video_fragment->duration = video_timestamp - video_fragment->timestamp;
-    video_fragment->offset = video_offset;
-    gss_isom_fragment_serialize (video_fragment, &video_fragment->moof_data,
-        &video_fragment->moof_size, TRUE);
-    video_offset += video_fragment->moof_size;
-    video_offset += video_fragment->mdat_size;
 
     audio_fragment->mfhd.sequence_number = i;
 
@@ -3896,11 +3891,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       gss_isom_trun_dump (&audio_fragment->trun);
     audio_fragment->duration = audio_timestamp - audio_fragment->timestamp;
 
-    audio_fragment->offset = audio_offset;
-    gss_isom_fragment_serialize (audio_fragment, &audio_fragment->moof_data,
-        &audio_fragment->moof_size, TRUE);
-    audio_offset += audio_fragment->moof_size;
-    audio_offset += audio_fragment->mdat_size;
     audio_index += n_samples;
   }
 
@@ -3916,23 +3906,38 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
   file->movie->mehd.fragment_duration = video_timestamp;
   file->movie->mvhd.duration = video_timestamp;
 
-  gss_isom_movie_serialize_track_ccff (file->movie, video_track,
-      &video_track->ccff_header_data, &video_track->ccff_header_size);
-  gss_isom_movie_serialize_track_ccff (file->movie, audio_track,
-      &audio_track->ccff_header_data, &audio_track->ccff_header_size);
+}
 
-  gss_isom_movie_serialize_track_dash (file->movie, video_track,
-      &video_track->dash_header_data, &video_track->dash_header_size,
-      &video_track->dash_header_and_sidx_size);
-  gss_isom_movie_serialize_track_dash (file->movie, audio_track,
-      &audio_track->dash_header_data, &audio_track->dash_header_size,
-      &audio_track->dash_header_and_sidx_size);
+void
+gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track)
+{
+  int i;
+  guint64 offset = 0;
+  gboolean is_video;
 
-  video_track->dash_size += video_track->dash_header_and_sidx_size;
-  audio_track->dash_size += audio_track->dash_header_and_sidx_size;
+  is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
-  convert_chunks (video_track);
-  convert_chunks (audio_track);
+
+  for (i = 0; i < track->n_fragments; i++) {
+    GssIsomFragment *fragment = track->fragments[i];
+
+    fragment->offset = offset;
+    gss_isom_fragment_serialize (fragment, &fragment->moof_data,
+        &fragment->moof_size, is_video);
+    offset += fragment->moof_size;
+    offset += fragment->mdat_size;
+  }
+
+  gss_isom_movie_serialize_track_ccff (movie, track,
+      &track->ccff_header_data, &track->ccff_header_size);
+
+  gss_isom_movie_serialize_track_dash (movie, track,
+      &track->dash_header_data, &track->dash_header_size,
+      &track->dash_header_and_sidx_size);
+
+  track->dash_size += track->dash_header_and_sidx_size;
+
+  convert_chunks (track);
 }
 
 int
