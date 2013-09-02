@@ -116,18 +116,10 @@ static void
 gss_adaptive_send_chunk (GssTransaction * t, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment, guint8 * mdat_data)
 {
-  guint8 *moof_data;
-  gsize moof_size;
-  gboolean is_video;
-
-  is_video = (level->video_height > 0);
-
-  gss_isom_fragment_serialize (fragment, &moof_data, &moof_size, is_video);
-
   soup_message_set_status (t->msg, SOUP_STATUS_OK);
   /* strip off mdat header at end of moof_data */
-  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, moof_data,
-      moof_size - 8);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE,
+      fragment->moof_data, fragment->moof_size - 8);
   soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
       fragment->mdat_size);
 }
