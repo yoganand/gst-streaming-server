@@ -543,8 +543,12 @@ gss_isom_fragment_new (void)
 void
 gss_isom_fragment_free (GssIsomFragment * fragment)
 {
+  int i;
   g_free (fragment->trun.samples);
   g_free (fragment->sdtp.sample_flags);
+  for (i = 0; i < fragment->sample_encryption.sample_count; i++) {
+    g_free (fragment->sample_encryption.samples[i].entries);
+  }
   g_free (fragment->sample_encryption.samples);
   g_free (fragment->chunks);
   g_free (fragment);

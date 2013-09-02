@@ -338,6 +338,7 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
   g_free (kid_base64);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
+  g_free (wrmheader);
 
   content = g_malloc (items * sizeof (gunichar2) + 10);
   memcpy (content + 10, utf16, items * sizeof (gunichar2));

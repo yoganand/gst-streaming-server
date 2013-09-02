@@ -666,12 +666,14 @@ gss_adaptive_free (GssAdaptive * adaptive)
     adaptive->audio_levels[i].file = NULL;
     g_free (adaptive->audio_levels[i].codec_data);
     g_free (adaptive->audio_levels[i].filename);
+    g_free (adaptive->audio_levels[i].codec);
   }
   for (i = 0; i < adaptive->n_video_levels; i++) {
     adaptive->video_levels[i].track = NULL;
     adaptive->video_levels[i].file = NULL;
     g_free (adaptive->video_levels[i].codec_data);
     g_free (adaptive->video_levels[i].filename);
+    g_free (adaptive->video_levels[i].codec);
   }
   g_free (adaptive->audio_levels);
   g_free (adaptive->video_levels);
