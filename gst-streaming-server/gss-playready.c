@@ -364,6 +364,7 @@ gss_playready_setup_iv (GssPlayready * playready, GssAdaptive * adaptive,
   int i;
   int n_samples;
   guint64 iv;
+  gboolean is_video;
 
   n_samples = gss_isom_fragment_get_n_samples (fragment);
   init_vectors = g_malloc (n_samples * sizeof (guint64));
@@ -371,8 +372,9 @@ gss_playready_setup_iv (GssPlayready * playready, GssAdaptive * adaptive,
   for (i = 0; i < n_samples; i++) {
     init_vectors[i] = iv + i;
   }
+  is_video = gss_isom_track_is_video (level->track);
   gss_isom_fragment_set_sample_encryption (fragment, n_samples,
-      init_vectors, level->is_h264);
+      init_vectors, is_video);
   g_free (init_vectors);
 }
 

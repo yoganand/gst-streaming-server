@@ -229,15 +229,14 @@ GssIsomParser *gss_isom_parser_new (void);
 void gss_isom_parser_free (GssIsomParser *file);
 gboolean gss_isom_parser_parse_file (GssIsomParser *file,
     const char *filename);
-GssIsomFragment * gss_isom_parser_get_fragment (GssIsomParser *file,
-    GssIsomTrack *track, int frag_index);
-GssIsomFragment * gss_isom_parser_get_fragment_by_timestamp (
-    GssIsomParser *file, int track_id, guint64 timestamp);
-int gss_isom_parser_get_n_fragments (GssIsomParser *file, int track_id);
-guint64 gss_isom_parser_get_duration (GssIsomParser *file, int track_id);
+guint64 gss_isom_movie_get_duration (GssIsomMovie *movie);
+GssIsomFragment * gss_isom_track_get_fragment (GssIsomTrack * track, int index);
+GssIsomFragment * gss_isom_track_get_fragment_by_timestamp (GssIsomTrack *track,
+    guint64 timestamp);
+gboolean gss_isom_track_is_video (GssIsomTrack *track);
 
 void gss_isom_fragment_set_sample_encryption (GssIsomFragment *fragment,
-    int n_samples, guint64 *init_vectors, gboolean is_h264);
+    int n_samples, guint64 *init_vectors, gboolean is_video);
 void gss_isom_fragment_serialize (GssIsomFragment *fragment, guint8 **data,
     gsize *size, gboolean is_video);
 void gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack *track,

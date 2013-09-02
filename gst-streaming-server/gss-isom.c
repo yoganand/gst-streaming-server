@@ -153,20 +153,17 @@ gss_isom_parser_free (GssIsomParser * parser)
 }
 
 GssIsomFragment *
-gss_isom_parser_get_fragment (GssIsomParser * parser, GssIsomTrack * track,
-    int index)
+gss_isom_track_get_fragment (GssIsomTrack * track, int index)
 {
   return track->fragments[index];
 }
 
 GssIsomFragment *
-gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * parser,
-    int track_id, guint64 timestamp)
+gss_isom_track_get_fragment_by_timestamp (GssIsomTrack * track,
+    guint64 timestamp)
 {
-  GssIsomTrack *track;
   int i;
 
-  track = gss_isom_movie_get_track_by_id (parser->movie, track_id);
   for (i = 0; i < track->n_fragments; i++) {
     if (track->fragments[i]->timestamp == timestamp) {
       return track->fragments[i];
@@ -176,12 +173,18 @@ gss_isom_parser_get_fragment_by_timestamp (GssIsomParser * parser,
   return NULL;
 }
 
+gboolean
+gss_isom_track_is_video (GssIsomTrack * track)
+{
+  return (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
+}
+
 guint64
-gss_isom_parser_get_duration (GssIsomParser * parser, int track_id)
+gss_isom_movie_get_duration (GssIsomMovie * movie)
 {
   guint64 duration;
 
-  duration = parser->movie->mvhd.duration;
+  duration = movie->mvhd.duration;
 
   return duration;
 }
@@ -966,7 +969,7 @@ gss_isom_parse_mfra (GssIsomParser * file, guint64 offset, guint64 size)
 
 void
 gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
-    int n_samples, guint64 * init_vectors, gboolean is_h264)
+    int n_samples, guint64 * init_vectors, gboolean is_video)
 {
   GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
   GssBoxTrun *trun = &fragment->trun;
@@ -981,7 +984,8 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
     se->samples[i].iv = init_vectors[i];
   }
 
-  if (is_h264) {
+  if (is_video) {
+    /* This actually is for just H.264, not all video */
     se->flags |= 0x0002;
     for (i = 0; i < n_samples; i++) {
       se->samples[i].num_entries = 1;

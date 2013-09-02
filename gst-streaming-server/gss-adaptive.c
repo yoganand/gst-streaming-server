@@ -56,7 +56,7 @@ static void gss_adaptive_resource_get_manifest (GssTransaction * t,
 static void gss_adaptive_resource_get_content (GssTransaction * t,
     GssAdaptive * adaptive);
 static void gss_adaptive_get_resource (GssTransaction * t);
-static void load_file (GssAdaptive * adaptive, char *filename,
+static void load_file (GssAdaptive * adaptive, const char *filename,
     int video_bitrate, int audio_bitrate);
 
 static GHashTable *adaptive_cache;
@@ -194,7 +194,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_track_get_fragment (level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -219,7 +219,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_track_get_fragment (level->track, i);
       GSS_P ("    <c d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -467,7 +467,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_track_get_fragment (level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -500,7 +500,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
     for (i = 0; i < level->n_fragments; i++) {
       GssIsomFragment *fragment;
-      fragment = gss_isom_parser_get_fragment (level->file, level->track, i);
+      fragment = gss_isom_track_get_fragment (level->track, i);
       GSS_P ("        <S d=\"%" G_GUINT64_FORMAT "\" />\n",
           (guint64) fragment->duration);
     }
@@ -612,8 +612,8 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
         level->track->ccff_header_data, level->track->ccff_header_size);
   } else {
-    fragment = gss_isom_parser_get_fragment_by_timestamp (level->file,
-        level->track_id, start_time);
+    fragment = gss_isom_track_get_fragment_by_timestamp (level->track,
+        start_time);
     if (fragment == NULL) {
       GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
       soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
@@ -659,14 +659,12 @@ gss_adaptive_free (GssAdaptive * adaptive)
 
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     adaptive->audio_levels[i].track = NULL;
-    adaptive->audio_levels[i].file = NULL;
     g_free (adaptive->audio_levels[i].codec_data);
     g_free (adaptive->audio_levels[i].filename);
     g_free (adaptive->audio_levels[i].codec);
   }
   for (i = 0; i < adaptive->n_video_levels; i++) {
     adaptive->video_levels[i].track = NULL;
-    adaptive->video_levels[i].file = NULL;
     g_free (adaptive->video_levels[i].codec_data);
     g_free (adaptive->video_levels[i].filename);
     g_free (adaptive->video_levels[i].codec);
@@ -842,7 +840,62 @@ generate_iv (GssAdaptiveLevel * level, const char *filename, int track_id)
 }
 
 static void
-load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
+gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
+    GssIsomMovie * movie, const char *filename, int bitrate, gboolean is_video)
+{
+  GssAdaptiveLevel *level;
+  int i;
+
+  if (is_video) {
+    adaptive->video_levels = g_realloc (adaptive->video_levels,
+        (adaptive->n_video_levels + 1) * sizeof (GssAdaptiveLevel));
+    level = adaptive->video_levels + adaptive->n_video_levels;
+    adaptive->n_video_levels++;
+  } else {
+    adaptive->audio_levels = g_realloc (adaptive->audio_levels,
+        (adaptive->n_audio_levels + 1) * sizeof (GssAdaptiveLevel));
+    level = adaptive->audio_levels + adaptive->n_audio_levels;
+    adaptive->n_audio_levels++;
+  }
+  memset (level, 0, sizeof (GssAdaptiveLevel));
+  level->track = track;
+
+  if (is_video) {
+    adaptive->max_width = MAX (adaptive->max_width, track->mp4v.width);
+    adaptive->max_height = MAX (adaptive->max_height, track->mp4v.height);
+  }
+
+  generate_iv (level, filename, track->tkhd.track_id);
+
+  for (i = 0; i < track->n_fragments; i++) {
+    GssIsomFragment *fragment = track->fragments[i];
+    gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+        fragment);
+  }
+  gss_isom_track_prepare_streaming (movie, track);
+
+  level->track_id = track->tkhd.track_id;
+  level->n_fragments = track->n_fragments;
+  level->filename = g_strdup (filename);
+  level->bitrate = bitrate;
+  level->video_width = track->mp4v.width;
+  level->video_height = track->mp4v.height;
+  //level->file = file;
+
+  level->codec_data = get_codec_string (track->esds.codec_data,
+      track->esds.codec_data_len);
+  if (is_video) {
+    level->codec = g_strdup_printf ("avc1.%02x%02x%02x",
+        track->esds.codec_data[1],
+        track->esds.codec_data[2], track->esds.codec_data[3]);
+  } else {
+    /* FIXME hard-coded AAC LC */
+    level->codec = g_strdup ("mp4a.40.2");
+  }
+}
+
+static void
+load_file (GssAdaptive * adaptive, const char *filename, int video_bitrate,
     int audio_bitrate)
 {
   GssIsomParser *file;
@@ -858,54 +911,21 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     gss_isom_parser_fragmentize (file);
   }
 
-
   if (adaptive->duration == 0) {
-    adaptive->duration = gss_isom_parser_get_duration (file, VIDEO_TRACK_ID);
+    adaptive->duration = gss_isom_movie_get_duration (file->movie);
   }
 
   video_track = gss_isom_movie_get_video_track (file->movie);
   if (video_track) {
-    GssAdaptiveLevel *level;
-    int i;
-
-    adaptive->video_levels = g_realloc (adaptive->video_levels,
-        (adaptive->n_video_levels + 1) * sizeof (GssAdaptiveLevel));
-    level = adaptive->video_levels + adaptive->n_video_levels;
-    adaptive->n_video_levels++;
-    memset (level, 0, sizeof (GssAdaptiveLevel));
-
-    adaptive->max_width = MAX (adaptive->max_width, video_track->mp4v.width);
-    adaptive->max_height = MAX (adaptive->max_height, video_track->mp4v.height);
-
-    generate_iv (level, filename, video_track->tkhd.track_id);
-
-    for (i = 0; i < video_track->n_fragments; i++) {
-      GssIsomFragment *fragment = video_track->fragments[i];
-      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
-          fragment);
-    }
-    gss_isom_track_prepare_streaming (file->movie, video_track);
-
-    level->track_id = video_track->tkhd.track_id;
-    level->track = video_track;
-    level->n_fragments =
-        gss_isom_parser_get_n_fragments (file, level->track_id);
-    level->filename = g_strdup (filename);
-    level->bitrate = video_bitrate;
-    level->video_width = video_track->mp4v.width;
-    level->video_height = video_track->mp4v.height;
-    level->file = file;
-    level->is_h264 = TRUE;
-
-    level->codec_data = get_codec_string (video_track->esds.codec_data,
-        video_track->esds.codec_data_len);
-    level->codec = g_strdup_printf ("avc1.%02x%02x%02x",
-        video_track->esds.codec_data[1],
-        video_track->esds.codec_data[2], video_track->esds.codec_data[3]);
+    gss_level_from_track (adaptive, video_track, file->movie, filename,
+        video_bitrate, TRUE);
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track) {
+    gss_level_from_track (adaptive, audio_track, file->movie, filename,
+        audio_bitrate, FALSE);
+#if 0
     GssAdaptiveLevel *level;
     int i;
 
@@ -936,6 +956,7 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
     /* FIXME hard-coded AAC LC */
     level->codec = g_strdup ("mp4a.40.2");
+#endif
   }
 
 }
