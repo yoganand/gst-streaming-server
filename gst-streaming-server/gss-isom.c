@@ -3681,8 +3681,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
   guint64 audio_timestamp = 0;
   guint64 video_timescale_ts = 0;
   guint64 audio_timescale_ts = 0;
-  guint64 video_offset = 0;
-  guint64 audio_offset = 0;
   int audio_index = 0;
   int audio_index_end;
   GssIsomSampleIterator video_iter;
@@ -3898,9 +3896,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     audio_index += n_samples;
   }
 
-  video_track->dash_size = video_offset;
-  audio_track->dash_size = audio_offset;
-
   file->movie->mvhd.timescale = 10000000;
   fixup_track (video_track, TRUE);
   fixup_track (audio_track, FALSE);
@@ -3931,6 +3926,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track)
     offset += fragment->moof_size;
     offset += fragment->mdat_size;
   }
+  track->dash_size = offset;
 
   gss_isom_movie_serialize_track_ccff (movie, track,
       &track->ccff_header_data, &track->ccff_header_size);
