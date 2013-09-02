@@ -868,8 +868,6 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     GssAdaptiveLevel *level;
     int i;
 
-    gss_isom_track_prepare_streaming (file->movie, video_track);
-
     adaptive->video_levels = g_realloc (adaptive->video_levels,
         (adaptive->n_video_levels + 1) * sizeof (GssAdaptiveLevel));
     level = adaptive->video_levels + adaptive->n_video_levels;
@@ -878,6 +876,15 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
 
     adaptive->max_width = MAX (adaptive->max_width, video_track->mp4v.width);
     adaptive->max_height = MAX (adaptive->max_height, video_track->mp4v.height);
+
+    generate_iv (level, filename, video_track->tkhd.track_id);
+
+    for (i = 0; i < video_track->n_fragments; i++) {
+      GssIsomFragment *fragment = video_track->fragments[i];
+      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+          fragment);
+    }
+    gss_isom_track_prepare_streaming (file->movie, video_track);
 
     level->track_id = video_track->tkhd.track_id;
     level->track = video_track;
@@ -895,13 +902,6 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->codec = g_strdup_printf ("avc1.%02x%02x%02x",
         video_track->esds.codec_data[1],
         video_track->esds.codec_data[2], video_track->esds.codec_data[3]);
-    generate_iv (level, filename, video_track->tkhd.track_id);
-
-    for (i = 0; i < video_track->n_fragments; i++) {
-      GssIsomFragment *fragment = video_track->fragments[i];
-      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
-          fragment);
-    }
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
@@ -909,13 +909,20 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     GssAdaptiveLevel *level;
     int i;
 
-    gss_isom_track_prepare_streaming (file->movie, audio_track);
-
     adaptive->audio_levels = g_realloc (adaptive->audio_levels,
         (adaptive->n_audio_levels + 1) * sizeof (GssAdaptiveLevel));
     level = adaptive->audio_levels + adaptive->n_audio_levels;
     adaptive->n_audio_levels++;
     memset (level, 0, sizeof (GssAdaptiveLevel));
+
+    generate_iv (level, filename, video_track->tkhd.track_id);
+
+    for (i = 0; i < audio_track->n_fragments; i++) {
+      GssIsomFragment *fragment = audio_track->fragments[i];
+      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+          fragment);
+    }
+    gss_isom_track_prepare_streaming (file->movie, audio_track);
 
     level->track_id = audio_track->tkhd.track_id;
     level->track = audio_track;
@@ -929,13 +936,6 @@ load_file (GssAdaptive * adaptive, char *filename, int video_bitrate,
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
     /* FIXME hard-coded AAC LC */
     level->codec = g_strdup ("mp4a.40.2");
-    generate_iv (level, filename, video_track->tkhd.track_id);
-
-    for (i = 0; i < audio_track->n_fragments; i++) {
-      GssIsomFragment *fragment = audio_track->fragments[i];
-      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
-          fragment);
-    }
   }
 
 }
