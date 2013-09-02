@@ -22,7 +22,7 @@
 #include "gss-playready.h"
 #include "gss-utils.h"
 
-#include <openssl/aes.h>
+#include <openssl/evp.h>
 
 enum
 {
@@ -383,37 +383,41 @@ gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
   GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
   guint64 sample_offset;
   int i;
+  int bytes = 0;
+  EVP_CIPHER_CTX *ctx;
 
   sample_offset = 8;
 
+  ctx = EVP_CIPHER_CTX_new ();
   for (i = 0; i < trun->sample_count; i++) {
     unsigned char raw_iv[16];
-    unsigned char ecount_buf[16] = { 0 };
-    unsigned int num = 0;
-    AES_KEY key;
+    int len;
 
     memset (raw_iv, 0, 16);
     GST_WRITE_UINT64_BE (raw_iv, se->samples[i].iv);
 
-    AES_set_encrypt_key (content_key, 16 * 8, &key);
+    EVP_EncryptInit_ex (ctx, EVP_aes_128_ctr (), NULL, content_key, raw_iv);
 
     if (se->samples[i].num_entries == 0) {
-      AES_ctr128_encrypt (mdat_data + sample_offset,
-          mdat_data + sample_offset, trun->samples[i].size,
-          &key, raw_iv, ecount_buf, &num);
+      EVP_EncryptUpdate (ctx,
+          mdat_data + sample_offset, &len,
+          mdat_data + sample_offset, trun->samples[i].size);
+      bytes += trun->samples[i].size;
     } else {
       guint64 offset;
       int j;
       offset = sample_offset;
       for (j = 0; j < se->samples[i].num_entries; j++) {
         offset += se->samples[i].entries[j].bytes_of_clear_data;
-        AES_ctr128_encrypt (mdat_data + offset,
+        EVP_EncryptUpdate (ctx,
+            mdat_data + offset, &len,
             mdat_data + offset,
-            se->samples[i].entries[j].bytes_of_encrypted_data,
-            &key, raw_iv, ecount_buf, &num);
+            se->samples[i].entries[j].bytes_of_encrypted_data);
         offset += se->samples[i].entries[j].bytes_of_encrypted_data;
+        bytes += se->samples[i].entries[j].bytes_of_encrypted_data;
       }
     }
     sample_offset += trun->samples[i].size;
   }
+  EVP_CIPHER_CTX_free (ctx);
 }
