@@ -81,7 +81,6 @@ gss_playready_finalize (GObject * object)
   GssPlayready *playready = GSS_PLAYREADY (object);
 
   g_free (playready->license_url);
-  g_free (playready->key_seed);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
