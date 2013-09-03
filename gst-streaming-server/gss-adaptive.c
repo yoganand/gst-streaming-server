@@ -61,7 +61,7 @@ static void load_file (GssAdaptive * adaptive, const char *filename,
 
 static GHashTable *adaptive_cache;
 
-static GssDrmType global_drm = GSS_DRM_PLAYREADY;
+static GssDrmType global_drm = GSS_DRM_CLEAR;
 
 
 static guint8 *
