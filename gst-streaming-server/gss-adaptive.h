@@ -44,12 +44,8 @@ struct _GssAdaptive
   int n_audio_levels;
   int n_video_levels;
 
-  gboolean playready;
-
   GssAdaptiveLevel *audio_levels;
   GssAdaptiveLevel *video_levels;
-
-  gboolean needs_encryption;
 
   guint8 *kid;
   gsize kid_len;

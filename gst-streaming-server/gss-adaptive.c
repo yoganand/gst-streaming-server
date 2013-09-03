@@ -220,7 +220,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
   }
 
   GSS_A ("  </StreamIndex>\n");
-  if (adaptive->playready) {
+  if (global_drm == GSS_DRM_PLAYREADY) {
     char *prot_header_base64;
 
     GSS_A ("<Protection>\n");
@@ -240,6 +240,25 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 }
 
 static void
+append_content_protection (GssTransaction * t, GssAdaptive * adaptive)
+{
+  GString *s = t->s;
+
+  if (global_drm == GSS_DRM_PLAYREADY) {
+    char *prot_header_base64;
+    GSS_A ("      <ContentProtection "
+        "schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
+    prot_header_base64 =
+        gss_playready_get_protection_header_base64 (adaptive,
+        t->server->playready->license_url);
+    GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
+    g_free (prot_header_base64);
+    GSS_A ("      </ContentProtection>\n");
+  }
+
+}
+
+static void
 gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
     GssAdaptive * adaptive)
 {
@@ -253,11 +272,13 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   soup_message_headers_replace (t->msg->response_headers,
       "Access-Control-Allow-Origin", "*");
 
-  GSS_P ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-  GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
-      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
-      "  xmlns:mspr=\"urn:microsoft:playready\"\n"
-      "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
+  GSS_A ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+  GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n");
+  if (global_drm == GSS_DRM_PLAYREADY) {
+    GSS_A ("  xmlns:mspr=\"urn:microsoft:playready\"\n");
+  }
+  GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
       "  type=\"static\"\n"
       "  mediaPresentationDuration=\"PT%dS\"\n"
       "  minBufferTime=\"PT2S\"\n"
@@ -268,17 +289,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
       "lang=\"en\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  if (global_drm == GSS_DRM_PLAYREADY) {
-    char *prot_header_base64;
-    GSS_A
-        ("      <ContentProtection schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
-    prot_header_base64 =
-        gss_playready_get_protection_header_base64 (adaptive,
-        t->server->playready->license_url);
-    GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
-    g_free (prot_header_base64);
-    GSS_A ("      </ContentProtection>\n");
-  }
+  append_content_protection (t, adaptive);
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
     GssIsomTrack *track = level->track;
@@ -298,18 +309,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  if (global_drm == GSS_DRM_PLAYREADY) {
-    char *prot_header_base64;
-    GSS_A
-        ("      <ContentProtection schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
-    prot_header_base64 =
-        gss_playready_get_protection_header_base64 (adaptive,
-        t->server->playready->license_url);
-    GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
-    g_free (prot_header_base64);
-    GSS_A ("      </ContentProtection>\n");
-  }
-
+  append_content_protection (t, adaptive);
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
     GssIsomTrack *track = level->track;
@@ -470,7 +470,7 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
             fragment->moof_size, fragment->mdat_size)) {
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (adaptive->needs_encryption) {
+      if (global_drm != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
@@ -515,9 +515,12 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "Access-Control-Allow-Origin", "*");
 
   GSS_P ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
-  GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
-      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
-      "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
+  GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+      "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n");
+  if (global_drm == GSS_DRM_PLAYREADY) {
+    GSS_A ("  xmlns:mspr=\"urn:microsoft:playready\"\n");
+  }
+  GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
       "  type=\"static\"\n"
       "  mediaPresentationDuration=\"PT%dS\"\n"
       "  minBufferTime=\"PT4S\"\n"
@@ -530,6 +533,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
       "contentType=\"audio\" " "mimeType=\"audio/mp4\" " "lang=\"en\">\n");
+  append_content_protection (t, adaptive);
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
       "initialization=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
@@ -562,6 +566,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "contentType=\"video\" "
       "mimeType=\"video/mp4\" "
       "maxWidth=\"1920\" " "maxHeight=\"1080\" " "startWithSAP=\"1\">\n");
+  append_content_protection (t, adaptive);
 
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
@@ -698,7 +703,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
       guint8 *mdat_data;
 
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (adaptive->needs_encryption) {
+      if (global_drm != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
@@ -851,8 +856,6 @@ gss_adaptive_load (GssServer * server, const char *key)
   adaptive = gss_adaptive_new ();
 
   adaptive->server = server;
-  adaptive->playready = TRUE;
-  adaptive->needs_encryption = TRUE;
 
   adaptive->content_id = g_strdup (key);
   adaptive->kid = create_key_id (key);
