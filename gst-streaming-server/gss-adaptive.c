@@ -368,17 +368,12 @@ gss_soup_message_body_append_clipped (SoupMessageBody * body,
   guint64 end;
   guint64 offset;
 
-  GST_ERROR ("%" G_GUINT64_FORMAT ":%" G_GUINT64_FORMAT " "
-      "%" G_GUINT64_FORMAT ":%" G_GUINT64_FORMAT " %p",
-      start1, size1, start2, size2, data);
-
   start = MAX (start1, start2);
   end = MIN (start1 + size1, start2 + size2);
   if (start >= end)
     return;
 
   offset = start - start2;
-  GST_ERROR ("appending %" G_GUINT64_FORMAT " bytes", end - start);
   soup_message_body_append (body, use, data + offset, end - start);
 }
 
