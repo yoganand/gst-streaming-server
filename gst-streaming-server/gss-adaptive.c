@@ -310,6 +310,53 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
 }
 
+static gboolean
+ranges_overlap (guint64 start1, guint64 len1, guint64 start2, guint64 len2)
+{
+  if (start1 + len1 <= start2 || start2 + len2 <= start1)
+    return FALSE;
+  return TRUE;
+}
+
+#if 0
+static guint64
+overlap_size (guint64 start1, guint64 size1, guint64 start2, guint64 size2)
+{
+  guint64 start;
+  guint64 end;
+
+  start = MAX (start1, start2);
+  end = MIN (start1 + size1, start2 + size2);
+  if (start < end) {
+    return end - start;
+  }
+  return 0;
+}
+#endif
+
+static void
+gss_soup_message_body_append_clipped (SoupMessageBody * body,
+    SoupMemoryUse use, guint8 * data, guint64 start1, guint64 size1,
+    guint64 start2, guint64 size2)
+{
+  guint64 start;
+  guint64 end;
+  guint64 offset;
+
+  GST_ERROR ("%" G_GUINT64_FORMAT ":%" G_GUINT64_FORMAT " "
+      "%" G_GUINT64_FORMAT ":%" G_GUINT64_FORMAT " %p",
+      start1, size1, start2, size2, data);
+
+  start = MAX (start1, start2);
+  end = MIN (start1 + size1, start2 + size2);
+  if (start >= end)
+    return;
+
+  offset = start - start2;
+  GST_ERROR ("appending %" G_GUINT64_FORMAT " bytes", end - start);
+  soup_message_body_append (body, use, data + offset, end - start);
+}
+
 static void
 gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     GssAdaptive * adaptive, const char *path)
@@ -322,6 +369,9 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
   GssAdaptiveLevel *level;
   gsize start, end;
   int i;
+  guint64 offset;
+  guint64 n_bytes;
+  guint64 header_size;
 
   soup_message_headers_replace (t->msg->response_headers,
       "Access-Control-Allow-Origin", "*");
@@ -379,30 +429,49 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     return;
   }
 
-  /* FIXME lazy search for start chunk */
-  for (i = 0; i < level->track->n_chunks; i++) {
-    GssChunk *chunk = &level->track->chunks[i];
-    gsize offset_in_chunk;
-    gsize size;
+  offset = start;
+  n_bytes = end - start;
 
-    if (chunk->offset + chunk->size < start)
-      continue;
-    if (chunk->offset >= end)
+  if (ranges_overlap (offset, n_bytes, 0,
+          level->track->dash_header_and_sidx_size)) {
+    gss_soup_message_body_append_clipped (t->msg->response_body,
+        SOUP_MEMORY_COPY, level->track->dash_header_data,
+        offset, n_bytes, 0, level->track->dash_header_and_sidx_size);
+  }
+  header_size = level->track->dash_header_and_sidx_size;
+
+  for (i = 0; i < level->track->n_fragments; i++) {
+    GssIsomFragment *fragment = level->track->fragments[i];
+    guint8 *mdat_data;
+
+    if (offset + n_bytes <= fragment->offset)
       break;
 
-    g_assert (chunk->data != NULL);
-
-    if (start > chunk->offset) {
-      offset_in_chunk = start - chunk->offset;
-    } else {
-      offset_in_chunk = 0;
+    if (ranges_overlap (offset, n_bytes, header_size + fragment->offset,
+            fragment->moof_size)) {
+      gss_soup_message_body_append_clipped (t->msg->response_body,
+          SOUP_MEMORY_COPY, fragment->moof_data,
+          offset, n_bytes, header_size + fragment->offset, fragment->moof_size);
     }
-    size = MIN (end, chunk->offset + chunk->size) -
-        (chunk->offset + offset_in_chunk);
 
-    soup_message_body_append (t->msg->response_body,
-        SOUP_MEMORY_COPY, chunk->data + offset_in_chunk, size);
+    if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
+            fragment->moof_size, fragment->mdat_size)) {
+      mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
+#if 0
+      if (adaptive->needs_encryption) {
+        gss_playready_encrypt_samples (fragment, mdat_data,
+            adaptive->content_key);
+      }
+#endif
+
+      gss_soup_message_body_append_clipped (t->msg->response_body,
+          SOUP_MEMORY_COPY, mdat_data + 8,
+          offset, n_bytes, header_size + fragment->offset + fragment->moof_size,
+          fragment->mdat_size - 8);
+      g_free (mdat_data);
+    }
   }
+
   soup_message_body_complete (t->msg->response_body);
 
   if (have_range) {
