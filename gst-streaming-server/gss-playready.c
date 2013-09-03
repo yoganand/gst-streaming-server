@@ -17,6 +17,20 @@
  * Boston, MA 02110-1301, USA.
  */
 
+/*
+ * Documentation on PlayReady is available here:
+ * available at:
+ *   http://www.microsoft.com/playready/documents/
+ *
+ * Some interesting documents, and direct links:
+ *
+ * PlayReady Header Object
+ *   http://download.microsoft.com/download/2/0/2/202E5BD8-36C6-4DB8-9178-12472F8B119E/PlayReady%20Header%20Object%204-15-2013.docx
+ *
+ * DASH Content Protection using Microsoft PlayReady
+ *   http://download.microsoft.com/download/4/8/3/483BE343-B8AF-4569-B7FF-5DCD14354CC5/MPEG%20DASH%20Content%20Protection%20using%20PlayReady%201.1%20-%202013-02-18.docx
+ */
+
 #include "config.h"
 
 #include "gss-playready.h"
@@ -422,4 +436,19 @@ gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     sample_offset += trun->samples[i].size;
   }
   EVP_CIPHER_CTX_free (ctx);
+}
+
+const char *
+gss_playready_get_uri (GssDrmType drm_type)
+{
+  switch (drm_type) {
+    case GSS_DRM_CLEAR:
+      return "";
+    case GSS_DRM_PLAYREADY:
+      return "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95";
+    case GSS_DRM_CENC:
+      return "urn:mpeg:dash:mp4protection:2011";
+    default:
+      return NULL;
+  }
 }

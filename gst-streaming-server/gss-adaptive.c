@@ -61,6 +61,8 @@ static void load_file (GssAdaptive * adaptive, const char *filename,
 
 static GHashTable *adaptive_cache;
 
+static GssDrmType global_drm = GSS_DRM_PLAYREADY;
+
 
 static guint8 *
 gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
@@ -254,6 +256,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_P ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
   GSS_P ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
       "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"
+      "  xmlns:mspr=\"urn:microsoft:playready\"\n"
       "  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
       "  type=\"static\"\n"
       "  mediaPresentationDuration=\"PT%dS\"\n"
@@ -265,6 +268,17 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
       "lang=\"en\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
+  if (global_drm == GSS_DRM_PLAYREADY) {
+    char *prot_header_base64;
+    GSS_A
+        ("      <ContentProtection schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
+    prot_header_base64 =
+        gss_playready_get_protection_header_base64 (adaptive,
+        t->server->playready->license_url);
+    GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
+    g_free (prot_header_base64);
+    GSS_A ("      </ContentProtection>\n");
+  }
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
     GssIsomTrack *track = level->track;
@@ -284,6 +298,17 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
+  if (global_drm == GSS_DRM_PLAYREADY) {
+    char *prot_header_base64;
+    GSS_A
+        ("      <ContentProtection schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
+    prot_header_base64 =
+        gss_playready_get_protection_header_base64 (adaptive,
+        t->server->playready->license_url);
+    GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
+    g_free (prot_header_base64);
+    GSS_A ("      </ContentProtection>\n");
+  }
 
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
@@ -450,12 +475,10 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
             fragment->moof_size, fragment->mdat_size)) {
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-#if 0
       if (adaptive->needs_encryption) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
-#endif
 
       gss_soup_message_body_append_clipped (t->msg->response_body,
           SOUP_MEMORY_COPY, mdat_data + 8,

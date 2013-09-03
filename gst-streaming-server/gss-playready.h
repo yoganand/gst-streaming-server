@@ -39,6 +39,11 @@ G_BEGIN_DECLS
 #define GSS_IS_PLAYREADY_CLASS(obj) \
     (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_PLAYREADY))
 
+typedef enum {
+  GSS_DRM_CLEAR,
+  GSS_DRM_PLAYREADY,
+  GSS_DRM_CENC
+} GssDrmType;
 
 struct _GssPlayready {
   GssObject object;
