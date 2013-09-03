@@ -361,7 +361,6 @@ static void
 gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     GssAdaptive * adaptive, const char *path)
 {
-  gboolean ret;
   gboolean have_range;
   SoupRange *ranges;
   int n_ranges;
@@ -422,12 +421,6 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     end = level->track->dash_size;
   }
   GST_DEBUG ("%s: range: %ld-%ld", path, start, end);
-
-  ret = gss_isom_track_load_range (level->track, start, end);
-  if (!ret) {
-    GST_ERROR ("failed to load range");
-    return;
-  }
 
   offset = start;
   n_bytes = end - start;

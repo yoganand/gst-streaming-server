@@ -413,15 +413,6 @@ void
 gss_isom_track_free (GssIsomTrack * track)
 {
   int i;
-  if (track->chunks) {
-    for (i = 0; i < track->n_chunks; i++) {
-      if (track->chunks[i].data) {
-        g_free (track->chunks[i].data);
-      }
-    }
-    g_free (track->chunks);
-    track->chunks = NULL;
-  }
   if (track->fragments) {
     for (i = 0; i < track->n_fragments; i++) {
       gss_isom_fragment_free (track->fragments[i]);
@@ -448,57 +439,6 @@ guint64
 gss_isom_track_get_n_samples (GssIsomTrack * track)
 {
   return track->stsz.sample_count;
-}
-
-gboolean
-gss_isom_track_load_range (GssIsomTrack * track, gsize start, gsize end)
-{
-  int i;
-  int fd;
-
-  fd = open (track->filename, O_RDONLY);
-  if (fd < 0) {
-    GST_ERROR ("failed to open %s", track->filename);
-    return FALSE;
-  }
-
-  /* FIXME lazy search for start chunk */
-  for (i = 0; i < track->n_chunks; i++) {
-    GssChunk *chunk = &track->chunks[i];
-    guint8 *data;
-    off_t ret;
-    ssize_t n;
-
-    if (chunk->offset + chunk->size < start)
-      continue;
-    if (chunk->offset >= end)
-      break;
-    if (chunk->data != NULL)
-      continue;
-
-    GST_DEBUG ("loading chunk %d/%d, offset=%" G_GUINT64_FORMAT " offset=%"
-        G_GUINT64_FORMAT ", size=%" G_GUINT64_FORMAT, i, track->n_chunks,
-        chunk->offset, chunk->source_offset, chunk->size);
-
-    ret = lseek (fd, chunk->source_offset, SEEK_SET);
-    if (ret == (off_t) - 1) {
-      GST_ERROR ("failed to seek");
-      close (fd);
-      return FALSE;
-    }
-    data = g_malloc (chunk->size);
-    n = read (fd, data, chunk->size);
-    if (n < chunk->size) {
-      GST_WARNING ("read failed");
-      g_free (data);
-      close (fd);
-      return FALSE;
-    }
-    chunk->data = data;
-  }
-
-  close (fd);
-  return TRUE;
 }
 
 GssIsomMovie *
@@ -3575,52 +3515,6 @@ gss_isom_movie_get_audio_track (GssIsomMovie * movie)
   return NULL;
 }
 
-static void
-convert_chunks (GssIsomTrack * track)
-{
-  int i, j;
-  int n_chunks;
-  guint64 offset = 0;
-  int index;
-
-  n_chunks = 1;
-  for (i = 0; i < track->n_fragments; i++) {
-    n_chunks++;
-    n_chunks += track->fragments[i]->n_mdat_chunks;
-  }
-
-  track->n_chunks = n_chunks;
-  track->chunks = g_malloc0 (sizeof (GssChunk) * n_chunks);
-
-  index = 0;
-
-  track->chunks[index].size = track->dash_header_and_sidx_size;
-  track->chunks[index].data = track->dash_header_data;
-  track->chunks[index].offset = offset;
-  track->chunks[index].source_offset = -1;
-  offset += track->chunks[index].size;
-  index++;
-
-  for (i = 0; i < track->n_fragments; i++) {
-    GssIsomFragment *fragment = track->fragments[i];
-    track->chunks[index].size = fragment->moof_size;
-    track->chunks[index].data = fragment->moof_data;
-    track->chunks[index].offset = offset;
-    track->chunks[index].source_offset = -1;
-    offset += track->chunks[index].size;
-    index++;
-
-    for (j = 0; j < fragment->n_mdat_chunks; j++) {
-      track->chunks[index].size = fragment->chunks[j].size;
-      track->chunks[index].data = NULL;
-      track->chunks[index].offset = offset;
-      track->chunks[index].source_offset = fragment->chunks[j].offset;
-      offset += track->chunks[index].size;
-      index++;
-    }
-  }
-}
-
 void
 gss_isom_parser_fragmentize (GssIsomParser * file)
 {
@@ -3863,8 +3757,6 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track)
       &track->dash_header_and_sidx_size);
 
   track->dash_size += track->dash_header_and_sidx_size;
-
-  convert_chunks (track);
 }
 
 int

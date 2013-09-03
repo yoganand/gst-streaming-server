@@ -167,9 +167,6 @@ struct _GssIsomTrack
 
   gsize dash_size;
 
-  int n_chunks;
-  GssChunk *chunks;
-
   char *filename;
 };
 
@@ -279,9 +276,6 @@ void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
 void gss_isom_parser_dump (GssIsomParser *file);
 void gss_isom_movie_dump (GssIsomMovie *movie);
 void gss_isom_track_dump (GssIsomTrack *track);
-
-gboolean gss_isom_track_load_range (GssIsomTrack *track, guint64 start,
-    guint64 end);
 
 
 G_END_DECLS
