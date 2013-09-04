@@ -195,7 +195,7 @@ main (int argc, char *argv[])
   g_assert (manager);
   gss_manager_add_resources (manager, server);
 
-  vod = (GssVod *) gss_vod_new ();
+  vod = (GssVod *) gss_config_create_object (config, GSS_TYPE_VOD, "admin.vod");
   g_assert (vod);
   gss_vod_add_resources (vod, server);
 
