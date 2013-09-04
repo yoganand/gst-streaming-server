@@ -35,8 +35,8 @@ typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
 typedef enum {
   GSS_ADAPTIVE_STREAM_UNKNOWN,
   GSS_ADAPTIVE_STREAM_ISM,
-  GSS_ADAPTIVE_STREAM_DASH_LIVE,
-  GSS_ADAPTIVE_STREAM_DASH_ONDEMAND
+  GSS_ADAPTIVE_STREAM_ISOFF_LIVE,
+  GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND
 } GssAdaptiveStream;
 
 typedef enum {
@@ -94,7 +94,7 @@ GssAdaptiveLevel *gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video
 GssAdaptiveStream gss_adaptive_get_stream_type (const char *s);
 GssAdaptive * gss_adaptive_load (GssServer * server, const char *key);
 void gss_adaptive_get_resource (GssTransaction * t, GssAdaptive *adaptive,
-    GssDrmType drm_type, GssAdaptiveStream stream_type, const char *subpath);
+    const char *subpath);
 
 
 G_END_DECLS

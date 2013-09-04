@@ -52,13 +52,11 @@
 #define GSS_ISM_SECOND 10000000
 
 static void gss_adaptive_resource_get_manifest (GssTransaction * t,
-    GssAdaptive * adaptive);
+    GssAdaptive * adaptive, GssDrmType drm_type);
 static void gss_adaptive_resource_get_content (GssTransaction * t,
-    GssAdaptive * adaptive);
+    GssAdaptive * adaptive, GssDrmType drm_type);
 static void load_file (GssAdaptive * adaptive, const char *filename,
     int video_bitrate, int audio_bitrate);
-
-static GssDrmType global_drm = GSS_DRM_CLEAR;
 
 
 static guint8 *
@@ -140,7 +138,8 @@ get_codec_string (guint8 * codec_data, int len)
 }
 
 static void
-gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
+gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
+    GssDrmType drm_type)
 {
   GString *s = g_string_new ("");
   int i;
@@ -206,7 +205,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
   }
 
   GSS_A ("  </StreamIndex>\n");
-  if (global_drm == GSS_DRM_PLAYREADY) {
+  if (drm_type == GSS_DRM_PLAYREADY) {
     char *prot_header_base64;
 
     GSS_A ("<Protection>\n");
@@ -226,11 +225,12 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive)
 }
 
 static void
-append_content_protection (GssTransaction * t, GssAdaptive * adaptive)
+append_content_protection (GssTransaction * t, GssAdaptive * adaptive,
+    GssDrmType drm_type)
 {
   GString *s = t->s;
 
-  if (global_drm == GSS_DRM_PLAYREADY) {
+  if (drm_type == GSS_DRM_PLAYREADY) {
     char *prot_header_base64;
     GSS_A ("      <ContentProtection "
         "schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
@@ -246,7 +246,7 @@ append_content_protection (GssTransaction * t, GssAdaptive * adaptive)
 
 static void
 gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
-    GssAdaptive * adaptive)
+    GssAdaptive * adaptive, GssDrmType drm_type)
 {
   GString *s = g_string_new ("");
   int i;
@@ -261,7 +261,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
   GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
       "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n");
-  if (global_drm == GSS_DRM_PLAYREADY) {
+  if (drm_type == GSS_DRM_PLAYREADY) {
     GSS_A ("  xmlns:mspr=\"urn:microsoft:playready\"\n");
   }
   GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
@@ -275,14 +275,14 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
       "lang=\"en\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive);
+  append_content_protection (t, adaptive, drm_type);
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
     GssIsomTrack *track = level->track;
 
     GSS_P ("      <Representation id=\"a%d\" codecs=\"%s\" bandwidth=\"%d\">\n",
         i, level->codec, level->bitrate);
-    GSS_P ("        <BaseURL>content-range/a%d</BaseURL>\n", i);
+    GSS_P ("        <BaseURL>content/a%d</BaseURL>\n", i);
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
@@ -295,7 +295,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive);
+  append_content_protection (t, adaptive, drm_type);
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
     GssIsomTrack *track = level->track;
@@ -304,7 +304,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
         "codecs=\"%s\" width=\"%d\" height=\"%d\">\n",
         i, level->bitrate, level->codec,
         level->video_width, level->video_height);
-    GSS_P ("        <BaseURL>content-range/v%d</BaseURL>\n", i);
+    GSS_P ("        <BaseURL>content/v%d</BaseURL>\n", i);
     GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
         G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
@@ -365,7 +365,7 @@ gss_soup_message_body_append_clipped (SoupMessageBody * body,
 
 static void
 gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
-    GssAdaptive * adaptive, const char *path)
+    GssAdaptive * adaptive, const char *path, GssDrmType drm_type)
 {
   gboolean have_range;
   SoupRange *ranges;
@@ -381,8 +381,8 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
   soup_message_headers_replace (t->msg->response_headers,
       "Access-Control-Allow-Origin", "*");
 
-  /* skip over content-range/ */
-  path += 14;
+  /* skip over content/ */
+  path += 8;
 
   if (path[0] != 'a' && path[0] != 'v') {
     GST_ERROR ("bad path: %s", path);
@@ -456,7 +456,7 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
             fragment->moof_size, fragment->mdat_size)) {
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (global_drm != GSS_DRM_CLEAR) {
+      if (drm_type != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
@@ -488,7 +488,7 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
 
 static void
 gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
-    GssAdaptive * adaptive)
+    GssAdaptive * adaptive, GssDrmType drm_type)
 {
   GString *s = g_string_new ("");
   int i;
@@ -503,7 +503,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
   GSS_P ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
   GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
       "  xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n");
-  if (global_drm == GSS_DRM_PLAYREADY) {
+  if (drm_type == GSS_DRM_PLAYREADY) {
     GSS_A ("  xmlns:mspr=\"urn:microsoft:playready\"\n");
   }
   GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
@@ -519,7 +519,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
       "contentType=\"audio\" " "mimeType=\"audio/mp4\" " "lang=\"en\">\n");
-  append_content_protection (t, adaptive);
+  append_content_protection (t, adaptive, drm_type);
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
       "initialization=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
@@ -552,7 +552,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "contentType=\"video\" "
       "mimeType=\"video/mp4\" "
       "maxWidth=\"1920\" " "maxHeight=\"1080\" " "startWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive);
+  append_content_protection (t, adaptive, drm_type);
 
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
@@ -605,7 +605,8 @@ parse_guint64 (const char *s, guint64 * value)
 }
 
 static void
-gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
+gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
+    GssDrmType drm_type)
 {
   const char *stream;
   const char *start_time_str;
@@ -689,7 +690,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
       guint8 *mdat_data;
 
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (global_drm != GSS_DRM_CLEAR) {
+      if (drm_type != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
@@ -1022,22 +1023,90 @@ load_file (GssAdaptive * adaptive, const char *filename, int video_bitrate,
 
 }
 
+static char *
+chomp (const char **s)
+{
+  const char *delim;
+  char *key;
+
+  delim = strchr (*s, '/');
+  if (delim == NULL) {
+    key = strdup (*s);
+    *s += strlen (*s);
+  } else {
+    key = strndup (*s, delim - *s);
+    *s = delim + 1;
+  }
+
+  return key;
+}
+
 void
 gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
-    GssDrmType drm_type, GssAdaptiveStream stream_type, const char *subpath)
+    const char *path)
 {
-  if (strcmp (subpath, "Manifest") == 0) {
-    gss_adaptive_resource_get_manifest (t, adaptive);
-  } else if (strcmp (subpath, "content") == 0) {
-    gss_adaptive_resource_get_content (t, adaptive);
-  } else if (strcmp (subpath, "manifest-range.mpd") == 0) {
-    gss_adaptive_resource_get_dash_range_mpd (t, adaptive);
-  } else if (strncmp (subpath, "content-range/", 14) == 0) {
-    gss_adaptive_resource_get_dash_range_fragment (t, adaptive, subpath);
-  } else if (strcmp (subpath, "manifest-live.mpd") == 0) {
-    gss_adaptive_resource_get_dash_live_mpd (t, adaptive);
-  } else {
-    GST_ERROR ("not found: %s, %s", t->path, subpath);
+  char *drm;
+  char *stream;
+  GssDrmType drm_type;
+  GssAdaptiveStream stream_type;
+  gboolean failed;
+
+  drm = chomp (&path);
+  drm_type = gss_drm_get_drm_type (drm);
+  if (drm_type == GSS_DRM_UNKNOWN) {
+    GST_ERROR ("unknown drm type: %s", drm);
+    g_free (drm);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+  g_free (drm);
+
+  stream = chomp (&path);
+  stream_type = gss_adaptive_get_stream_type (stream);
+  if (stream_type == GSS_ADAPTIVE_STREAM_UNKNOWN) {
+    GST_ERROR ("unknown stream type: %s", stream);
+    g_free (stream);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+  g_free (stream);
+
+  failed = FALSE;
+  switch (stream_type) {
+    case GSS_ADAPTIVE_STREAM_ISM:
+      if (strcmp (path, "Manifest") == 0) {
+        gss_adaptive_resource_get_manifest (t, adaptive, drm_type);
+      } else if (strcmp (path, "content") == 0) {
+        gss_adaptive_resource_get_content (t, adaptive, drm_type);
+      } else {
+        failed = TRUE;
+      }
+      break;
+    case GSS_ADAPTIVE_STREAM_ISOFF_LIVE:
+      if (strcmp (path, "manifest.mpd") == 0) {
+        gss_adaptive_resource_get_dash_live_mpd (t, adaptive, drm_type);
+      } else if (strcmp (path, "content") == 0) {
+        gss_adaptive_resource_get_content (t, adaptive, drm_type);
+      } else {
+        failed = TRUE;
+      }
+      break;
+    case GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND:
+      if (strcmp (path, "manifest.mpd") == 0) {
+        gss_adaptive_resource_get_dash_range_mpd (t, adaptive, drm_type);
+      } else if (strncmp (path, "content/", 8) == 0) {
+        gss_adaptive_resource_get_dash_range_fragment (t, adaptive, path,
+            drm_type);
+      } else {
+        failed = TRUE;
+      }
+      break;
+    default:
+      failed = TRUE;
+  }
+
+  if (failed) {
+    GST_ERROR ("not found: %s, %s", t->path, path);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
   }
 }
@@ -1047,9 +1116,9 @@ gss_adaptive_get_stream_type (const char *s)
 {
   if (strcmp (s, "ism") == 0)
     return GSS_ADAPTIVE_STREAM_ISM;
-  if (strcmp (s, "dash-live") == 0)
-    return GSS_ADAPTIVE_STREAM_DASH_LIVE;
-  if (strcmp (s, "dash-ondemand") == 0)
-    return GSS_ADAPTIVE_STREAM_DASH_ONDEMAND;
+  if (strcmp (s, "isoff-live") == 0)
+    return GSS_ADAPTIVE_STREAM_ISOFF_LIVE;
+  if (strcmp (s, "isoff-ondemand") == 0)
+    return GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND;
   return GSS_ADAPTIVE_STREAM_UNKNOWN;
 }

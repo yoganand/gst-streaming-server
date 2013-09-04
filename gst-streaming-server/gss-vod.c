@@ -241,6 +241,7 @@ gss_vod_post_resource (GssTransaction * t)
 
 }
 
+#if 0
 static gboolean
 chop_path (const char *path, char *parts[7])
 {
@@ -264,71 +265,74 @@ chop_path (const char *path, char *parts[7])
 
   return TRUE;
 }
+#endif
+
+static char *
+chomp (const char **s)
+{
+  const char *delim;
+  char *key;
+
+  delim = strchr (*s, '/');
+  if (delim == NULL) {
+    key = strdup (*s);
+    *s += strlen (*s);
+  } else {
+    key = strndup (*s, delim - *s);
+    *s = delim + 1;
+  }
+
+  return key;
+}
 
 static void
 gss_vod_get_adaptive_resource (GssTransaction * t)
 {
   GssVod *vod = t->resource->priv;
-  char *parts[7];
   char *key;
-  char *subpath;
+  char *content_version;
   GssAdaptive *adaptive;
-  GssDrmType drm_type;
-  GssAdaptiveStream stream_type;
-  gboolean ret;
+  const char *path;
 
   GST_DEBUG ("path: %s", t->path);
 
-  ret = chop_path (t->path + 1, parts);
-  if (!ret) {
-    GST_ERROR ("incorrect number of parts in vod path");
+  path = t->path + 2 + strlen (vod->endpoint);
+
+  key = chomp (&path);
+  content_version = chomp (&path);
+
+  if (!content_version[0] ||
+      !g_ascii_isxdigit (content_version[0]) || content_version[1] != 0) {
+    g_free (key);
+    GST_ERROR ("invalid content version: %s", content_version);
+    g_free (content_version);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
 
-  if (strcmp (parts[2], "A") != 0) {
-    GST_ERROR ("wrong content version");
+  if (g_ascii_xdigit_value (content_version[0]) != 0) {
+    g_free (key);
+    GST_ERROR ("unavailable content version: %s", content_version);
+    g_free (content_version);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
-
-  if (strcmp (parts[3], "A") != 0) {
-    GST_ERROR ("wrong streaming version");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-
-  drm_type = gss_drm_get_drm_type (parts[4]);
-  if (drm_type == GSS_DRM_UNKNOWN) {
-    GST_ERROR ("unknown drm type");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-
-  stream_type = gss_adaptive_get_stream_type (parts[5]);
-  if (stream_type == GSS_ADAPTIVE_STREAM_UNKNOWN) {
-    GST_ERROR ("unknown stream type");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-
-  key = parts[1];
-  subpath = parts[6];
 
   adaptive = gss_vod_get_adaptive (vod, key);
   if (adaptive == NULL) {
     GST_ERROR ("failed to load %s", key);
     g_free (key);
-    g_free (subpath);
+    g_free (content_version);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
+  g_free (key);
+  g_free (content_version);
 
-  GST_DEBUG ("subpath: %s", subpath);
+  GST_DEBUG ("subpath: %s", path);
 
-  gss_adaptive_get_resource (t, adaptive, drm_type, stream_type, subpath);
+  gss_adaptive_get_resource (t, adaptive, path);
 
-  g_free (parts[0]);
 }
 
 static GssAdaptive *
