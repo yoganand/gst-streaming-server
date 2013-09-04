@@ -815,7 +815,7 @@ create_key_id (const char *key_string)
 }
 
 GssAdaptive *
-gss_adaptive_load (GssServer * server, const char *key)
+gss_adaptive_load (GssServer * server, const char *key, const char *dir)
 {
   GssAdaptive *adaptive;
   int i;
@@ -828,7 +828,7 @@ gss_adaptive_load (GssServer * server, const char *key)
 
   GST_DEBUG ("looking for %s", key);
 
-  filename = g_strdup_printf ("ism-vod/%s/gss-manifest", key);
+  filename = g_strdup_printf ("%s/gss-manifest", dir);
   ret = g_file_get_contents (filename, &contents, &length, &error);
   if (!ret) {
     GST_ERROR ("failed to open %s", filename);
@@ -865,7 +865,7 @@ gss_adaptive_load (GssServer * server, const char *key)
     GST_DEBUG ("fn %s video_bitrate %d audio_bitrate %d",
         fn, video_bitrate, audio_bitrate);
 
-    full_fn = g_strdup_printf ("ism-vod/%s/%s", key, fn);
+    full_fn = g_strdup_printf ("%s/%s", dir, fn);
 
     load_file (adaptive, full_fn, video_bitrate, audio_bitrate);
     g_free (full_fn);

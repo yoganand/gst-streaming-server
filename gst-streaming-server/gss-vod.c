@@ -342,8 +342,32 @@ gss_vod_get_adaptive (GssVod * vod, const char *key)
 
   adaptive = g_hash_table_lookup (vod->cache, key);
   if (adaptive == NULL) {
-    adaptive = gss_adaptive_load (GSS_OBJECT_SERVER (vod), key);
+    char *dir;
+
+    switch (vod->dir_levels) {
+      case 0:
+        dir = g_strdup_printf ("%s/%s", vod->archive_dir, key);
+        break;
+      case 1:
+        dir = g_strdup_printf ("%s/%c/%s", vod->archive_dir, key[0], key);
+        break;
+      case 2:
+        dir =
+            g_strdup_printf ("%s/%c/%c/%s", vod->archive_dir, key[0], key[1],
+            key);
+        break;
+      case 3:
+        dir =
+            g_strdup_printf ("%s/%c/%c/%c/%s", vod->archive_dir, key[0], key[1],
+            key[2], key);
+        break;
+      default:
+        g_assert_not_reached ();
+    }
+
+    adaptive = gss_adaptive_load (GSS_OBJECT_SERVER (vod), key, dir);
     g_hash_table_replace (vod->cache, g_strdup (key), adaptive);
+    g_free (dir);
   }
   return adaptive;
 }
