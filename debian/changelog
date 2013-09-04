@@ -1,5 +1,5 @@
-gst-streaming-server (0.1~20130324-1) precise; urgency=low
+gst-streaming-server (20130708-1) unstable; urgency=low
 
-  * Initial release 
+  * Initial release
 
- -- David Schleef <ds@schleef.org>  Sun, 24 Mar 2013 18:36:35 -0700
+ -- David Schleef <david.schleef@rd.io>  Mon, 08 Jul 2013 13:28:43 -0700

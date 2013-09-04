@@ -1,0 +1,15 @@
+# Defaults for gst-streaming-server initscript
+# sourced by /etc/init.d/gst-streaming-server
+# installed at /etc/default/gst-streaming-server by the maintainer scripts
+
+#
+# This is a POSIX shell fragment
+#
+
+# HTTP port, typically 80
+HTTP_PORT=8081
+
+# HTTPS port, typically 443
+HTTPS_PORT=8443
+
+

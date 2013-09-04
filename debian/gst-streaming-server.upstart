@@ -1,23 +1,29 @@
-# GStreamer Streaming Server
-#
+# gst-streaming-server - GStreamer Streaming Server
 
 description	"GStreamer Streaming Server"
+author		"David Schleef <david.schleef@rd.io>"
 
-start on filesystem or runlevel [2345]
-stop on runlevel [!2345]
 
-respawn
-respawn limit 10 5
-umask 022
+
+start on runlevel [2345]
+stop on runlevel [016]
+
 chdir /var/lib/gst-streaming-server
+#setuid gss
+#setgid gss
 
-console none
+console output
+
+#respawn
+
+env HTTP_PORT=8081
+env HTTPS_PORT=8443
 
 pre-start script
-    test -x /usr/bin/gss-server || { stop; exit 0; }
-    test -c /dev/null || { stop; exit 0; }
+    [ -x /usr/bin/gss-server ]
 
-    mkdir -p -m0755 /var/lib/gst-streaming-server
 end script
 
-exec /usr/bin/gss-server
+exec /usr/bin/gss-server --http-port $HTTP_PORT --https-port $HTTPS_PORT
+
+

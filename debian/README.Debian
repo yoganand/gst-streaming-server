@@ -1,8 +1,6 @@
 gst-streaming-server for Debian
 -------------------------------
 
-This is a minimalist packaging for GSS meant to make it easy for
-people to set up GSS servers.  It will be replaced with better
-packaging once we start doing releases.
+<possible notes regarding this package - if none, delete this file>
 
- -- David Schleef <ds@schleef.org>  Sat, 23 Mar 2013 15:38:33 -0700
+ -- David Schleef <ds@unknown>  Mon, 08 Jul 2013 13:28:43 -0700
