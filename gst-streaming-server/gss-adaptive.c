@@ -55,11 +55,8 @@ static void gss_adaptive_resource_get_manifest (GssTransaction * t,
     GssAdaptive * adaptive);
 static void gss_adaptive_resource_get_content (GssTransaction * t,
     GssAdaptive * adaptive);
-static void gss_adaptive_get_resource (GssTransaction * t);
 static void load_file (GssAdaptive * adaptive, const char *filename,
     int video_bitrate, int audio_bitrate);
-
-static GHashTable *adaptive_cache;
 
 static GssDrmType global_drm = GSS_DRM_CLEAR;
 
@@ -140,17 +137,6 @@ get_codec_string (guint8 * codec_data, int len)
     sprintf (s + i * 2, "%02x", codec_data[i]);
   }
   return s;
-}
-
-void
-gss_adaptive_setup (GssServer * server)
-{
-  adaptive_cache = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
-      (GDestroyNotify) gss_adaptive_free);
-
-  gss_server_add_resource (server, "/ism-vod/", GSS_RESOURCE_PREFIX,
-      NULL, gss_adaptive_get_resource, NULL, NULL, NULL);
-
 }
 
 static void
@@ -827,7 +813,7 @@ create_key_id (const char *key_string)
   return bytes;
 }
 
-static GssAdaptive *
+GssAdaptive *
 gss_adaptive_load (GssServer * server, const char *key)
 {
   GssAdaptive *adaptive;
@@ -1036,43 +1022,10 @@ load_file (GssAdaptive * adaptive, const char *filename, int video_bitrate,
 
 }
 
-static void
-gss_adaptive_get_resource (GssTransaction * t)
+void
+gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
+    GssDrmType drm_type, GssAdaptiveStream stream_type, const char *subpath)
 {
-  const char *e;
-  const char *path;
-  char *key;
-  char *subpath;
-  GssAdaptive *adaptive;
-
-  GST_DEBUG ("path: %s", t->path);
-
-  path = t->path + 9;
-  e = strchr (path, '/');
-  if (e == NULL) {
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
-  }
-
-  key = g_strndup (path, e - path);
-  subpath = g_strdup (e + 1);
-
-  adaptive = g_hash_table_lookup (adaptive_cache, key);
-  if (adaptive == NULL) {
-    adaptive = gss_adaptive_load (t->server, key);
-    if (adaptive == NULL) {
-      GST_ERROR ("failed to load %s", key);
-      g_free (key);
-      g_free (subpath);
-      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-      return;
-    }
-    g_hash_table_replace (adaptive_cache, key, adaptive);
-  } else {
-    g_free (key);
-  }
-
-  GST_DEBUG ("subpath: %s", subpath);
   if (strcmp (subpath, "Manifest") == 0) {
     gss_adaptive_resource_get_manifest (t, adaptive);
   } else if (strcmp (subpath, "content") == 0) {
@@ -1087,14 +1040,16 @@ gss_adaptive_get_resource (GssTransaction * t)
     GST_ERROR ("not found: %s, %s", t->path, subpath);
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
   }
-
-  g_free (subpath);
 }
 
-void
-_gss_adaptive_deinit (void)
+GssAdaptiveStream
+gss_adaptive_get_stream_type (const char *s)
 {
-  if (adaptive_cache) {
-    g_hash_table_unref (adaptive_cache);
-  }
+  if (strcmp (s, "ism") == 0)
+    return GSS_ADAPTIVE_STREAM_ISM;
+  if (strcmp (s, "dash-live") == 0)
+    return GSS_ADAPTIVE_STREAM_DASH_LIVE;
+  if (strcmp (s, "dash-ondemand") == 0)
+    return GSS_ADAPTIVE_STREAM_DASH_ONDEMAND;
+  return GSS_ADAPTIVE_STREAM_UNKNOWN;
 }

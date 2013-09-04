@@ -1,6 +1,5 @@
 /* GStreamer Streaming Server
- * Copyright (C) 2009-2012 Entropy Wave Inc <info@entropywave.com>
- * Copyright (C) 2009-2012 David Schleef <ds@schleef.org>
+ * Copyright (C) 2013 Rdio Inc <ingestions@rd.io>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,146 +19,327 @@
 
 #include "config.h"
 
-#include "gss-server.h"
-#include "gss-html.h"
-#include "gss-session.h"
-#include "gss-soup.h"
-#include "gss-content.h"
 #include "gss-vod.h"
+#include "gss-utils.h"
+#include "gss-config.h"
+#include "gss-html.h"
+#include "gss-adaptive.h"
+#include "gss-playready.h"
 
-#include <fcntl.h>
 
-
-static void vod_resource_chunked (GssTransaction * transaction);
-
-
-typedef struct _GssVOD GssVOD;
-
-struct _GssVOD
+enum
 {
-  GssServer *server;
-  SoupMessage *msg;
-  SoupClientContext *client;
-
-  GstElement *pipeline;
-  GstElement *sink;
-
-  int fd;
+  PROP_0,
+  PROP_ENDPOINT,
+  PROP_ARCHIVE_DIR,
+  PROP_DIR_LEVELS,
+  PROP_CACHE_SIZE
 };
 
+#define DEFAULT_ENDPOINT "vod"
+#define DEFAULT_ARCHIVE_DIR "vod"
+#define DEFAULT_DIR_LEVELS 0
+#define DEFAULT_CACHE_SIZE 100
 
+static void gss_vod_finalize (GObject * object);
+static void gss_vod_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec);
+static void gss_vod_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec);
+static void gss_vod_get_resource (GssTransaction * t);
+static void gss_vod_post_resource (GssTransaction * t);
+static void gss_vod_get_adaptive_resource (GssTransaction * t);
+static GssAdaptive *gss_vod_get_adaptive (GssVod * vod, const char *key);
 
-#define SIZE 65536
+G_DEFINE_TYPE (GssVod, gss_vod, GSS_TYPE_OBJECT);
+
+static GObjectClass *parent_class;
 
 static void
-vod_wrote_chunk (SoupMessage * msg, GssVOD * vod)
+gss_vod_init (GssVod * vod)
 {
-  char *chunk;
-  int len;
-
-  chunk = g_malloc (SIZE);
-  len = read (vod->fd, chunk, 65536);
-  if (len < 0) {
-    GST_ERROR ("read error");
-  }
-  if (len == 0) {
-    soup_message_body_complete (msg->response_body);
-    return;
-  }
-
-  soup_message_body_append (msg->response_body, SOUP_MEMORY_TAKE, chunk, len);
+  vod->cache = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify) gss_adaptive_free);
 }
 
 static void
-vod_finished (SoupMessage * msg, GssVOD * vod)
+gss_vod_class_init (GssVodClass * vod_class)
 {
-  close (vod->fd);
-  g_free (vod);
+  G_OBJECT_CLASS (vod_class)->set_property = gss_vod_set_property;
+  G_OBJECT_CLASS (vod_class)->get_property = gss_vod_get_property;
+  G_OBJECT_CLASS (vod_class)->finalize = gss_vod_finalize;
+
+  g_object_class_install_property (G_OBJECT_CLASS (vod_class),
+      PROP_ENDPOINT, g_param_spec_string ("endpoint", "Endpoint",
+          "Endpoint", DEFAULT_ENDPOINT,
+          (GParamFlags) (G_PARAM_CONSTRUCT | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
+  g_object_class_install_property (G_OBJECT_CLASS (vod_class),
+      PROP_ARCHIVE_DIR, g_param_spec_string ("archive-dir", "Archive Directory",
+          "Archive directory", DEFAULT_ARCHIVE_DIR,
+          (GParamFlags) (G_PARAM_CONSTRUCT | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
+  g_object_class_install_property (G_OBJECT_CLASS (vod_class),
+      PROP_DIR_LEVELS, g_param_spec_int ("dir-levels", "Directory Levels",
+          "Directory levels", 0, 4, DEFAULT_DIR_LEVELS,
+          (GParamFlags) (G_PARAM_CONSTRUCT | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
+  g_object_class_install_property (G_OBJECT_CLASS (vod_class),
+      PROP_CACHE_SIZE, g_param_spec_int ("cache-size", "Cache Size",
+          "Number of streams to hold in memory.", 1, 10000, DEFAULT_CACHE_SIZE,
+          (GParamFlags) (G_PARAM_CONSTRUCT | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
+
+  parent_class = g_type_class_peek_parent (vod_class);
 }
 
 static void
-vod_resource_chunked (GssTransaction * t)
+gss_vod_finalize (GObject * object)
 {
-  GssProgram *program = (GssProgram *) t->resource->priv;
-  GssVOD *vod;
-  char *chunk;
-  int len;
-  char *s;
+  GssVod *vod;
 
-  vod = g_malloc0 (sizeof (GssVOD));
-  vod->msg = t->msg;
-  vod->client = t->client;
-  vod->server = t->server;
+  vod = GSS_VOD (object);
 
-  s = g_strdup_printf ("%s/%s", t->server->archive_dir,
-      GSS_OBJECT_NAME (program));
-  vod->fd = open (s, O_RDONLY);
-  if (vod->fd < 0) {
-    GST_WARNING_OBJECT (program, "file not found %s", s);
-    g_free (s);
-    g_free (vod);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
-    return;
+  g_free (vod->endpoint);
+  g_free (vod->archive_dir);
+  g_hash_table_unref (vod->cache);
+
+  parent_class->finalize (object);
+}
+
+static void
+string_replace (char **s_ptr, char *s)
+{
+  char *old = *s_ptr;
+  *s_ptr = s;
+  g_free (old);
+}
+
+static void
+gss_vod_set_property (GObject * object, guint prop_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  GssVod *vod;
+
+  vod = GSS_VOD (object);
+
+  switch (prop_id) {
+    case PROP_ENDPOINT:
+      string_replace (&vod->endpoint, g_value_dup_string (value));
+      break;
+    case PROP_ARCHIVE_DIR:
+      string_replace (&vod->archive_dir, g_value_dup_string (value));
+      break;
+    case PROP_DIR_LEVELS:
+      vod->dir_levels = g_value_get_int (value);
+      break;
+    case PROP_CACHE_SIZE:
+      vod->cache_size = g_value_get_int (value);
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
   }
-  g_free (s);
+}
 
-  soup_message_set_status (t->msg, SOUP_STATUS_OK);
+static void
+gss_vod_get_property (GObject * object, guint prop_id,
+    GValue * value, GParamSpec * pspec)
+{
+  GssVod *vod;
 
-  soup_message_headers_set_encoding (t->msg->response_headers,
-      SOUP_ENCODING_CHUNKED);
+  vod = GSS_VOD (object);
 
-  chunk = g_malloc (SIZE);
-  len = read (vod->fd, chunk, 65536);
-  if (len < 0) {
-    GST_ERROR_OBJECT (program, "read error");
+  switch (prop_id) {
+    case PROP_ENDPOINT:
+      g_value_set_string (value, vod->endpoint);
+      break;
+    case PROP_ARCHIVE_DIR:
+      g_value_set_string (value, vod->archive_dir);
+      break;
+    case PROP_DIR_LEVELS:
+      g_value_set_int (value, vod->dir_levels);
+      break;
+    case PROP_CACHE_SIZE:
+      g_value_set_int (value, vod->cache_size);
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
   }
+}
 
-  soup_message_body_set_accumulate (t->msg->response_body, FALSE);
-  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, chunk,
-      len);
 
-  g_signal_connect (t->msg, "wrote-chunk", G_CALLBACK (vod_wrote_chunk), vod);
-  g_signal_connect (t->msg, "finished", G_CALLBACK (vod_finished), vod);
+GssVod *
+gss_vod_new (void)
+{
+  GssVod *vod;
 
+  vod = g_object_new (GSS_TYPE_VOD, "name", "admin.vod", NULL);
+
+  return vod;
 }
 
 void
-gss_vod_setup (GssServer * server)
+gss_vod_add_resources (GssVod * vod, GssServer * server)
 {
-  GDir *dir;
+  GssResource *r;
 
-  dir = g_dir_open (server->archive_dir, 0, NULL);
-  if (dir) {
-    const gchar *name = g_dir_read_name (dir);
+  GSS_OBJECT_SERVER (vod) = server;
 
-    while (name) {
-      if (g_str_has_suffix (name, ".webm")) {
-        GssProgram *program;
-        GssStream *stream;
-        char *s;
+  r = gss_server_add_resource (server, "/admin/vod", GSS_RESOURCE_ADMIN,
+      GSS_TEXT_HTML, gss_vod_get_resource, NULL, gss_vod_post_resource, vod);
+  gss_server_add_admin_resource (server, r, "Video On Demand");
 
-        program = gss_server_add_program (server, name);
-        program->is_archive = TRUE;
+  gss_server_add_resource (server, "/vod/", GSS_RESOURCE_PREFIX,
+      NULL, gss_vod_get_adaptive_resource, NULL, NULL, vod);
 
-        stream = gss_stream_new (GSS_STREAM_TYPE_WEBM, 640, 360, 600);
-        gss_program_add_stream (program, stream);
+}
 
-        s = g_strdup_printf ("%s-%dx%d-%dkbps%s.%s", GSS_OBJECT_NAME (program),
-            stream->width, stream->height, stream->bitrate / 1000,
-            gss_stream_type_get_mod (stream->type),
-            gss_stream_type_get_ext (stream->type));
-        gst_object_set_name (GST_OBJECT (stream), s);
-        g_free (s);
+static void
+gss_vod_get_resource (GssTransaction * t)
+{
+  GssVod *vod = GSS_VOD (t->resource->priv);
+  GString *s = g_string_new ("");
 
-        s = g_strdup_printf ("/%s", GSS_OBJECT_NAME (stream));
-        gss_server_add_resource (GSS_OBJECT_SERVER (program), s,
-            GSS_RESOURCE_HTTP_ONLY,
-            gss_stream_type_get_content_type (stream->type),
-            vod_resource_chunked, NULL, NULL, program);
-        g_free (s);
-      }
-      name = g_dir_read_name (dir);
+  t->s = s;
+
+  gss_html_header (t);
+
+  GSS_A ("<h1>Video On Demand</h1>\n");
+
+  gss_config_append_config_block (G_OBJECT (vod), t, TRUE);
+
+  gss_html_footer (t);
+}
+
+
+static void
+gss_vod_post_resource (GssTransaction * t)
+{
+  GssVod *vod = GSS_VOD (t->resource->priv);
+  gboolean ret = FALSE;
+  GHashTable *hash;
+
+  hash = gss_config_get_post_hash (t);
+  if (hash) {
+    const char *value;
+
+    value = g_hash_table_lookup (hash, "action");
+    if (value) {
+    } else {
+      ret = gss_config_handle_post_hash (G_OBJECT (vod), t, hash);
     }
-    g_dir_close (dir);
   }
+
+  if (ret) {
+    gss_config_save_object (G_OBJECT (vod));
+    gss_transaction_redirect (t, "");
+  } else {
+    gss_transaction_error (t, "Configuration Error");
+  }
+
+}
+
+static gboolean
+chop_path (const char *path, char *parts[7])
+{
+  char *s;
+  int j;
+
+  s = strdup (path);
+
+  for (j = 0; j < 6; j++) {
+    parts[j] = s;
+    while (s[0] && s[0] != '/')
+      s++;
+    if (s[0] == 0) {
+      g_free (parts[0]);
+      return FALSE;
+    }
+    s[0] = 0;
+    s++;
+  }
+  parts[j] = s;
+
+  return TRUE;
+}
+
+static void
+gss_vod_get_adaptive_resource (GssTransaction * t)
+{
+  GssVod *vod = t->resource->priv;
+  char *parts[7];
+  char *key;
+  char *subpath;
+  GssAdaptive *adaptive;
+  GssDrmType drm_type;
+  GssAdaptiveStream stream_type;
+  gboolean ret;
+
+  GST_DEBUG ("path: %s", t->path);
+
+  ret = chop_path (t->path + 1, parts);
+  if (!ret) {
+    GST_ERROR ("incorrect number of parts in vod path");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  if (strcmp (parts[2], "A") != 0) {
+    GST_ERROR ("wrong content version");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  if (strcmp (parts[3], "A") != 0) {
+    GST_ERROR ("wrong streaming version");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  drm_type = gss_drm_get_drm_type (parts[4]);
+  if (drm_type == GSS_DRM_UNKNOWN) {
+    GST_ERROR ("unknown drm type");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  stream_type = gss_adaptive_get_stream_type (parts[5]);
+  if (stream_type == GSS_ADAPTIVE_STREAM_UNKNOWN) {
+    GST_ERROR ("unknown stream type");
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  key = parts[1];
+  subpath = parts[6];
+
+  adaptive = gss_vod_get_adaptive (vod, key);
+  if (adaptive == NULL) {
+    GST_ERROR ("failed to load %s", key);
+    g_free (key);
+    g_free (subpath);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
+
+  GST_DEBUG ("subpath: %s", subpath);
+
+  gss_adaptive_get_resource (t, adaptive, drm_type, stream_type, subpath);
+
+  g_free (parts[0]);
+}
+
+static GssAdaptive *
+gss_vod_get_adaptive (GssVod * vod, const char *key)
+{
+  GssAdaptive *adaptive;
+
+  adaptive = g_hash_table_lookup (vod->cache, key);
+  if (adaptive == NULL) {
+    adaptive = gss_adaptive_load (GSS_OBJECT_SERVER (vod), key);
+    g_hash_table_replace (vod->cache, g_strdup (key), adaptive);
+  }
+  return adaptive;
 }

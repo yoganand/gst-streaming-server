@@ -285,8 +285,6 @@ gss_server_init (GssServer * server)
 
   gss_server_setup_resources (server);
 
-  gss_adaptive_setup (server);
-
   g_timeout_add (1000, (GSourceFunc) periodic_timer, server);
 }
 

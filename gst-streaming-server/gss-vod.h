@@ -19,16 +19,50 @@
  */
 
 
-#ifndef _GSS_VOD_H
-#define _GSS_VOD_H
+#ifndef _GSS_VOD_H_
+#define _GSS_VOD_H_
+
+#include <gst/gst.h>
+#include <glib/gstdio.h>
 
 #include "gss-server.h"
 
-G_BEGIN_DECLS
+#define GSS_TYPE_VOD \
+  (gss_vod_get_type())
+#define GSS_VOD(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GSS_TYPE_VOD,GssVod))
+#define GSS_VOD_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GSS_TYPE_VOD,GssVodClass))
+#define GSS_VOD_GET_CLASS(obj) \
+    (G_TYPE_INSTANCE_GET_CLASS ((obj), GSS_TYPE_VOD, GssVodClass))
+#define GSS_IS_VOD(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GSS_TYPE_VOD))
+#define GSS_IS_VOD_CLASS(obj) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_VOD))
 
-void gss_vod_setup (GssServer * server);
+typedef struct _GssVod GssVod;
+typedef struct _GssVodClass GssVodClass;
 
-G_END_DECLS
+struct _GssVod {
+  GssObject object;
+  GHashTable *cache;
+
+  /* properties */
+  char *endpoint;
+  char *archive_dir;
+  int dir_levels;
+  int cache_size;
+};
+
+struct _GssVodClass {
+  GssObjectClass object_class;
+
+};
+
+GType gss_vod_get_type (void);
+
+GssVod *gss_vod_new (void);
+void gss_vod_add_resources (GssVod * vod, GssServer * server);
 
 #endif
 

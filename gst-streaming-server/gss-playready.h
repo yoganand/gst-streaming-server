@@ -39,12 +39,6 @@ G_BEGIN_DECLS
 #define GSS_IS_PLAYREADY_CLASS(obj) \
     (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_PLAYREADY))
 
-typedef enum {
-  GSS_DRM_CLEAR,
-  GSS_DRM_PLAYREADY,
-  GSS_DRM_CENC
-} GssDrmType;
-
 struct _GssPlayready {
   GssObject object;
 
@@ -75,6 +69,8 @@ void gss_playready_encrypt_samples (GssIsomFragment * fragment,
     guint8 * mdat_data, guint8 * content_key);
 void gss_playready_setup_iv (GssPlayready *playready, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment);
+
+GssDrmType gss_drm_get_drm_type (const char *s);
 
 G_END_DECLS
 

@@ -134,7 +134,6 @@ void
 gss_deinit (void)
 {
   _gss_utils_deinit ();
-  _gss_adaptive_deinit ();
 }
 
 void

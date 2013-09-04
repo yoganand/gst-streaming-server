@@ -27,6 +27,7 @@
 #include "gst-streaming-server/gss-manager.h"
 #include "gst-streaming-server/gss-push.h"
 #include "gst-streaming-server/gss-utils.h"
+#include "gst-streaming-server/gss-vod.h"
 
 #include <gst/gst.h>
 
@@ -72,6 +73,7 @@ static GOptionEntry entries[] = {
 GssConfig *config;
 GssServer *server;
 GssUser *user;
+GssVod *vod;
 GssManager *manager;
 GMainLoop *main_loop;
 
@@ -192,6 +194,10 @@ main (int argc, char *argv[])
       "admin.manager");
   g_assert (manager);
   gss_manager_add_resources (manager, server);
+
+  vod = (GssVod *) gss_vod_new ();
+  g_assert (vod);
+  gss_vod_add_resources (vod, server);
 
   for (i = 0; i < 1; i++) {
     char *key;

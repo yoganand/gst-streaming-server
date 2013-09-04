@@ -452,3 +452,13 @@ gss_playready_get_uri (GssDrmType drm_type)
       return NULL;
   }
 }
+
+GssDrmType
+gss_drm_get_drm_type (const char *s)
+{
+  if (strcmp (s, "pr") == 0)
+    return GSS_DRM_PLAYREADY;
+  if (strcmp (s, "clear") == 0)
+    return GSS_DRM_CLEAR;
+  return GSS_DRM_UNKNOWN;
+}
