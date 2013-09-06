@@ -109,18 +109,6 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 }
 
 
-static void
-gss_adaptive_send_chunk (GssTransaction * t, GssAdaptive * adaptive,
-    GssAdaptiveLevel * level, GssIsomFragment * fragment, guint8 * mdat_data)
-{
-  soup_message_set_status (t->msg, SOUP_STATUS_OK);
-  /* strip off mdat header at end of moof_data */
-  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE,
-      fragment->moof_data, fragment->moof_size - 8);
-  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE, mdat_data,
-      fragment->mdat_size);
-}
-
 static char *
 get_codec_string (guint8 * codec_data, int len)
 {
@@ -694,7 +682,13 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
-      gss_adaptive_send_chunk (t, adaptive, level, fragment, mdat_data);
+
+      soup_message_set_status (t->msg, SOUP_STATUS_OK);
+      /* strip off mdat header at end of moof_data */
+      soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
+          fragment->moof_data, fragment->moof_size - 8);
+      soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE,
+          mdat_data, fragment->mdat_size);
     }
   }
   soup_message_headers_replace (t->msg->response_headers, "Content-Type",
