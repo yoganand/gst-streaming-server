@@ -1,0 +1,22 @@
+#!/bin/sh
+
+
+git checkout debian/changelog
+
+if [ "$BUILD_NUMBER" = "" ] ; then
+  version=`date +%Y%m%d-0`
+else
+  version=`date +%Y%m%d`-$BUILD_NUMBER
+fi
+
+cat >tmp <<-EOF
+gst-streaming-server (${version}) unstable; urgency=low
+
+  * Automatic jenkins changelog
+
+ -- David Schleef <david.schleef@rd.io>  `date -R`
+
+EOF
+cat debian/changelog >>tmp
+mv tmp debian/changelog
+
