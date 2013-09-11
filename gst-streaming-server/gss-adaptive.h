@@ -77,6 +77,8 @@ struct _GssAdaptiveLevel
   int bitrate;
   int video_width;
   int video_height;
+  int profile;
+  int level;
 
   GssIsomTrack *track;
   int track_id;
