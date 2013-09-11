@@ -369,7 +369,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
         track->dash_header_and_sidx_size - 1, (gsize) 0,
         track->dash_header_size - 1);
     GSS_A ("      </Representation>\n");
-    break;
   }
   GSS_A ("    </AdaptationSet>\n");
 
