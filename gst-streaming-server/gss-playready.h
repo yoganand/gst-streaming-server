@@ -64,7 +64,7 @@ void gss_playready_generate_key (GssPlayready *playready, guint8 *key,
 
 void gss_playready_setup (GssServer * server);
 char * gss_playready_get_protection_header_base64 (GssAdaptive *adaptive,
-    const char *la_url);
+    const char *la_url, const char *auth_token);
 void gss_playready_encrypt_samples (GssIsomFragment * fragment,
     guint8 * mdat_data, guint8 * content_key);
 void gss_playready_setup_iv (GssPlayready *playready, GssAdaptive * adaptive,

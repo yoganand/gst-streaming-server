@@ -125,42 +125,79 @@ get_codec_string (guint8 * codec_data, int len)
   return s;
 }
 
+typedef struct _ManifestQuery ManifestQuery;
+struct _ManifestQuery
+{
+  int max_pixels;
+  int max_width;
+  int max_height;
+  int max_bitrate;
+  int max_profile;
+  int max_level;
+  char *auth_token;
+};
+
+static void
+parse_manifest_query (ManifestQuery * mq, GssTransaction * t)
+{
+  const char *str;
+
+  mq->max_pixels = INT_MAX;
+  mq->max_width = INT_MAX;
+  mq->max_height = INT_MAX;
+  mq->max_bitrate = INT_MAX;
+  mq->max_profile = INT_MAX;
+  mq->max_level = INT_MAX;
+  mq->auth_token = NULL;
+
+  if (t->query == NULL)
+    return;
+
+  str = g_hash_table_lookup (t->query, "max_pixels");
+  if (str)
+    mq->max_pixels = strtoul (str, NULL, 0);
+  str = g_hash_table_lookup (t->query, "max_width");
+  if (str)
+    mq->max_width = strtoul (str, NULL, 0);
+  str = g_hash_table_lookup (t->query, "max_height");
+  if (str)
+    mq->max_height = strtoul (str, NULL, 0);
+  str = g_hash_table_lookup (t->query, "max_bitrate");
+  if (str)
+    mq->max_bitrate = strtoul (str, NULL, 0);
+  str = g_hash_table_lookup (t->query, "max_profile");
+  if (str)
+    mq->max_profile = strtoul (str, NULL, 0);
+  str = g_hash_table_lookup (t->query, "max_level");
+  if (str)
+    mq->max_level = strtoul (str, NULL, 0);
+
+  mq->auth_token = g_hash_table_lookup (t->query, "auth_token");
+}
+
+static gboolean
+manifest_query_check_video (ManifestQuery * mq, GssAdaptiveLevel * level)
+{
+  if (level->video_width > mq->max_width ||
+      level->video_height > mq->max_height ||
+      level->video_width * level->video_height > mq->max_pixels ||
+      level->profile > mq->max_profile ||
+      level->level > mq->max_level || level->bitrate > mq->max_bitrate)
+    return FALSE;
+  return TRUE;
+}
+
 static void
 gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
     GssDrmType drm_type)
 {
   GString *s = g_string_new ("");
+  ManifestQuery mq;
   int i;
-  int max_pixels = INT_MAX;
-  int max_width = INT_MAX;
-  int max_height = INT_MAX;
-  int max_bitrate = INT_MAX;
-  int max_profile = INT_MAX;
-  int max_level = INT_MAX;
 
   t->s = s;
 
-  if (t->query) {
-    const char *str;
-    str = g_hash_table_lookup (t->query, "max_pixels");
-    if (str)
-      max_pixels = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_width");
-    if (str)
-      max_width = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_height");
-    if (str)
-      max_height = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_bitrate");
-    if (str)
-      max_bitrate = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_profile");
-    if (str)
-      max_profile = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_level");
-    if (str)
-      max_level = strtoul (str, NULL, 0);
-  }
+  parse_manifest_query (&mq, t);
 
   GSS_A ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
 
@@ -179,17 +216,12 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
 
-    if (level->video_width > max_width ||
-        level->video_height > max_height ||
-        level->video_width * level->video_height > max_pixels ||
-        level->profile > max_profile ||
-        level->level > max_level || level->bitrate > max_bitrate)
-      continue;
-
-    GSS_P ("    <QualityLevel Index=\"%d\" Bitrate=\"%d\" "
-        "FourCC=\"H264\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
-        "CodecPrivateData=\"%s\" />\n", i, level->bitrate, level->video_width,
-        level->video_height, level->codec_data);
+    if (manifest_query_check_video (&mq, level)) {
+      GSS_P ("    <QualityLevel Index=\"%d\" Bitrate=\"%d\" "
+          "FourCC=\"H264\" MaxWidth=\"%d\" MaxHeight=\"%d\" "
+          "CodecPrivateData=\"%s\" />\n", i, level->bitrate, level->video_width,
+          level->video_height, level->codec_data);
+    }
   }
   {
     GssAdaptiveLevel *level = &adaptive->video_levels[0];
@@ -236,7 +268,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
         "SystemID=\"9a04f079-9840-4286-ab92-e65be0885f95\">");
 
     prot_header_base64 = gss_playready_get_protection_header_base64 (adaptive,
-        t->server->playready->license_url);
+        t->server->playready->license_url, mq.auth_token);
     GSS_P ("%s", prot_header_base64);
     g_free (prot_header_base64);
 
@@ -249,7 +281,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
 
 static void
 append_content_protection (GssTransaction * t, GssAdaptive * adaptive,
-    GssDrmType drm_type)
+    GssDrmType drm_type, const char *auth_token)
 {
   GString *s = t->s;
 
@@ -259,7 +291,7 @@ append_content_protection (GssTransaction * t, GssAdaptive * adaptive,
         "schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
     prot_header_base64 =
         gss_playready_get_protection_header_base64 (adaptive,
-        t->server->playready->license_url);
+        t->server->playready->license_url, auth_token);
     GSS_P ("        <mspr:pro>%s</mspr:pro>\n", prot_header_base64);
     g_free (prot_header_base64);
     GSS_A ("      </ContentProtection>\n");
@@ -273,35 +305,9 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 {
   GString *s = g_string_new ("");
   int i;
-  int max_pixels = INT_MAX;
-  int max_width = INT_MAX;
-  int max_height = INT_MAX;
-  int max_bitrate = INT_MAX;
-  int max_profile = INT_MAX;
-  int max_level = INT_MAX;
+  ManifestQuery mq;
 
-  if (t->query) {
-    const char *str;
-    str = g_hash_table_lookup (t->query, "max_pixels");
-    if (str)
-      max_pixels = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_width");
-    if (str)
-      max_width = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_height");
-    if (str)
-      max_height = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_bitrate");
-    if (str)
-      max_bitrate = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_profile");
-    if (str)
-      max_profile = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_level");
-    if (str)
-      max_level = strtoul (str, NULL, 0);
-  }
-
+  parse_manifest_query (&mq, t);
   t->s = s;
 
   soup_message_headers_replace (t->msg->response_headers, "Content-Type",
@@ -326,7 +332,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
       "lang=\"en\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive, drm_type);
+  append_content_protection (t, adaptive, drm_type, mq.auth_token);
   for (i = 0; i < adaptive->n_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
     GssIsomTrack *track = level->track;
@@ -346,29 +352,24 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive, drm_type);
+  append_content_protection (t, adaptive, drm_type, mq.auth_token);
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
     GssIsomTrack *track = level->track;
 
-    if (level->video_width > max_width ||
-        level->video_height > max_height ||
-        level->video_width * level->video_height > max_pixels ||
-        level->profile > max_profile ||
-        level->level > max_level || level->bitrate > max_bitrate)
-      continue;
-
-    GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
-        "codecs=\"%s\" width=\"%d\" height=\"%d\">\n",
-        i, level->bitrate, level->codec,
-        level->video_width, level->video_height);
-    GSS_P ("        <BaseURL>content/v%d</BaseURL>\n", i);
-    GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
-        G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
-        G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
-        track->dash_header_and_sidx_size - 1, (gsize) 0,
-        track->dash_header_size - 1);
-    GSS_A ("      </Representation>\n");
+    if (manifest_query_check_video (&mq, level)) {
+      GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
+          "codecs=\"%s\" width=\"%d\" height=\"%d\">\n",
+          i, level->bitrate, level->codec,
+          level->video_width, level->video_height);
+      GSS_P ("        <BaseURL>content/v%d</BaseURL>\n", i);
+      GSS_P ("        <SegmentBase indexRange=\"%" G_GSIZE_FORMAT "-%"
+          G_GSIZE_FORMAT "\">" "<Initialization range=\"%" G_GSIZE_FORMAT "-%"
+          G_GSIZE_FORMAT "\" /></SegmentBase>\n", track->dash_header_size,
+          track->dash_header_and_sidx_size - 1, (gsize) 0,
+          track->dash_header_size - 1);
+      GSS_A ("      </Representation>\n");
+    }
   }
   GSS_A ("    </AdaptationSet>\n");
 
@@ -549,34 +550,9 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 {
   GString *s = g_string_new ("");
   int i;
-  int max_pixels = INT_MAX;
-  int max_width = INT_MAX;
-  int max_height = INT_MAX;
-  int max_bitrate = INT_MAX;
-  int max_profile = INT_MAX;
-  int max_level = INT_MAX;
+  ManifestQuery mq;
 
-  if (t->query) {
-    const char *str;
-    str = g_hash_table_lookup (t->query, "max_pixels");
-    if (str)
-      max_pixels = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_width");
-    if (str)
-      max_width = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_height");
-    if (str)
-      max_height = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_bitrate");
-    if (str)
-      max_bitrate = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_profile");
-    if (str)
-      max_profile = strtoul (str, NULL, 0);
-    str = g_hash_table_lookup (t->query, "max_level");
-    if (str)
-      max_level = strtoul (str, NULL, 0);
-  }
+  parse_manifest_query (&mq, t);
 
   t->s = s;
 
@@ -604,7 +580,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "bitstreamSwitching=\"true\" "
       "segmentAlignment=\"true\" "
       "contentType=\"audio\" " "mimeType=\"audio/mp4\" " "lang=\"en\">\n");
-  append_content_protection (t, adaptive, drm_type);
+  append_content_protection (t, adaptive, drm_type, mq.auth_token);
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
       "initialization=\"content?stream=audio&amp;bitrate=$Bandwidth$&amp;start_time=init\">\n");
@@ -637,7 +613,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
       "contentType=\"video\" "
       "mimeType=\"video/mp4\" "
       "maxWidth=\"1920\" " "maxHeight=\"1080\" " "startWithSAP=\"1\">\n");
-  append_content_protection (t, adaptive, drm_type);
+  append_content_protection (t, adaptive, drm_type, mq.auth_token);
 
   GSS_A ("    <SegmentTemplate timescale=\"10000000\" "
       "media=\"content?stream=video&amp;bitrate=$Bandwidth$&amp;start_time=$Time$\" "
@@ -658,17 +634,12 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
   for (i = 0; i < adaptive->n_video_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->video_levels[i];
 
-    if (level->video_width > max_width ||
-        level->video_height > max_height ||
-        level->video_width * level->video_height > max_pixels ||
-        level->profile > max_profile ||
-        level->level > max_level || level->bitrate > max_bitrate)
-      continue;
-
-    GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
-        "codecs=\"%s\" width=\"%d\" height=\"%d\"/>\n",
-        i, level->bitrate, level->codec,
-        level->video_width, level->video_height);
+    if (manifest_query_check_video (&mq, level)) {
+      GSS_P ("      <Representation id=\"v%d\" bandwidth=\"%d\" "
+          "codecs=\"%s\" width=\"%d\" height=\"%d\"/>\n",
+          i, level->bitrate, level->codec,
+          level->video_width, level->video_height);
+    }
   }
   GSS_A ("    </AdaptationSet>\n");
 

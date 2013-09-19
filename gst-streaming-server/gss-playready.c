@@ -323,7 +323,7 @@ gss_playready_generate_key (GssPlayready * playready, guint8 * key,
 
 char *
 gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
-    const char *la_url)
+    const char *la_url, const char *auth_token)
 {
   char *wrmheader;
   char *prot_header_base64;
@@ -332,6 +332,9 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
   int len;
   guchar *content;
   gchar *kid_base64;
+
+  if (auth_token == NULL)
+    auth_token = "";
 
   kid_base64 = g_base64_encode (adaptive->kid, adaptive->kid_len);
   /* this all needs to be on one line, to satisfy clients */
@@ -344,10 +347,12 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
       "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
       //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
       "<CUSTOMATTRIBUTES>"
-      "<CONTENT_ID>%s</CONTENT_ID>"
-      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>"
+      "<content_id>%s</content_id>"
+      "<auth_token>%s</auth_token>"
+      "</CUSTOMATTRIBUTES>"
       "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
-      "</DATA>" "</WRMHEADER>", kid_base64, adaptive->content_id, la_url);
+      "</DATA>" "</WRMHEADER>", kid_base64, adaptive->content_id,
+      auth_token, la_url);
   g_free (kid_base64);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
