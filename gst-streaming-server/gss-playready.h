@@ -61,6 +61,7 @@ void gss_playready_set_key_seed_hex (GssPlayready *playready, const char *key_se
 char * gss_playready_get_key_seed_hex (GssPlayready *playready);
 void gss_playready_generate_key (GssPlayready *playready, guint8 *key,
         const guint8 * kid, int kid_len);
+void gss_playready_add_resources (GssPlayready * playready, GssServer * server);
 
 void gss_playready_setup (GssServer * server);
 char * gss_playready_get_protection_header_base64 (GssAdaptive *adaptive,
@@ -71,6 +72,7 @@ void gss_playready_setup_iv (GssPlayready *playready, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment);
 
 GssDrmType gss_drm_get_drm_type (const char *s);
+const char *gss_drm_get_drm_name (GssDrmType drm_type);
 
 G_END_DECLS
 

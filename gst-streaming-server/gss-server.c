@@ -276,8 +276,6 @@ gss_server_init (GssServer * server)
   server->archive_dir = g_strdup (DEFAULT_ARCHIVE_DIR);
   server->cas_server = g_strdup (DEFAULT_CAS_SERVER);
 
-  server->playready = gss_playready_new ();
-
 #ifdef ENABLE_RTSP
   if (server->enable_rtsp)
     gss_server_rtsp_init (server);

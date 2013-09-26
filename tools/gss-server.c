@@ -28,6 +28,7 @@
 #include "gst-streaming-server/gss-push.h"
 #include "gst-streaming-server/gss-utils.h"
 #include "gst-streaming-server/gss-vod.h"
+#include "gst-streaming-server/gss-playready.h"
 
 #include <gst/gst.h>
 
@@ -74,6 +75,7 @@ GssConfig *config;
 GssServer *server;
 GssUser *user;
 GssVod *vod;
+GssPlayready *pr;
 GssManager *manager;
 GMainLoop *main_loop;
 
@@ -198,6 +200,11 @@ main (int argc, char *argv[])
   vod = (GssVod *) gss_config_create_object (config, GSS_TYPE_VOD, "admin.vod");
   g_assert (vod);
   gss_vod_add_resources (vod, server);
+
+  pr = (GssPlayready *) gss_config_create_object (config, GSS_TYPE_PLAYREADY,
+      "admin.pr");
+  g_assert (pr);
+  gss_playready_add_resources (pr, server);
 
   for (i = 0; i < 1; i++) {
     char *key;

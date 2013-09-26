@@ -35,6 +35,7 @@
 
 #include "gss-playready.h"
 #include "gss-utils.h"
+#include "gss-html.h"
 
 #include <openssl/evp.h>
 
@@ -57,6 +58,8 @@ static void gss_playready_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gss_playready_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
+static void gss_playready_get_resource (GssTransaction * t);
+static void gss_playready_post_resource (GssTransaction * t);
 
 static GssObject *parent_class;
 
@@ -79,12 +82,13 @@ gss_playready_class_init (GssPlayreadyClass * playready_class)
   g_object_class_install_property (G_OBJECT_CLASS (playready_class),
       PROP_LICENSE_URL, g_param_spec_string ("license-url", "License URL",
           "URL for the license server.", DEFAULT_LICENSE_URL,
-          (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
   g_object_class_install_property (G_OBJECT_CLASS (playready_class),
       PROP_KEY_SEED, g_param_spec_string ("key-seed", "Key Seed",
           "Private key seed used to generate content keys from content IDs.",
           DEFAULT_KEY_SEED,
-          (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+          (GParamFlags) (GSS_PARAM_SECURE | G_PARAM_READWRITE |
+              G_PARAM_STATIC_STRINGS)));
 
   parent_class = g_type_class_peek_parent (playready_class);
 }
@@ -146,6 +150,65 @@ GssPlayready *
 gss_playready_new (void)
 {
   return g_object_new (GSS_TYPE_PLAYREADY, NULL);
+}
+
+void
+gss_playready_add_resources (GssPlayready * playready, GssServer * server)
+{
+  GssResource *r;
+
+  GSS_OBJECT_SERVER (playready) = server;
+
+  r = gss_server_add_resource (server, "/admin/playready", GSS_RESOURCE_ADMIN,
+      GSS_TEXT_HTML, gss_playready_get_resource, NULL,
+      gss_playready_post_resource, playready);
+  gss_server_add_admin_resource (server, r, "Playready");
+
+  server->playready = playready;
+}
+
+static void
+gss_playready_get_resource (GssTransaction * t)
+{
+  GssPlayready *playready = GSS_PLAYREADY (t->resource->priv);
+  GString *s = g_string_new ("");
+
+  t->s = s;
+
+  gss_html_header (t);
+
+  GSS_A ("<h1>Playready</h1>\n");
+
+  gss_config_append_config_block (G_OBJECT (playready), t, TRUE);
+
+  gss_html_footer (t);
+}
+
+static void
+gss_playready_post_resource (GssTransaction * t)
+{
+  GssPlayready *playready = GSS_PLAYREADY (t->resource->priv);
+  gboolean ret = FALSE;
+  GHashTable *hash;
+
+  hash = gss_config_get_post_hash (t);
+  if (hash) {
+    const char *value;
+
+    value = g_hash_table_lookup (hash, "action");
+    if (value) {
+    } else {
+      ret = gss_config_handle_post_hash (G_OBJECT (playready), t, hash);
+    }
+  }
+
+  if (ret) {
+    gss_config_save_object (G_OBJECT (playready));
+    gss_transaction_redirect (t, "");
+  } else {
+    gss_transaction_error (t, "Configuration Error");
+  }
+
 }
 
 void
@@ -466,4 +529,19 @@ gss_drm_get_drm_type (const char *s)
   if (strcmp (s, "clear") == 0)
     return GSS_DRM_CLEAR;
   return GSS_DRM_UNKNOWN;
+}
+
+const char *
+gss_drm_get_drm_name (GssDrmType drm_type)
+{
+  switch (drm_type) {
+    case GSS_DRM_CLEAR:
+      return "clear";
+    case GSS_DRM_PLAYREADY:
+      return "pr";
+    case GSS_DRM_CENC:
+      return "cenc";
+    default:
+      return "";
+  }
 }
