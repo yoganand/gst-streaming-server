@@ -195,6 +195,7 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
   GString *s = g_string_new ("");
   ManifestQuery mq;
   int i;
+  int show_audio_levels;
 
   t->s = s;
 
@@ -236,11 +237,12 @@ gss_adaptive_resource_get_manifest (GssTransaction * t, GssAdaptive * adaptive,
   }
   GSS_A ("  </StreamIndex>\n");
 
+  show_audio_levels = 1;
   GSS_P ("  <StreamIndex Type=\"audio\" Index=\"0\" Name=\"audio\" "
       "Chunks=\"%d\" QualityLevels=\"%d\" "
       "Url=\"content?stream=audio&amp;bitrate={bitrate}&amp;start_time={start time}\">\n",
-      adaptive->audio_levels[0].n_fragments, adaptive->n_audio_levels);
-  for (i = 0; i < adaptive->n_audio_levels; i++) {
+      adaptive->audio_levels[0].n_fragments, show_audio_levels);
+  for (i = 0; i < show_audio_levels; i++) {
     GssAdaptiveLevel *level = &adaptive->audio_levels[i];
 
     GSS_P ("    <QualityLevel FourCC=\"AACL\" Bitrate=\"%d\" "
