@@ -920,7 +920,7 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
 
       n = json_object_get_member (obj, "version");
       version_string = json_node_get_string (n);
-      GST_ERROR ("version %s", version_string);
+      GST_DEBUG ("version %s", version_string);
 
       n = json_object_get_member (obj, "files");
       files_array = json_node_get_array (n);
