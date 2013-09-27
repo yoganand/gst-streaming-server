@@ -1157,6 +1157,12 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
+  if (drm_type == GSS_DRM_CLEAR && !t->server->playready->allow_clear) {
+    GST_ERROR ("clear streaming disabled");
+    g_free (drm);
+    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    return;
+  }
   g_free (drm);
 
   stream = chomp (&path);

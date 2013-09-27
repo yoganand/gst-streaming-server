@@ -43,6 +43,7 @@ enum
 {
   PROP_LICENSE_URL = 1,
   PROP_KEY_SEED,
+  PROP_ALLOW_CLEAR
 };
 
 #define DEFAULT_LICENSE_URL "http://playready.directtaps.net/pr/svc/rightsmanager.asmx"
@@ -51,6 +52,7 @@ enum
  * As it is public, it is completely useless as a *private*
  * key seed.  */
 #define DEFAULT_KEY_SEED "5D5068BEC9B384FF6044867159F16D6B755544FCD5116989B1ACC4278E88"
+#define DEFAULT_ALLOW_CLEAR FALSE
 
 
 static void gss_playready_finalize (GObject * object);
@@ -70,6 +72,7 @@ gss_playready_init (GssPlayready * playready)
 {
   playready->license_url = g_strdup (DEFAULT_LICENSE_URL);
   gss_playready_set_key_seed_hex (playready, DEFAULT_KEY_SEED);
+  playready->allow_clear = DEFAULT_ALLOW_CLEAR;
 }
 
 static void
@@ -89,6 +92,11 @@ gss_playready_class_init (GssPlayreadyClass * playready_class)
           DEFAULT_KEY_SEED,
           (GParamFlags) (GSS_PARAM_SECURE | G_PARAM_READWRITE |
               G_PARAM_STATIC_STRINGS)));
+  g_object_class_install_property (G_OBJECT_CLASS (playready_class),
+      PROP_ALLOW_CLEAR, g_param_spec_boolean ("allow-clear", "Allow Clear",
+          "Allow clear streaming in addition to encrypted streaming.",
+          DEFAULT_ALLOW_CLEAR,
+          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   parent_class = g_type_class_peek_parent (playready_class);
 }
@@ -119,6 +127,9 @@ gss_playready_set_property (GObject * object, guint prop_id,
     case PROP_KEY_SEED:
       gss_playready_set_key_seed_hex (playready, g_value_get_string (value));
       break;
+    case PROP_ALLOW_CLEAR:
+      playready->allow_clear = g_value_get_boolean (value);
+      break;
     default:
       g_assert_not_reached ();
       break;
@@ -139,6 +150,9 @@ gss_playready_get_property (GObject * object, guint prop_id,
       break;
     case PROP_KEY_SEED:
       g_value_take_string (value, gss_playready_get_key_seed_hex (playready));
+      break;
+    case PROP_ALLOW_CLEAR:
+      g_value_set_boolean (value, playready->allow_clear);
       break;
     default:
       g_assert_not_reached ();

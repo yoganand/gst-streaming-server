@@ -45,6 +45,7 @@ struct _GssPlayready {
   /* properties */
   char *license_url;
   guint8 key_seed[30];
+  gboolean allow_clear;
 
 };
 
