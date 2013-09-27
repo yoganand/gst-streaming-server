@@ -27,6 +27,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbytereader.h>
 #include <glib/gstdio.h>
+#include <json-glib/json-glib.h>
 
 #include "gss-adaptive.h"
 #include "gss-server.h"
@@ -829,41 +830,6 @@ gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video, guint64 bitrate)
   return NULL;
 }
 
-static gboolean
-split (const char *line, char **filename, int *video_bitrate,
-    int *audio_bitrate)
-{
-  const char *s = line;
-  char *end;
-  int i;
-
-  while (g_ascii_isspace (s[0]))
-    s++;
-  if (s[0] == '#' || s[0] == 0)
-    return FALSE;
-
-  for (i = 0; s[i]; i++) {
-    if (g_ascii_isspace (s[i]))
-      break;
-  }
-
-  *filename = g_strndup (s, i);
-  *video_bitrate = 0;
-  *audio_bitrate = 0;
-
-  s += i;
-  while (g_ascii_isspace (s[0]))
-    s++;
-
-  *video_bitrate = strtoul (s, &end, 10);
-  s = end;
-
-  *audio_bitrate = strtoul (s, &end, 10);
-  s = end;
-
-  return TRUE;
-}
-
 static guint8 *
 create_key_id (const char *key_string)
 {
@@ -887,21 +853,20 @@ GssAdaptive *
 gss_adaptive_load (GssServer * server, const char *key, const char *dir)
 {
   GssAdaptive *adaptive;
-  int i;
   char *filename;
-  char *contents;
-  gsize length;
-  char **lines;
   gboolean ret;
   GError *error = NULL;
+  JsonParser *parser;
 
   GST_DEBUG ("looking for %s", key);
 
+  parser = json_parser_new ();
   filename = g_strdup_printf ("%s/gss-manifest", dir);
-  ret = g_file_get_contents (filename, &contents, &length, &error);
+  ret = json_parser_load_from_file (parser, filename, &error);
   if (!ret) {
     GST_ERROR ("failed to open %s", filename);
     g_free (filename);
+    g_object_unref (parser);
     g_error_free (error);
     return NULL;
   }
@@ -920,29 +885,67 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
   gss_playready_generate_key (server->playready, adaptive->content_key,
       adaptive->kid, adaptive->kid_len);
 
-  lines = g_strsplit (contents, "\n", 0);
-  for (i = 0; lines[i]; i++) {
-    char *fn = NULL;
-    int video_bitrate = 0;
-    int audio_bitrate = 0;
-    char *full_fn;
+  {
+    JsonNode *node;
+    JsonObject *obj;
+    JsonNode *n;
+    JsonArray *version_array;
+    int version;
+    int len;
+    int i;
 
-    ret = split (lines[i], &fn, &video_bitrate, &audio_bitrate);
-    if (!ret)
-      continue;
+    node = json_parser_get_root (parser);
+    obj = json_node_get_object (node);
 
-    GST_DEBUG ("fn %s video_bitrate %d audio_bitrate %d",
-        fn, video_bitrate, audio_bitrate);
+    n = json_object_get_member (obj, "manifest_version");
+    version = json_node_get_int (n);
+    if (version != 0) {
+      GST_ERROR ("bad version %d", version);
+      return NULL;
+    }
 
-    full_fn = g_strdup_printf ("%s/%s", dir, fn);
+    n = json_object_get_member (obj, "versions");
+    version_array = json_node_get_array (n);
+    len = json_array_get_length (version_array);
+    for (i = 0; i < len; i++) {
+      JsonArray *files_array;
+      int files_len;
+      const char *version_string;
+      int j;
 
-    load_file (adaptive, full_fn, video_bitrate, audio_bitrate);
-    g_free (full_fn);
-    g_free (fn);
+      n = json_array_get_element (version_array, i);
+      obj = json_node_get_object (n);
+
+      n = json_object_get_member (obj, "version");
+      version_string = json_node_get_string (n);
+      GST_ERROR ("version %s", version_string);
+
+      n = json_object_get_member (obj, "files");
+      files_array = json_node_get_array (n);
+      files_len = json_array_get_length (files_array);
+
+      for (j = 0; j < files_len; j++) {
+        const char *filename;
+        char *full_fn;
+
+        n = json_array_get_element (files_array, j);
+        obj = json_node_get_object (n);
+
+        n = json_object_get_member (obj, "filename");
+        filename = json_node_get_string (n);
+
+        full_fn = g_strdup_printf ("%s/%s", dir, filename);
+        load_file (adaptive, full_fn, 0, 0);
+        g_free (full_fn);
+      }
+
+      break;
+    }
+
+
   }
 
-  g_strfreev (lines);
-  g_free (contents);
+  g_object_unref (parser);
 
   GST_DEBUG ("loading done");
 
@@ -968,6 +971,26 @@ generate_iv (GssAdaptiveLevel * level, const char *filename, int track_id)
   memcpy (&level->iv, bytes, sizeof (level->iv));
 
   g_checksum_free (csum);
+}
+
+static int
+estimate_bitrate (GssIsomTrack * track)
+{
+  guint64 size = 0;
+  guint64 duration = 0;
+  int i;
+
+  for (i = 0; i < track->n_fragments; i++) {
+    GssIsomFragment *fragment = track->fragments[i];
+    size += fragment->moof_size;
+    size += fragment->mdat_size;
+    duration += fragment->duration;
+  }
+
+  GST_DEBUG ("size %" G_GUINT64_FORMAT " duration %" G_GUINT64_FORMAT,
+      size, duration);
+
+  return gst_util_uint64_scale (8 * size, track->mdhd.timescale, duration);
 }
 
 static void
@@ -1008,7 +1031,7 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
   level->track_id = track->tkhd.track_id;
   level->n_fragments = track->n_fragments;
   level->filename = g_strdup (filename);
-  level->bitrate = bitrate;
+  level->bitrate = estimate_bitrate (track);
   level->video_width = track->mp4v.width;
   level->video_height = track->mp4v.height;
   //level->file = file;
@@ -1025,6 +1048,7 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
     /* FIXME hard-coded AAC LC */
     level->codec = g_strdup ("mp4a.40.2");
     level->profile = 2;
+    level->audio_rate = (track->mp4a.sample_rate >> 16);
   }
 }
 

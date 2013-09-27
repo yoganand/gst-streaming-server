@@ -366,6 +366,8 @@ gss_vod_get_adaptive (GssVod * vod, const char *key)
     }
 
     adaptive = gss_adaptive_load (GSS_OBJECT_SERVER (vod), key, dir);
+    if (adaptive == NULL)
+      return NULL;
     g_hash_table_replace (vod->cache, g_strdup (key), adaptive);
     g_free (dir);
   }
