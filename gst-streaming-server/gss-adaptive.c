@@ -851,6 +851,89 @@ create_key_id (const char *key_string)
   return bytes;
 }
 
+static gboolean
+parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
+{
+  JsonNode *node;
+  JsonObject *obj;
+  JsonNode *n;
+  JsonArray *version_array;
+  int version;
+  int len;
+  int i;
+
+  node = json_parser_get_root (parser);
+  obj = json_node_get_object (node);
+
+  n = json_object_get_member (obj, "manifest_version");
+  version = json_node_get_int (n);
+  if (version != 0) {
+    GST_ERROR ("bad version %d", version);
+    return FALSE;
+  }
+
+  n = json_object_get_member (obj, "versions");
+  version_array = json_node_get_array (n);
+  len = json_array_get_length (version_array);
+  for (i = 0; i < len; i++) {
+    JsonArray *files_array;
+    int files_len;
+    const char *version_string;
+    int j;
+
+    n = json_array_get_element (version_array, i);
+    if (n == NULL)
+      return FALSE;
+    obj = json_node_get_object (n);
+    if (obj == NULL)
+      return FALSE;
+
+    n = json_object_get_member (obj, "version");
+    if (n == NULL)
+      return FALSE;
+    version_string = json_node_get_string (n);
+    if (version_string == NULL)
+      return FALSE;
+
+    n = json_object_get_member (obj, "files");
+    if (n == NULL)
+      return FALSE;
+    files_array = json_node_get_array (n);
+    if (files_array == NULL)
+      return FALSE;
+    files_len = json_array_get_length (files_array);
+
+    if (files_len == 0)
+      return FALSE;
+
+    for (j = 0; j < files_len; j++) {
+      const char *filename;
+      char *full_fn;
+
+      n = json_array_get_element (files_array, j);
+      if (n == NULL)
+        return FALSE;
+      obj = json_node_get_object (n);
+      if (obj == NULL)
+        return FALSE;
+
+      n = json_object_get_member (obj, "filename");
+      if (n == NULL)
+        return FALSE;
+      filename = json_node_get_string (n);
+      if (filename == NULL)
+        return FALSE;
+
+      full_fn = g_strdup_printf ("%s/%s", dir, filename);
+      load_file (adaptive, full_fn, 0, 0);
+      g_free (full_fn);
+    }
+
+    return TRUE;
+  }
+  return TRUE;
+}
+
 GssAdaptive *
 gss_adaptive_load (GssServer * server, const char *key, const char *dir)
 {
@@ -887,64 +970,12 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
   gss_playready_generate_key (server->playready, adaptive->content_key,
       adaptive->kid, adaptive->kid_len);
 
-  {
-    JsonNode *node;
-    JsonObject *obj;
-    JsonNode *n;
-    JsonArray *version_array;
-    int version;
-    int len;
-    int i;
-
-    node = json_parser_get_root (parser);
-    obj = json_node_get_object (node);
-
-    n = json_object_get_member (obj, "manifest_version");
-    version = json_node_get_int (n);
-    if (version != 0) {
-      GST_ERROR ("bad version %d", version);
-      return NULL;
-    }
-
-    n = json_object_get_member (obj, "versions");
-    version_array = json_node_get_array (n);
-    len = json_array_get_length (version_array);
-    for (i = 0; i < len; i++) {
-      JsonArray *files_array;
-      int files_len;
-      const char *version_string;
-      int j;
-
-      n = json_array_get_element (version_array, i);
-      obj = json_node_get_object (n);
-
-      n = json_object_get_member (obj, "version");
-      version_string = json_node_get_string (n);
-      GST_DEBUG ("version %s", version_string);
-
-      n = json_object_get_member (obj, "files");
-      files_array = json_node_get_array (n);
-      files_len = json_array_get_length (files_array);
-
-      for (j = 0; j < files_len; j++) {
-        const char *filename;
-        char *full_fn;
-
-        n = json_array_get_element (files_array, j);
-        obj = json_node_get_object (n);
-
-        n = json_object_get_member (obj, "filename");
-        filename = json_node_get_string (n);
-
-        full_fn = g_strdup_printf ("%s/%s", dir, filename);
-        load_file (adaptive, full_fn, 0, 0);
-        g_free (full_fn);
-      }
-
-      break;
-    }
-
-
+  ret = parse_json (adaptive, parser, dir);
+  if (!ret) {
+    gss_adaptive_free (adaptive);
+    g_object_unref (parser);
+    GST_ERROR ("json format error in %s/gss-manifest", dir);
+    return NULL;
   }
 
   g_object_unref (parser);
