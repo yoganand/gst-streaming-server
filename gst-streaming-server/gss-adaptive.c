@@ -56,8 +56,7 @@ static void gss_adaptive_resource_get_manifest (GssTransaction * t,
     GssAdaptive * adaptive, GssDrmType drm_type);
 static void gss_adaptive_resource_get_content (GssTransaction * t,
     GssAdaptive * adaptive, GssDrmType drm_type);
-static void load_file (GssAdaptive * adaptive, const char *filename,
-    int video_bitrate, int audio_bitrate);
+static void load_file (GssAdaptive * adaptive, const char *filename);
 
 
 static guint8 *
@@ -70,6 +69,11 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
   ssize_t n;
   int i;
   int offset;
+
+  g_return_val_if_fail (t != NULL, NULL);
+  g_return_val_if_fail (adaptive != NULL, NULL);
+  g_return_val_if_fail (level != NULL, NULL);
+  g_return_val_if_fail (fragment != NULL, NULL);
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
@@ -789,6 +793,8 @@ gss_adaptive_free (GssAdaptive * adaptive)
 {
   int i;
 
+  g_return_if_fail (adaptive != NULL);
+
   for (i = 0; i < adaptive->n_parsers; i++) {
     gss_isom_parser_free (adaptive->parsers[i]);
   }
@@ -816,6 +822,10 @@ GssAdaptiveLevel *
 gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video, guint64 bitrate)
 {
   int i;
+
+  g_return_val_if_fail (adaptive != NULL, NULL);
+  g_return_val_if_fail (bitrate != 0, NULL);
+
   if (video) {
     for (i = 0; i < adaptive->n_video_levels; i++) {
       if (adaptive->video_levels[i].bitrate == bitrate) {
@@ -839,6 +849,8 @@ create_key_id (const char *key_string)
   guint8 *bytes;
   gsize size;
 
+  g_return_val_if_fail (key_string != NULL, NULL);
+
   checksum = g_checksum_new (G_CHECKSUM_SHA1);
   bytes = g_malloc (20);
   g_checksum_update (checksum, (const guint8 *) key_string, -1);
@@ -861,6 +873,10 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
   int version;
   int len;
   int i;
+
+  g_return_val_if_fail (adaptive != NULL, FALSE);
+  g_return_val_if_fail (parser != NULL, FALSE);
+  g_return_val_if_fail (dir != NULL, FALSE);
 
   node = json_parser_get_root (parser);
   obj = json_node_get_object (node);
@@ -925,7 +941,7 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
         return FALSE;
 
       full_fn = g_strdup_printf ("%s/%s", dir, filename);
-      load_file (adaptive, full_fn, 0, 0);
+      load_file (adaptive, full_fn);
       g_free (full_fn);
     }
 
@@ -942,6 +958,10 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
   gboolean ret;
   GError *error = NULL;
   JsonParser *parser;
+
+  g_return_val_if_fail (GSS_IS_SERVER (server), NULL);
+  g_return_val_if_fail (key != NULL, NULL);
+  g_return_val_if_fail (dir != NULL, NULL);
 
   GST_DEBUG ("looking for %s", key);
 
@@ -993,6 +1013,9 @@ generate_iv (GssAdaptiveLevel * level, const char *filename, int track_id)
   gsize size;
   guint8 bytes[20];
 
+  g_return_if_fail (level != NULL);
+  g_return_if_fail (filename != NULL);
+
   s = g_strdup_printf ("%s:%d", filename, track_id);
 
   csum = g_checksum_new (G_CHECKSUM_SHA1);
@@ -1013,6 +1036,10 @@ estimate_bitrate (GssIsomTrack * track)
   guint64 duration = 0;
   int i;
 
+  g_return_val_if_fail (track != NULL, 0);
+  g_return_val_if_fail (track->n_fragments > 0, 0);
+  g_return_val_if_fail (track->mdhd.timescale != 0, 0);
+
   for (i = 0; i < track->n_fragments; i++) {
     GssIsomFragment *fragment = track->fragments[i];
     size += fragment->moof_size;
@@ -1028,10 +1055,15 @@ estimate_bitrate (GssIsomTrack * track)
 
 static void
 gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
-    GssIsomMovie * movie, const char *filename, int bitrate, gboolean is_video)
+    GssIsomMovie * movie, const char *filename, gboolean is_video)
 {
   GssAdaptiveLevel *level;
   int i;
+
+  g_return_if_fail (adaptive != NULL);
+  g_return_if_fail (track != NULL);
+  g_return_if_fail (movie != NULL);
+  g_return_if_fail (filename != NULL);
 
   if (is_video) {
     adaptive->video_levels = g_realloc (adaptive->video_levels,
@@ -1086,12 +1118,14 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
 }
 
 static void
-load_file (GssAdaptive * adaptive, const char *filename, int video_bitrate,
-    int audio_bitrate)
+load_file (GssAdaptive * adaptive, const char *filename)
 {
   GssIsomParser *file;
   GssIsomTrack *video_track;
   GssIsomTrack *audio_track;
+
+  g_return_if_fail (adaptive != 0);
+  g_return_if_fail (filename != 0);
 
   file = gss_isom_parser_new ();
   adaptive->parsers[adaptive->n_parsers] = file;
@@ -1108,14 +1142,12 @@ load_file (GssAdaptive * adaptive, const char *filename, int video_bitrate,
 
   video_track = gss_isom_movie_get_video_track (file->movie);
   if (video_track) {
-    gss_level_from_track (adaptive, video_track, file->movie, filename,
-        video_bitrate, TRUE);
+    gss_level_from_track (adaptive, video_track, file->movie, filename, TRUE);
   }
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track) {
-    gss_level_from_track (adaptive, audio_track, file->movie, filename,
-        audio_bitrate, FALSE);
+    gss_level_from_track (adaptive, audio_track, file->movie, filename, FALSE);
 #if 0
     GssAdaptiveLevel *level;
     int i;
@@ -1158,6 +1190,8 @@ chomp (const char **s)
   const char *delim;
   char *key;
 
+  g_return_val_if_fail (s != NULL, NULL);
+
   delim = strchr (*s, '/');
   if (delim == NULL) {
     key = strdup (*s);
@@ -1179,6 +1213,10 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
   GssDrmType drm_type;
   GssAdaptiveStream stream_type;
   gboolean failed;
+
+  g_return_if_fail (t != NULL);
+  g_return_if_fail (adaptive != NULL);
+  g_return_if_fail (path != NULL);
 
   drm = chomp (&path);
   drm_type = gss_drm_get_drm_type (drm);
@@ -1249,6 +1287,8 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
 GssAdaptiveStream
 gss_adaptive_get_stream_type (const char *s)
 {
+  g_return_val_if_fail (s != NULL, GSS_ADAPTIVE_STREAM_UNKNOWN);
+
   if (strcmp (s, "ism") == 0)
     return GSS_ADAPTIVE_STREAM_ISM;
   if (strcmp (s, "isoff-live") == 0)
