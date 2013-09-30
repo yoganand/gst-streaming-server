@@ -159,6 +159,9 @@ gss_config_append_config_block (GObject * object, GssTransaction * t,
   guint n_pspecs;
   int i;
 
+  g_return_if_fail (G_IS_OBJECT (object));
+  g_return_if_fail (t != NULL);
+
   pspecs = g_object_class_list_properties (G_OBJECT_GET_CLASS (object),
       &n_pspecs);
 
@@ -400,6 +403,8 @@ gss_config_get_post_hash (GssTransaction * t)
   GHashTable *hash;
   const char *content_type;
 
+  g_return_val_if_fail (t != NULL, NULL);
+
   content_type = soup_message_headers_get_one (t->msg->request_headers,
       "Content-Type");
 
@@ -426,6 +431,9 @@ gss_config_handle_post (GObject * object, GssTransaction * t)
   GHashTable *hash;
   gboolean ret = FALSE;
 
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (t != NULL, FALSE);
+
   hash = gss_config_get_post_hash (t);
   if (hash) {
     ret = gss_config_handle_post_hash (object, t, hash);
@@ -442,6 +450,8 @@ gss_config_handle_post_hash (GObject * object, GssTransaction * t,
   char *key, *value;
   GHashTableIter iter;
 
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (t != NULL, FALSE);
   g_return_val_if_fail (hash != NULL, FALSE);
 
   g_hash_table_iter_init (&iter, hash);
@@ -642,6 +652,7 @@ gss_config_post_resource (GssTransaction * t)
 static char *
 get_xml_class_name (const char *class_name)
 {
+  g_return_val_if_fail (class_name != NULL, NULL);
 
   if (strncmp (class_name, "Gst", 3) == 0) {
     class_name += 3;
@@ -666,6 +677,8 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
   char *s;
 
   g_return_if_fail (G_IS_OBJECT (object));
+  g_return_if_fail (ns != NULL);
+  g_return_if_fail (parent != NULL);
 
   pspecs = g_object_class_list_properties (G_OBJECT_GET_CLASS (object),
       (guint *) & n_properties);
@@ -726,6 +739,9 @@ gss_config_append_config_file (GssConfig * config, GString * s)
   xmlNsPtr ns;
   xmlDocPtr doc;
 
+  g_return_if_fail (GSS_IS_CONFIG (config));
+  g_return_if_fail (s != NULL);
+
   doc = xmlNewDoc ((xmlChar *) "1.0");
 
   doc->xmlRootNode = xmlNewDocNode (doc, NULL, (xmlChar *) "oberon", NULL);
@@ -771,6 +787,8 @@ gss_config_save_config_file (GssConfig * config)
   GString *s = g_string_new ("");
   gboolean ret;
 
+  g_return_if_fail (GSS_IS_CONFIG (config));
+
   gss_config_append_config_file (config, s);
 
   ret = g_file_set_contents (config->config_file, s->str, s->len, &error);
@@ -796,6 +814,9 @@ get_child_node_by_name (xmlNodePtr root, const char *name)
 {
   xmlNodePtr node;
 
+  g_return_val_if_fail (root != NULL, NULL);
+  g_return_val_if_fail (name != NULL, NULL);
+
   node = root->children;
 
   while (node) {
@@ -814,6 +835,10 @@ find_node (xmlNodePtr root, const char *type, const char *name)
 {
   xmlNodePtr node;
   xmlNodePtr n;
+
+  g_return_val_if_fail (root != NULL, NULL);
+  g_return_val_if_fail (type != NULL, NULL);
+  g_return_val_if_fail (name != NULL, NULL);
 
   node = root->children;
 
@@ -847,6 +872,8 @@ gss_config_load_config_file (GssConfig * config)
   gsize size;
   gboolean ret;
 
+  g_return_if_fail (GSS_IS_CONFIG (config));
+
   ret = g_file_get_contents (config->config_file, &contents, &size, NULL);
   if (!ret) {
     return;
@@ -868,6 +895,8 @@ get_num_children (xmlNodePtr node)
 {
   xmlNodePtr n;
   int count = 0;
+
+  g_return_val_if_fail (node != NULL, 0);
 
   n = node->children;
   while (n) {
@@ -892,6 +921,10 @@ gss_config_create_object (GssConfig * config, GType type, const char *name)
   GParameter *params = NULL;
   GObjectClass *object_class;
   GObject *obj = NULL;
+
+  g_return_val_if_fail (GSS_IS_CONFIG (config), NULL);
+  g_return_val_if_fail (type != 0, NULL);
+  g_return_val_if_fail (name != NULL, NULL);
 
   object_class = g_type_class_ref (type);
   type_name = get_xml_class_name (g_type_name (type));
@@ -970,6 +1003,12 @@ gss_config_create_object_2 (GssConfig * config, GType parent_type,
   GObjectClass *object_class;
   GObject *obj = NULL;
 
+  g_return_val_if_fail (GSS_IS_CONFIG (config), NULL);
+  g_return_val_if_fail (parent_type != 0, NULL);
+  g_return_val_if_fail (parent_name != NULL, NULL);
+  g_return_val_if_fail (type != 0, NULL);
+  g_return_val_if_fail (name != NULL, NULL);
+
   object_class = g_type_class_ref (type);
 
   root = xmlDocGetRootElement (config->doc);
@@ -1037,6 +1076,10 @@ gss_config_load_object (GssConfig * config, GObject * object, const char *name)
   xmlNodePtr node;
   xmlNodePtr n;
   char *type_name;
+
+  g_return_if_fail (GSS_IS_CONFIG (config));
+  g_return_if_fail (G_IS_OBJECT (object));
+  g_return_if_fail (name != NULL);
 
   if (config->doc == NULL)
     return;
