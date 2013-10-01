@@ -65,6 +65,8 @@ void gss_playready_generate_key (GssPlayready *playready, guint8 *key,
 void gss_playready_add_resources (GssPlayready * playready, GssServer * server);
 
 void gss_playready_setup (GssServer * server);
+gsize gss_playready_get_protection_header (GssAdaptive * adaptive,
+    const char *la_url, const char *auth_token, guchar **p_content);
 char * gss_playready_get_protection_header_base64 (GssAdaptive *adaptive,
     const char *la_url, const char *auth_token);
 void gss_playready_encrypt_samples (GssIsomFragment * fragment,
@@ -74,6 +76,9 @@ void gss_playready_setup_iv (GssPlayready *playready, GssAdaptive * adaptive,
 
 GssDrmType gss_drm_get_drm_type (const char *s);
 const char *gss_drm_get_drm_name (GssDrmType drm_type);
+const guint8 *gss_drm_get_drm_uuid (GssDrmType drm_type);
+void gss_playready_add_protection_header (GssIsomMovie *movie, GssAdaptive *adaptive,
+    const char *la_url, const char *auth_token);
 
 G_END_DECLS
 

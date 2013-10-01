@@ -46,6 +46,15 @@ typedef enum {
   GSS_DRM_CENC
 } GssDrmType;
 
+typedef struct _GssDrmInfo GssDrmInfo;
+struct _GssDrmInfo
+{
+  GssDrmType drm_type;
+
+  gsize data_len;
+  guint8 *data;
+};
+
 struct _GssAdaptive
 {
   GssServer *server;
@@ -67,6 +76,8 @@ struct _GssAdaptive
 
   int n_parsers;
   GssIsomParser *parsers[20];
+
+  GssDrmInfo drm_info;
 };
 
 struct _GssAdaptiveLevel

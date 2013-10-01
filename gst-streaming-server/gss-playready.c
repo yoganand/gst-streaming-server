@@ -402,11 +402,30 @@ char *
 gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
     const char *la_url, const char *auth_token)
 {
-  char *wrmheader;
+  guchar *content;
+  gsize content_len;
   char *prot_header_base64;
+
+  content_len = gss_playready_get_protection_header (adaptive, la_url,
+      auth_token, &content);
+
+  prot_header_base64 = g_base64_encode (content, content_len);
+
+  g_free (content);
+
+  return prot_header_base64;
+}
+
+
+gsize
+gss_playready_get_protection_header (GssAdaptive * adaptive,
+    const char *la_url, const char *auth_token, guchar ** p_content)
+{
+  char *wrmheader;
   gunichar2 *utf16;
   glong items;
   int len;
+  gsize size;
   guchar *content;
   gchar *kid_base64;
 
@@ -442,13 +461,12 @@ gss_playready_get_protection_header_base64 (GssAdaptive * adaptive,
   GST_WRITE_UINT16_LE (content + 6, 1);
   GST_WRITE_UINT16_LE (content + 8, items * sizeof (gunichar2));
 
-  prot_header_base64 =
-      g_base64_encode (content, items * sizeof (gunichar2) + 10);
-
-  g_free (content);
+  size = items * sizeof (gunichar2) + 10;
   g_free (utf16);
 
-  return prot_header_base64;
+  *p_content = content;
+
+  return size;
 }
 
 void
@@ -558,4 +576,41 @@ gss_drm_get_drm_name (GssDrmType drm_type)
     default:
       return "";
   }
+}
+
+const guint8 *
+gss_drm_get_drm_uuid (GssDrmType drm_type)
+{
+  static const guint8 playready_uuid[] =
+      { 0x9a, 0x04, 0xf0, 0x79, 0x98, 0x40, 0x42, 0x86, 0xab, 0x92, 0xe6, 0x5b,
+    0xe0, 0x88, 0x5f, 0x95
+  };
+
+  switch (drm_type) {
+    default:
+    case GSS_DRM_CLEAR:
+      return NULL;
+    case GSS_DRM_PLAYREADY:
+      return playready_uuid;
+  }
+}
+
+void
+gss_playready_add_protection_header (GssIsomMovie * movie,
+    GssAdaptive * adaptive, const char *la_url, const char *auth_token)
+{
+  static const guint8 playready_uuid[] =
+      { 0x9a, 0x04, 0xf0, 0x79, 0x98, 0x40, 0x42, 0x86, 0xab, 0x92, 0xe6, 0x5b,
+    0xe0, 0x88, 0x5f, 0x95
+  };
+
+  GST_ERROR ("got here");
+  movie->pssh.present = TRUE;
+
+  memcpy (movie->pssh.uuid, playready_uuid, 16);
+
+  movie->pssh.len =
+      gss_playready_get_protection_header (adaptive, la_url, auth_token,
+      &movie->pssh.data);
+
 }

@@ -1058,6 +1058,7 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
     GssIsomMovie * movie, const char *filename, gboolean is_video)
 {
   GssAdaptiveLevel *level;
+  GssBoxPssh pssh = { 0 };
   int i;
 
   g_return_if_fail (adaptive != NULL);
@@ -1091,7 +1092,22 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
     gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
         fragment);
   }
-  gss_isom_track_prepare_streaming (movie, track);
+
+  /* FIXME move */
+  if (adaptive->drm_info.data == NULL) {
+    adaptive->drm_info.drm_type = GSS_DRM_PLAYREADY;
+    adaptive->drm_info.data_len =
+        gss_playready_get_protection_header (adaptive,
+        adaptive->server->playready->license_url, NULL,
+        &adaptive->drm_info.data);
+  }
+
+  pssh.data = adaptive->drm_info.data;
+  pssh.len = adaptive->drm_info.data_len;
+  memcpy (pssh.uuid, gss_drm_get_drm_uuid (adaptive->drm_info.drm_type), 16);
+  pssh.present = TRUE;
+
+  gss_isom_track_prepare_streaming (movie, track, &pssh);
 
   level->track_id = track->tkhd.track_id;
   level->n_fragments = track->n_fragments;
@@ -1135,6 +1151,9 @@ load_file (GssAdaptive * adaptive, const char *filename)
   if (file->movie->tracks[0]->n_fragments == 0) {
     gss_isom_parser_fragmentize (file);
   }
+
+  gss_playready_add_protection_header (file->movie, adaptive,
+      adaptive->server->playready->license_url, NULL);
 
   if (adaptive->duration == 0) {
     adaptive->duration = gss_isom_movie_get_duration (file->movie);

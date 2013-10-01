@@ -92,6 +92,7 @@ typedef struct _GssBoxMehd GssBoxMehd;
 typedef struct _GssBoxTrex GssBoxTrex;
 typedef struct _GssBoxSidxEntry GssBoxSidxEntry;
 typedef struct _GssBoxSidx GssBoxSidx;
+typedef struct _GssBoxPssh GssBoxPssh;
 typedef struct _GssBoxStore GssBoxStore;
 
 
@@ -646,6 +647,16 @@ struct _GssBoxSidx
 
   int n_entries;
   GssBoxSidxEntry *entries;
+};
+
+struct _GssBoxPssh
+{
+  gboolean present;
+  guint8 version;
+  guint32 flags;
+  guint8 uuid[16];
+  guint32 len;
+  guint8 *data;
 };
 
 struct _GssBoxSkip

@@ -1901,6 +1901,23 @@ gss_isom_parse_meta (GssIsomParser * file, GssIsomMovie * movie,
 }
 
 static void
+gss_isom_parse_pssh (GssIsomParser * file, GssIsomMovie * movie,
+    GstByteReader * br)
+{
+  GssBoxPssh *pssh = &movie->pssh;
+  const guint8 *uuid;
+
+  gst_byte_reader_get_uint8 (br, &pssh->version);
+  gst_byte_reader_get_uint24_be (br, &pssh->flags);
+
+  gst_byte_reader_get_data (br, 16, &uuid);
+  memcpy (pssh->uuid, uuid, 16);
+  gst_byte_reader_get_uint32_be (br, &pssh->len);
+  gst_byte_reader_dup_data (br, pssh->len, &pssh->data);
+}
+
+
+static void
 gss_isom_parse_moov (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
@@ -1942,6 +1959,8 @@ gss_isom_parse_moov (GssIsomParser * file, GssIsomMovie * movie,
       movie->ainf.atom = atom;
       movie->ainf.size = gst_byte_reader_get_remaining (&sbr);
       gst_byte_reader_dup_data (&sbr, movie->ainf.size, &movie->ainf.data);
+    } else if (atom == GST_MAKE_FOURCC ('p', 's', 's', 'h')) {
+      gss_isom_parse_pssh (file, movie, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -3126,6 +3145,24 @@ gss_isom_trex_serialize (GssBoxTrex * trex, GstByteWriter * bw)
 }
 
 static void
+gss_isom_pssh_serialize (const GssBoxPssh * pssh, GstByteWriter * bw)
+{
+  int offset;
+
+  GST_ERROR ("serializing");
+  if (!pssh->present)
+    return;
+  offset = BOX_INIT (bw, GST_MAKE_FOURCC ('p', 's', 's', 'h'));
+  gst_byte_writer_put_uint8 (bw, pssh->version);
+  gst_byte_writer_put_uint24_be (bw, pssh->flags);
+
+  gst_byte_writer_put_data (bw, pssh->uuid, 16);
+  gst_byte_writer_put_uint32_be (bw, pssh->len);
+  gst_byte_writer_put_data (bw, pssh->data, pssh->len);
+  BOX_FINISH (bw, offset);
+}
+
+static void
 fixup_track (GssIsomTrack * track, gboolean is_video)
 {
   track->tkhd.creation_time += 0;
@@ -3154,6 +3191,7 @@ gss_isom_moov_serialize (GssIsomMovie * movie, GstByteWriter * bw)
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
 
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
+  gss_isom_pssh_serialize (&movie->pssh, bw);
 #if 1
   /* mvex */
   offset_mvex = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
@@ -3277,6 +3315,7 @@ create_sidx (GssBoxSidx * sidx, GssIsomTrack * track)
   }
 }
 
+#if 0
 /* For isoff-on-demand profile */
 void
 gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
@@ -3319,6 +3358,10 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   mvhd.timescale = track->mdhd.timescale;
   gss_isom_mvhd_serialize (&mvhd, bw);
 
+  if (pssh) {
+    gss_isom_pssh_serialize (pssh, bw);
+  }
+
   /* mvex */
   offset_mvex = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
   //gss_isom_mehd_serialize (&movie->mvhd, bw);
@@ -3352,6 +3395,7 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
 }
+#endif
 
 /* This is only meant for isoff-live profile, from a movie that is still in
  * mp4 form. */
@@ -3397,7 +3441,7 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
 
 void
 gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
-    guint8 ** data, gsize * header_size, gsize * size)
+    guint8 ** data, gsize * header_size, gsize * size, const GssBoxPssh * pssh)
 {
   GstByteWriter *bw;
   int offset;
@@ -3416,6 +3460,9 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
   offset_moov = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
 
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
+  if (pssh) {
+    gss_isom_pssh_serialize (pssh, bw);
+  }
   gss_isom_track_serialize (track, bw);
 
   {
@@ -3729,7 +3776,8 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 }
 
 void
-gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track)
+gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
+    const GssBoxPssh * pssh)
 {
   int i;
   guint64 offset = 0;
@@ -3754,7 +3802,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track)
 
   gss_isom_movie_serialize_track_dash (movie, track,
       &track->dash_header_data, &track->dash_header_size,
-      &track->dash_header_and_sidx_size);
+      &track->dash_header_and_sidx_size, pssh);
 
   track->dash_size += track->dash_header_and_sidx_size;
 }
