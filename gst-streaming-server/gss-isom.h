@@ -243,8 +243,7 @@ void gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack *tr
     guint8 ** data, gsize *header_size, gsize *size, const GssBoxPssh *pssh);
 void gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data,
     int *size);
-void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size,
-    const GssBoxPssh *pssh);
+void gss_isom_track_serialize_dash (GssIsomTrack *track, guint8 ** data, int *size);
 int * gss_isom_fragment_get_sample_sizes (GssIsomFragment *fragment);
 void gss_isom_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 *content_key);

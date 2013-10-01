@@ -3317,7 +3317,6 @@ create_sidx (GssBoxSidx * sidx, GssIsomTrack * track)
   }
 }
 
-#if 0
 /* For isoff-on-demand profile */
 void
 gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
@@ -3360,10 +3359,6 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   mvhd.timescale = track->mdhd.timescale;
   gss_isom_mvhd_serialize (&mvhd, bw);
 
-  if (pssh) {
-    gss_isom_pssh_serialize (pssh, bw);
-  }
-
   /* mvex */
   offset_mvex = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'v', 'e', 'x'));
   //gss_isom_mehd_serialize (&movie->mvhd, bw);
@@ -3397,7 +3392,6 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
 }
-#endif
 
 /* This is only meant for isoff-live profile, from a movie that is still in
  * mp4 form. */
