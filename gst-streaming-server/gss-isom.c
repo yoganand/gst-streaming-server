@@ -1905,13 +1905,15 @@ gss_isom_parse_pssh (GssIsomParser * file, GssIsomMovie * movie,
     GstByteReader * br)
 {
   GssBoxPssh *pssh = &movie->pssh;
-  const guint8 *uuid;
+  const guint8 *uuid = NULL;
 
   gst_byte_reader_get_uint8 (br, &pssh->version);
   gst_byte_reader_get_uint24_be (br, &pssh->flags);
 
   gst_byte_reader_get_data (br, 16, &uuid);
-  memcpy (pssh->uuid, uuid, 16);
+  if (uuid) {
+    memcpy (pssh->uuid, uuid, 16);
+  }
   gst_byte_reader_get_uint32_be (br, &pssh->len);
   gst_byte_reader_dup_data (br, pssh->len, &pssh->data);
 }
