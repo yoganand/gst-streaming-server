@@ -319,8 +319,6 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   soup_message_headers_replace (t->msg->response_headers, "Content-Type",
       "application/octet-stream");
-  soup_message_headers_replace (t->msg->response_headers,
-      "Access-Control-Allow-Origin", "*");
 
   GSS_A ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
   GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
@@ -443,9 +441,6 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
   guint64 n_bytes;
   guint64 header_size;
 
-  soup_message_headers_replace (t->msg->response_headers,
-      "Access-Control-Allow-Origin", "*");
-
   /* skip over content/ */
   path += 8;
 
@@ -565,8 +560,6 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
 
   soup_message_headers_replace (t->msg->response_headers, "Content-Type",
       "application/octet-stream");
-  soup_message_headers_replace (t->msg->response_headers,
-      "Access-Control-Allow-Origin", "*");
 
   GSS_P ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
   GSS_A ("<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
@@ -738,9 +731,6 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
     soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
     return;
   }
-
-  soup_message_headers_replace (t->msg->response_headers,
-      "Access-Control-Allow-Origin", "*");
 
   if (is_init) {
     soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
@@ -1262,6 +1252,9 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
     return;
   }
   g_free (stream);
+
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Origin", "*");
 
   failed = FALSE;
   switch (stream_type) {
