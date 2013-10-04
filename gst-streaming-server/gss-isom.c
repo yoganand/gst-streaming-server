@@ -2257,6 +2257,9 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gboolean is_video)
 {
   int offset;
+  int offset_table;
+  int *sizes;
+
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
   gss_isom_tfhd_serialize (&fragment->tfhd, bw);
@@ -2268,7 +2271,73 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
   }
   if (0)
     gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
-  gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+  if (0)
+    gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+
+  {
+    /* CENC-style sample encryption tables, in a playready UUID atom (hack) */
+    GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
+    int offset_uuid;
+    int i, j;
+
+    offset_uuid = BOX_INIT (bw, GST_MAKE_FOURCC ('u', 'u', 'i', 'd'));
+
+    gst_byte_writer_put_data (bw, uuid_sample_encryption, 16);
+    sizes = g_malloc (sizeof (int) * se->sample_count);
+    offset_table = bw->parent.byte;
+
+    for (i = 0; i < se->sample_count; i++) {
+      int sample_offset = bw->parent.byte;
+      gst_byte_writer_put_uint64_be (bw, se->samples[i].iv);
+      if (se->flags & 0x0002) {
+        for (j = 0; j < se->samples[i].num_entries; j++) {
+          gst_byte_writer_put_uint16_be (bw,
+              se->samples[i].entries[j].bytes_of_clear_data);
+          gst_byte_writer_put_uint32_be (bw,
+              se->samples[i].entries[j].bytes_of_encrypted_data);
+        }
+      }
+      sizes[i] = bw->parent.byte - sample_offset;
+    }
+    BOX_FINISH (bw, offset_uuid);
+  }
+  {
+    int offset_saiz;
+    GssBoxSaiz *saiz = &fragment->saiz;
+    offset_saiz = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'z'));
+    gst_byte_writer_put_uint8 (bw, saiz->version);
+    gst_byte_writer_put_uint24_be (bw, saiz->flags);
+    if (saiz->flags & 1) {
+      gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type);
+      gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type_parameter);
+    }
+    gst_byte_writer_put_uint8 (bw, saiz->default_sample_info_size);
+    gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
+    if (saiz->default_sample_info_size == 0) {
+      int i;
+      for (i = 0; i < saiz->sample_count; i++) {
+        gst_byte_writer_put_uint8 (bw, sizes[i]);
+      }
+    }
+    BOX_FINISH (bw, offset_saiz);
+  }
+  {
+    int offset_saio;
+    GssBoxSaio *saio = &fragment->saio;
+    offset_saio = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'o'));
+    gst_byte_writer_put_uint8 (bw, saio->version);
+    gst_byte_writer_put_uint24_be (bw, saio->flags);
+    if (saio->flags & 1) {
+      gst_byte_writer_put_uint32_be (bw, saio->aux_info_type);
+      gst_byte_writer_put_uint32_be (bw, saio->aux_info_type_parameter);
+    }
+    gst_byte_writer_put_uint32_be (bw, 1);
+    gst_byte_writer_put_uint32_be (bw, offset_table);
+
+    BOX_FINISH (bw, offset_saio);
+  }
+
+  g_free (sizes);
 
   BOX_FINISH (bw, offset);
 }
