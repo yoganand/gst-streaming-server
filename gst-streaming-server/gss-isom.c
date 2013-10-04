@@ -72,6 +72,13 @@ const guint8 uuid_protection_header[16] = {
   0xb6, 0xc8, 0x32, 0xd8, 0xab, 0xa1, 0x83, 0xd3
 };
 
+/* Our hacked-up box for sample encryption */
+/* 8f4a611a-2d1b-11e3-8f13-3c970e93f435 */
+const guint8 uuid_gss_sample_encryption[16] = {
+  0x8f, 0x4a, 0x61, 0x1a, 0x2d, 0x1b, 0x11, 0xe3,
+  0x8f, 0x13, 0x3c, 0x97, 0x0e, 0x93, 0xf4, 0x35
+};
+
 
 static gboolean file_read (GssIsomParser * parser, guint8 * buffer,
     guint64 offset, guint64 n_bytes);
@@ -2251,14 +2258,98 @@ gss_isom_sample_encryption_serialize (GssBoxUUIDSampleEncryption * se,
   BOX_FINISH (bw, offset);
 }
 
+static void
+gss_isom_serialize_custom_encryption_tables (GssBoxUUIDSampleEncryption * se,
+    GstByteWriter * bw, int *sizes, int *offset_table)
+{
+  /* CENC-style sample encryption tables, in a custom UUID atom (hack) */
+  int offset_uuid;
+  int i, j;
+
+  offset_uuid = BOX_INIT (bw, GST_MAKE_FOURCC ('u', 'u', 'i', 'd'));
+
+  gst_byte_writer_put_data (bw, uuid_gss_sample_encryption, 16);
+  *offset_table = bw->parent.byte;
+
+  for (i = 0; i < se->sample_count; i++) {
+    int sample_offset = bw->parent.byte;
+    gst_byte_writer_put_uint64_be (bw, se->samples[i].iv);
+    if (se->flags & 0x0002) {
+      for (j = 0; j < se->samples[i].num_entries; j++) {
+        gst_byte_writer_put_uint16_be (bw,
+            se->samples[i].entries[j].bytes_of_clear_data);
+        gst_byte_writer_put_uint32_be (bw,
+            se->samples[i].entries[j].bytes_of_encrypted_data);
+      }
+    }
+    sizes[i] = bw->parent.byte - sample_offset;
+  }
+  BOX_FINISH (bw, offset_uuid);
+}
+
+static gboolean
+check_sizes (int *sizes, int n)
+{
+  int i;
+  for (i = 1; i < n; i++) {
+    if (sizes[i] != sizes[0])
+      return FALSE;
+  }
+  return TRUE;
+}
+
+static void
+gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes)
+{
+  int offset_saiz;
+
+  offset_saiz = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'z'));
+  gst_byte_writer_put_uint8 (bw, saiz->version);
+  gst_byte_writer_put_uint24_be (bw, saiz->flags);
+  if (saiz->flags & 1) {
+    gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type);
+    gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type_parameter);
+  }
+
+  if (check_sizes (sizes, saiz->sample_count)) {
+    gst_byte_writer_put_uint8 (bw, sizes[0]);
+    gst_byte_writer_put_uint32_be (bw, 1);
+  } else {
+    int i;
+    gst_byte_writer_put_uint8 (bw, 0);
+    gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
+    for (i = 0; i < saiz->sample_count; i++) {
+      gst_byte_writer_put_uint8 (bw, sizes[i]);
+    }
+  }
+  BOX_FINISH (bw, offset_saiz);
+}
+
+static void
+gss_isom_saio_serialize (GssBoxSaio * saio, GstByteWriter * bw,
+    int table_offset)
+{
+  int offset_saio;
+
+  offset_saio = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'o'));
+  gst_byte_writer_put_uint8 (bw, saio->version);
+  gst_byte_writer_put_uint24_be (bw, saio->flags);
+  if (saio->flags & 1) {
+    gst_byte_writer_put_uint32_be (bw, saio->aux_info_type);
+    gst_byte_writer_put_uint32_be (bw, saio->aux_info_type_parameter);
+  }
+  gst_byte_writer_put_uint32_be (bw, 1);
+  gst_byte_writer_put_uint32_be (bw, table_offset);
+
+  BOX_FINISH (bw, offset_saio);
+}
 
 static void
 gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gboolean is_video)
 {
   int offset;
-  int offset_table;
-  int *sizes;
+  gboolean is_ism = TRUE;
 
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
@@ -2271,73 +2362,20 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
   }
   if (0)
     gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
-  if (0)
+
+  if (is_ism) {
     gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+  } else {
+    int offset_table;
+    int *sizes;
 
-  {
-    /* CENC-style sample encryption tables, in a playready UUID atom (hack) */
-    GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
-    int offset_uuid;
-    int i, j;
-
-    offset_uuid = BOX_INIT (bw, GST_MAKE_FOURCC ('u', 'u', 'i', 'd'));
-
-    gst_byte_writer_put_data (bw, uuid_sample_encryption, 16);
-    sizes = g_malloc (sizeof (int) * se->sample_count);
-    offset_table = bw->parent.byte;
-
-    for (i = 0; i < se->sample_count; i++) {
-      int sample_offset = bw->parent.byte;
-      gst_byte_writer_put_uint64_be (bw, se->samples[i].iv);
-      if (se->flags & 0x0002) {
-        for (j = 0; j < se->samples[i].num_entries; j++) {
-          gst_byte_writer_put_uint16_be (bw,
-              se->samples[i].entries[j].bytes_of_clear_data);
-          gst_byte_writer_put_uint32_be (bw,
-              se->samples[i].entries[j].bytes_of_encrypted_data);
-        }
-      }
-      sizes[i] = bw->parent.byte - sample_offset;
-    }
-    BOX_FINISH (bw, offset_uuid);
+    sizes = g_malloc (sizeof (int) * fragment->sample_encryption.sample_count);
+    gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
+        bw, sizes, &offset_table);
+    gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
+    gss_isom_saio_serialize (&fragment->saio, bw, offset_table);
+    g_free (sizes);
   }
-  {
-    int offset_saiz;
-    GssBoxSaiz *saiz = &fragment->saiz;
-    offset_saiz = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'z'));
-    gst_byte_writer_put_uint8 (bw, saiz->version);
-    gst_byte_writer_put_uint24_be (bw, saiz->flags);
-    if (saiz->flags & 1) {
-      gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type);
-      gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type_parameter);
-    }
-    gst_byte_writer_put_uint8 (bw, saiz->default_sample_info_size);
-    gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
-    if (saiz->default_sample_info_size == 0) {
-      int i;
-      for (i = 0; i < saiz->sample_count; i++) {
-        gst_byte_writer_put_uint8 (bw, sizes[i]);
-      }
-    }
-    BOX_FINISH (bw, offset_saiz);
-  }
-  {
-    int offset_saio;
-    GssBoxSaio *saio = &fragment->saio;
-    offset_saio = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'o'));
-    gst_byte_writer_put_uint8 (bw, saio->version);
-    gst_byte_writer_put_uint24_be (bw, saio->flags);
-    if (saio->flags & 1) {
-      gst_byte_writer_put_uint32_be (bw, saio->aux_info_type);
-      gst_byte_writer_put_uint32_be (bw, saio->aux_info_type_parameter);
-    }
-    gst_byte_writer_put_uint32_be (bw, 1);
-    gst_byte_writer_put_uint32_be (bw, offset_table);
-
-    BOX_FINISH (bw, offset_saio);
-  }
-
-  g_free (sizes);
 
   BOX_FINISH (bw, offset);
 }
