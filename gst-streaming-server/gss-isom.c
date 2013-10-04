@@ -3417,7 +3417,6 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
     case GST_MAKE_FOURCC ('d', 'a', 's', 'h'):
       gst_byte_writer_put_uint32_be (bw, 0x00000000);
       gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
-      gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('a', 'v', 'c', '1'));
       gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
       break;
     default:
@@ -3522,7 +3521,6 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('d', 'a', 's', 'h'));
   gst_byte_writer_put_uint32_be (bw, 0x00000000);
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
-  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('a', 'v', 'c', '1'));
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
   BOX_FINISH (bw, offset);
 
@@ -3571,7 +3569,6 @@ gss_isom_movie_serialize (GssIsomMovie * movie, guint8 ** data, int *size)
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('d', 'a', 's', 'h'));
   gst_byte_writer_put_uint32_be (bw, 0x00000000);
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('i', 's', 'o', '6'));
-  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('a', 'v', 'c', '1'));
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'p', '4', '1'));
   BOX_FINISH (bw, offset);
 
