@@ -53,6 +53,7 @@ gboolean gss_object_param_is_secure (GObject *object, const char *property_name)
 void gss_uuid_create (guint8 * uuid);
 char * gss_uuid_to_string (guint8 * uuid);
 char * gss_base64url_encode (const guint8 *data, int len);
+char * gss_hex_encode (const guint8 * data, int len);
 
   
 G_END_DECLS

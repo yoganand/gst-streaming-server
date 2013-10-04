@@ -114,22 +114,6 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 }
 
 
-static char *
-get_codec_string (guint8 * codec_data, int len)
-{
-  char *s;
-  int i;
-
-  if (codec_data == NULL)
-    return g_strdup ("");
-
-  s = g_malloc (len * 2 + 1);
-  for (i = 0; i < len; i++) {
-    sprintf (s + i * 2, "%02x", codec_data[i]);
-  }
-  return s;
-}
-
 typedef struct _ManifestQuery ManifestQuery;
 struct _ManifestQuery
 {
@@ -1107,7 +1091,7 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
   level->video_height = track->mp4v.height;
   //level->file = file;
 
-  level->codec_data = get_codec_string (track->esds.codec_data,
+  level->codec_data = gss_hex_encode (track->esds.codec_data,
       track->esds.codec_data_len);
   if (is_video) {
     level->codec = g_strdup_printf ("avc1.%02x%02x%02x",
@@ -1183,7 +1167,7 @@ load_file (GssAdaptive * adaptive, const char *filename)
     level->file = file;
     level->filename = g_strdup (filename);
     level->bitrate = audio_bitrate;
-    level->codec_data = get_codec_string (audio_track->esds.codec_data,
+    level->codec_data = gss_hex_encode (audio_track->esds.codec_data,
         audio_track->esds.codec_data_len);
     level->audio_rate = audio_track->mp4a.sample_rate >> 16;
     /* FIXME hard-coded AAC LC */

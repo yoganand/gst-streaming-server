@@ -343,3 +343,19 @@ gss_base64url_encode (const guint8 * data, int len)
 
   return base64;
 }
+
+char *
+gss_hex_encode (const guint8 * data, int len)
+{
+  char *s;
+  int i;
+
+  if (data == NULL)
+    return g_strdup ("");
+
+  s = g_malloc (len * 2 + 1);
+  for (i = 0; i < len; i++) {
+    sprintf (s + i * 2, "%02x", data[i]);
+  }
+  return s;
+}
