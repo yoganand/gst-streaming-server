@@ -108,6 +108,7 @@ static void gss_isom_parse_container (GssIsomParser * parser,
     guint32 parent_atom);
 static void gss_isom_parse_ignore (GssIsomParser * parser, GssIsomTrack * track,
     GstByteReader * br);
+static void gst_byte_reader_dump (GstByteReader * br);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
 
@@ -343,9 +344,9 @@ gss_isom_parser_parse_file (GssIsomParser * parser, const char *filename)
     } else if (atom == GST_MAKE_FOURCC ('w', 'i', 'd', 'e')) {
       /* ignore */
     } else if (atom == GST_MAKE_FOURCC ('s', 't', 'y', 'p')) {
-      GST_ERROR ("styp");
+      GST_FIXME ("styp");
     } else if (atom == GST_MAKE_FOURCC ('s', 'i', 'd', 'x')) {
-      GST_ERROR ("sidx");
+      GST_FIXME ("sidx");
     } else if (atom == GST_MAKE_FOURCC ('p', 'd', 'i', 'n')) {
       gss_isom_parser_load_chunk (parser, parser->offset, size);
 
@@ -1121,7 +1122,7 @@ gss_isom_parse_mdhd (GssIsomParser * file, GssIsomTrack * track,
   CHECK_END (br);
 }
 
-void
+static void
 gst_byte_reader_dump (GstByteReader * br)
 {
   guint8 data;
@@ -3873,6 +3874,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
       &track->dash_header_and_sidx_size, pssh);
 
   track->dash_size += track->dash_header_and_sidx_size;
+
 }
 
 int
