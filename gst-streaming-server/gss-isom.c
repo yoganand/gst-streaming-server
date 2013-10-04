@@ -677,6 +677,12 @@ gss_isom_parse_traf (GssIsomParser * file, GssIsomFragment * fragment,
       gss_isom_parse_tfdt (file, &fragment->tfdt, &sbr);
     } else if (atom == GST_MAKE_FOURCC ('t', 'r', 'i', 'k')) {
       gss_isom_parse_trik (file, &fragment->trik, &sbr);
+    } else if (atom == GST_MAKE_FOURCC ('s', 'a', 'i', 'z')) {
+      GST_FIXME ("ignoring saiz box");
+      gst_byte_reader_dump (&sbr);
+    } else if (atom == GST_MAKE_FOURCC ('s', 'a', 'i', 'o')) {
+      GST_FIXME ("ignoring saio box");
+      gst_byte_reader_dump (&sbr);
     } else if (atom == GST_MAKE_FOURCC ('u', 'u', 'i', 'd')) {
       const guint8 *uuid = NULL;
 
@@ -942,6 +948,14 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
     }
 
   }
+
+  if (is_video) {
+    fragment->saiz.default_sample_info_size = 0;
+  } else {
+    fragment->saiz.default_sample_info_size = 8;
+  }
+  fragment->saiz.sample_count = n_samples;
+  fragment->saio.entry_count = 1;
 }
 
 static void

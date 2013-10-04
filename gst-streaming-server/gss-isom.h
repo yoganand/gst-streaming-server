@@ -79,6 +79,8 @@ struct _GssIsomFragment {
   GssBoxAvcn avcn;
   GssBoxTfdt tfdt;
   GssBoxTrik trik;
+  GssBoxSaiz saiz;
+  GssBoxSaio saio;
 
 };
 

@@ -93,6 +93,9 @@ typedef struct _GssBoxTrex GssBoxTrex;
 typedef struct _GssBoxSidxEntry GssBoxSidxEntry;
 typedef struct _GssBoxSidx GssBoxSidx;
 typedef struct _GssBoxPssh GssBoxPssh;
+typedef struct _GssBoxSinf GssBoxSinf;
+typedef struct _GssBoxSaiz GssBoxSaiz;
+typedef struct _GssBoxSaio GssBoxSaio;
 typedef struct _GssBoxStore GssBoxStore;
 
 
@@ -657,6 +660,31 @@ struct _GssBoxPssh
   guint8 uuid[16];
   guint32 len;
   guint8 *data;
+};
+
+struct _GssBoxSinf
+{
+  guint32 original_atom;
+};
+
+struct _GssBoxSaiz
+{
+  guint8 version;
+  guint32 flags;
+  guint32 aux_info_type;
+  guint32 aux_info_type_parameter;
+  guint32 default_sample_info_size;
+  guint32 sample_count;
+  guint8 *sizes;
+};
+
+struct _GssBoxSaio
+{
+  guint8 version;
+  guint32 flags;
+  guint32 aux_info_type;
+  guint32 aux_info_type_parameter;
+  guint32 entry_count;
 };
 
 struct _GssBoxSkip
