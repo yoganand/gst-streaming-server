@@ -441,14 +441,12 @@ gss_playready_get_protection_header (GssAdaptive * adaptive,
       ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
       "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
       "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
-      //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
-      "<CUSTOMATTRIBUTES>"
-      "<content_id>%s</content_id>"
-      "<auth_token>%s</auth_token>"
-      "</CUSTOMATTRIBUTES>"
-      "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
-      "</DATA>" "</WRMHEADER>", kid_base64, adaptive->content_id,
-      auth_token, la_url);
+      "<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>" "<CUSTOMATTRIBUTES>"
+      //"<content_id>%s</content_id>"
+      //"<auth_token>%s</auth_token>"
+      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>" "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>" "</DATA>" "</WRMHEADER>", kid_base64,       // adaptive->content_id,
+      //auth_token,
+      la_url);
   g_free (kid_base64);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
