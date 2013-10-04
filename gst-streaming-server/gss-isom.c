@@ -1549,11 +1549,30 @@ gss_isom_parse_avcC (GssIsomParser * file, GssIsomTrack * track,
   gst_byte_reader_dup_data (br, esds->codec_data_len, &esds->codec_data);
 }
 
+static void
+gss_isom_parse_sinf (GssIsomParser * file, GssIsomTrack * track,
+    GstByteReader * br)
+{
+  //GssBoxSinf *sinf = &track->sinf;
+
+  GST_FIXME ("ignoring sinf");
+  //gst_byte_reader_dump (br);
+}
+
+static void
+gss_isom_parse_btrt (GssIsomParser * file, GssIsomTrack * track,
+    GstByteReader * br)
+{
+  //GssBoxBtrt *btrt = &track->btrt;
+
+  GST_ERROR ("got here");
+}
+
 static Container stsd_atoms[] = {
   {GST_MAKE_FOURCC ('a', 'v', 'c', 'C'), gss_isom_parse_avcC},
   {GST_MAKE_FOURCC ('e', 's', 'd', 's'), gss_isom_parse_esds},
-  {GST_MAKE_FOURCC ('s', 'i', 'n', 'f'), gss_isom_parse_ignore},
-  {GST_MAKE_FOURCC ('b', 't', 'r', 't'), gss_isom_parse_ignore},
+  {GST_MAKE_FOURCC ('s', 'i', 'n', 'f'), gss_isom_parse_sinf},
+  {GST_MAKE_FOURCC ('b', 't', 'r', 't'), gss_isom_parse_btrt},
   {0}
 };
 
@@ -2632,6 +2651,44 @@ gss_isom_esds_serialize (GssBoxEsds * esds, GstByteWriter * bw)
 }
 
 static void
+gss_isom_sinf_serialize (GssIsomTrack * track, GstByteWriter * bw)
+{
+  GssBoxStsd *stsd = &track->stsd;
+  int offset_sinf;
+  int offset2;
+  int offset3;
+
+  offset_sinf = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'i', 'n', 'f'));
+
+  offset2 = BOX_INIT (bw, GST_MAKE_FOURCC ('f', 'r', 'm', 'a'));
+  gst_byte_writer_put_uint32_le (bw, stsd->entries[0].atom);
+  BOX_FINISH (bw, offset2);
+
+  offset2 = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'c', 'h', 'm'));
+  gst_byte_writer_put_uint32_be (bw, 0);
+  gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('c', 'e', 'n', 'c'));
+  gst_byte_writer_put_uint32_be (bw, 0x00010000);
+  BOX_FINISH (bw, offset2);
+
+  offset2 = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'c', 'h', 'i'));
+  offset3 = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'e', 'n', 'c'));
+  gst_byte_writer_put_uint32_be (bw, 0x00000000);
+  gst_byte_writer_put_uint16_be (bw, 0x0000);
+  /* is encrypted = 1 */
+  gst_byte_writer_put_uint8 (bw, 1);
+  /* IV size */
+  gst_byte_writer_put_uint8 (bw, 8);
+  gst_byte_writer_put_uint32_be (bw, 0x7b13283b);
+  gst_byte_writer_put_uint32_be (bw, 0x61b554e2);
+  gst_byte_writer_put_uint32_be (bw, 0x93f75b1e);
+  gst_byte_writer_put_uint32_be (bw, 0x3e94cc3b);
+  BOX_FINISH (bw, offset3);
+  BOX_FINISH (bw, offset2);
+
+  BOX_FINISH (bw, offset_sinf);
+}
+
+static void
 gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
 {
   int offset;
@@ -2645,8 +2702,17 @@ gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
   gst_byte_writer_put_uint32_be (bw, stsd->entry_count);
   for (i = 0; i < stsd->entry_count; i++) {
     int offset_entry;
-    guint32 atom = stsd->entries[i].atom;
+    guint32 atom;
 
+    if (track->is_encrypted) {
+      if (gss_isom_track_is_video (track)) {
+        atom = GST_MAKE_FOURCC ('e', 'n', 'c', 'v');
+      } else {
+        atom = GST_MAKE_FOURCC ('e', 'n', 'c', 'a');
+      }
+    } else {
+      atom = stsd->entries[i].atom;
+    }
     offset_entry = BOX_INIT (bw, atom);
 
     GST_DEBUG ("stsd atom %" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (atom));
@@ -2656,7 +2722,6 @@ gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
       int offset_esds;
 
       GST_DEBUG ("serialize mp4a");
-      mp4a->present = TRUE;
       gst_byte_writer_fill (bw, 0, 6);
       gst_byte_writer_put_uint16_be (bw, mp4a->data_reference_index);
 
@@ -2709,7 +2774,6 @@ gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
       offset_avcC = BOX_INIT (bw, GST_MAKE_FOURCC ('a', 'v', 'c', 'C'));
       gss_isom_avcC_serialize (track, bw);
       BOX_FINISH (bw, offset_avcC);
-
     } else if (atom == GST_MAKE_FOURCC ('t', 'm', 'c', 'd')) {
       GST_FIXME ("tmcd");
     } else if (atom == GST_MAKE_FOURCC ('a', 'p', 'c', 'h')) {
@@ -2723,7 +2787,11 @@ gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
 #endif
     }
 
+    if (track->is_encrypted) {
+      gss_isom_sinf_serialize (track, bw);
+    }
     BOX_FINISH (bw, offset_entry);
+
   }
 
   BOX_FINISH (bw, offset);
@@ -3781,7 +3849,11 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
 
   is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
+  GST_ERROR ("stsd entries %d", track->stsd.entry_count);
 
+  if (pssh) {
+    track->is_encrypted = TRUE;
+  }
   for (i = 0; i < track->n_fragments; i++) {
     GssIsomFragment *fragment = track->fragments[i];
 

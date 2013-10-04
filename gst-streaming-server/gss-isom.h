@@ -155,6 +155,7 @@ struct _GssIsomTrack
   //guint8 *index;
   //gsize index_size;
 
+  gboolean is_encrypted;
   GssIsomFragment **fragments;
   int n_fragments;
   int n_fragments_alloc;
