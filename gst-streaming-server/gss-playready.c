@@ -441,8 +441,7 @@ gss_playready_get_protection_header (GssAdaptive * adaptive,
       ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
       "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
       "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
-      //"<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>"
-      "<CUSTOMATTRIBUTES>"
+      "<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>" "<CUSTOMATTRIBUTES>"
       //"<content_id>%s</content_id>"
       //"<auth_token>%s</auth_token>"
       "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>" "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>" "</DATA>" "</WRMHEADER>", kid_base64,       // adaptive->content_id,
