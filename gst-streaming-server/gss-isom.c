@@ -878,12 +878,16 @@ gss_isom_parse_tfdt (GssIsomParser * file, GssBoxTfdt * tfdt,
     GstByteReader * br)
 {
   guint32 tmp;
+  guint64 tmp64;
 
   gst_byte_reader_get_uint8 (br, &tfdt->version);
   gst_byte_reader_get_uint24_be (br, &tfdt->flags);
 
-  /* FIXME */
-  gst_byte_reader_get_uint32_be (br, &tmp);
+  if (tfdt->version == 1) {
+    gst_byte_reader_get_uint64_be (br, &tmp64);
+  } else {
+    gst_byte_reader_get_uint32_be (br, &tmp);
+  }
 
   CHECK_END (br);
 }
