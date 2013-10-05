@@ -37,6 +37,7 @@
 #include "gss-utils.h"
 #include "gss-html.h"
 
+#include <openssl/aes.h>
 #include <openssl/evp.h>
 
 enum
@@ -62,6 +63,8 @@ static void gss_playready_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 static void gss_playready_get_resource (GssTransaction * t);
 static void gss_playready_post_resource (GssTransaction * t);
+static char *gss_playready_generate_checksum (guint8 * key_id,
+    guint8 * content_key);
 
 static GssObject *parent_class;
 
@@ -428,26 +431,35 @@ gss_playready_get_protection_header (GssAdaptive * adaptive,
   gsize size;
   guchar *content;
   gchar *kid_base64;
-
-  if (auth_token == NULL)
-    auth_token = "";
+  gchar *checksum;
 
   kid_base64 = g_base64_encode (adaptive->kid, adaptive->kid_len);
   /* this all needs to be on one line, to satisfy clients */
   /* Note: DS_ID is ignored by Roku */
   /* Roku checks CHECKSUM if it exists */
+  checksum = gss_playready_generate_checksum (adaptive->kid,
+      adaptive->content_key);
   wrmheader =
       g_strdup_printf
       ("<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" "
       "version=\"4.0.0.0\">" "<DATA>" "<PROTECTINFO>" "<KEYLEN>16</KEYLEN>"
       "<ALGID>AESCTR</ALGID>" "</PROTECTINFO>" "<KID>%s</KID>"
-      "<CHECKSUM>BGw1aYZ1YXM=</CHECKSUM>" "<CUSTOMATTRIBUTES>"
-      //"<content_id>%s</content_id>"
-      //"<auth_token>%s</auth_token>"
-      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>" "</CUSTOMATTRIBUTES>" "<LA_URL>%s</LA_URL>" "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>" "</DATA>" "</WRMHEADER>", kid_base64,       // adaptive->content_id,
-      //auth_token,
-      la_url);
+      "<CHECKSUM>%s</CHECKSUM>"
+      "<CUSTOMATTRIBUTES>"
+      "<content_id>%s</content_id>"
+      "%s%s%s"
+      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>"
+      "</CUSTOMATTRIBUTES>"
+      "<LA_URL>%s</LA_URL>"
+      "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
+      "</DATA>" "</WRMHEADER>",
+      kid_base64,
+      checksum,
+      adaptive->content_id,
+      (auth_token != NULL) ? "<auth_token>" : "",
+      auth_token, (auth_token != NULL) ? "</auth_token>" : "", la_url);
   g_free (kid_base64);
+  g_free (checksum);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
   g_free (wrmheader);
@@ -487,6 +499,18 @@ gss_playready_setup_iv (GssPlayready * playready, GssAdaptive * adaptive,
   gss_isom_fragment_set_sample_encryption (fragment, n_samples,
       init_vectors, is_video);
   g_free (init_vectors);
+}
+
+static char *
+gss_playready_generate_checksum (guint8 * key_id, guint8 * content_key)
+{
+  AES_KEY key;
+  guint8 dest[16];
+
+  AES_set_encrypt_key (content_key, 16 * 8, &key);
+  AES_ecb_encrypt (key_id, dest, &key, 1);
+
+  return g_base64_encode (dest, 8);
 }
 
 void
