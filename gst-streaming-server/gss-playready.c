@@ -256,16 +256,7 @@ gss_playready_set_key_seed_hex (GssPlayready * playready, const char *key_seed)
 char *
 gss_playready_get_key_seed_hex (GssPlayready * playready)
 {
-  int i;
-  char *s;
-  s = g_malloc (61);
-  for (i = 0; i < 30; i++) {
-#define HEXCHAR(x) (((x)<10) ? '0'+(x) : 'a'+((x)-10))
-    s[2 * i] = HEXCHAR ((playready->key_seed[i] >> 4) & 0xf);
-    s[2 * i + 1] = HEXCHAR (playready->key_seed[i] & 0xf);
-  }
-  s[60] = 0;
-  return s;
+  return gss_hex_encode (playready->key_seed, 30);
 }
 
 
