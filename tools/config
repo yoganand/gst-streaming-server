@@ -1,5 +1,20 @@
 <?xml version="1.0"?>
 <oberon xmlns:ew="http://entropywave.com/oberon/1.0/">
+  <ew:playready>
+    <ew:name>admin.pr</ew:name>
+    <ew:title></ew:title>
+    <ew:license-url>http://playready.directtaps.net/pr/svc/rightsmanager.asmx</ew:license-url>
+    <ew:key-seed>5d5068bec9b384ff6044867159f16d6b755544fcd5116989b1acc4278e88</ew:key-seed>
+    <ew:allow-clear>true</ew:allow-clear>
+  </ew:playready>
+  <ew:vod>
+    <ew:name>admin.vod</ew:name>
+    <ew:title></ew:title>
+    <ew:endpoint>vod</ew:endpoint>
+    <ew:archive-dir>vod</ew:archive-dir>
+    <ew:dir-levels>0</ew:dir-levels>
+    <ew:cache-size>100</ew:cache-size>
+  </ew:vod>
   <ew:manager>
     <ew:name>admin.manager</ew:name>
     <ew:title></ew:title>
