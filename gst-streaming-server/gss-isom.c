@@ -4170,3 +4170,30 @@ gss_isom_sample_iter_get_sample (GssIsomSampleIterator * iter,
       iter->offset_in_chunk;
   //GST_ERROR("sample: %d %d %d", iter->chunk_index, iter->offset_in_chunk, (int)sample->offset);
 }
+
+void
+gss_isom_track_convert_h264_codec_data (GssIsomTrack * track)
+{
+  guint8 *codec_data = track->esds.codec_data;
+  int len1, len2;
+  guint8 *new_codec_data;
+
+  len1 = (codec_data[6] << 8) | (codec_data[7]);
+  len2 = (codec_data[len1 + 9] << 8) | (codec_data[len1 + 10]);
+
+  new_codec_data = g_malloc (4 + len1 + 4 + len2);
+  new_codec_data[0] = 0;
+  new_codec_data[1] = 0;
+  new_codec_data[2] = 0;
+  new_codec_data[3] = 1;
+  memcpy (new_codec_data + 4, codec_data + 8, len1);
+  new_codec_data[len1 + 4] = 0;
+  new_codec_data[len1 + 5] = 0;
+  new_codec_data[len1 + 6] = 0;
+  new_codec_data[len1 + 7] = 1;
+  memcpy (new_codec_data + len1 + 8, codec_data + 8 + len1 + 3, len2);
+
+  track->esds.codec_data = new_codec_data;
+  track->esds.codec_data_len = 4 + len1 + 4 + len2;
+  g_free (codec_data);
+}

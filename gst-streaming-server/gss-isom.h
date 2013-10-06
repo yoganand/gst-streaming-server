@@ -277,6 +277,7 @@ void gss_isom_sample_iter_init (GssIsomSampleIterator *iter,
 gboolean gss_isom_sample_iter_iterate (GssIsomSampleIterator *iter);
 void gss_isom_sample_iter_get_sample (GssIsomSampleIterator *iter,
     GssIsomSample *sample);
+void gss_isom_track_convert_h264_codec_data (GssIsomTrack *track);
 
 void gss_isom_parser_dump (GssIsomParser *file);
 void gss_isom_movie_dump (GssIsomMovie *movie);
