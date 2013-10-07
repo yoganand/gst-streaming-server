@@ -648,11 +648,14 @@ static void
 gss_server_attach (GssObject * object, GssServer * x_server)
 {
   GssServer *server = GSS_SERVER (object);
+  GssResource *r;
 
-  gss_module_set_admin_resource (GSS_MODULE (server),
-      gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/server",
-          GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_server_get_resource, NULL,
-          gss_server_post_resource, server));
+  r = gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/server",
+      GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_server_get_resource, NULL,
+      gss_server_post_resource, server);
+  r->name = g_strdup ("Server");
+  gss_module_set_admin_resource (GSS_MODULE (server), r);
+
 }
 
 void

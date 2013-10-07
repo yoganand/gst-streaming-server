@@ -280,7 +280,7 @@ gss_html_header (GssTransaction * t)
         GSS_P ("<li %s><a href='%s%s'>%s</a></li>\n",
             (module->admin_resource == t->resource) ? "class='active'" : "",
             module->admin_resource->location, session_id,
-            GSS_OBJECT_NAME (module));
+            module->admin_resource->name);
       }
     }
   }

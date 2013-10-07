@@ -154,6 +154,7 @@ gss_manager_attach (GssObject * object, GssServer * server)
   r = gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/manager",
       GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_manager_get_resource, NULL,
       gss_manager_post_resource, manager);
+  r->name = g_strdup ("Live Manager");
   gss_module_set_admin_resource (GSS_MODULE (manager), r);
 
 }

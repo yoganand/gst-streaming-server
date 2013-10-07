@@ -192,6 +192,7 @@ gss_vod_attach (GssObject * object, GssServer * server)
   r = gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/vod",
       GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_vod_get_resource, NULL,
       gss_vod_post_resource, vod);
+  r->name = g_strdup ("Video On Demand");
   gss_module_set_admin_resource (GSS_MODULE (vod), r);
 
   gss_server_add_resource (GSS_OBJECT_SERVER (object), "/vod/",

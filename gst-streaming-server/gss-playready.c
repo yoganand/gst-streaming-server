@@ -182,6 +182,7 @@ gss_playready_attach (GssObject * object, GssServer * server)
       "/admin/playready", GSS_RESOURCE_ADMIN,
       GSS_TEXT_HTML, gss_playready_get_resource, NULL,
       gss_playready_post_resource, playready);
+  r->name = g_strdup ("Playready");
   gss_module_set_admin_resource (GSS_MODULE (playready), r);
 
   server->playready = playready;

@@ -234,6 +234,7 @@ gss_user_attach (GssObject * object, GssServer * server)
   r = gss_server_add_resource (GSS_OBJECT_SERVER (user), "/admin/users",
       GSS_RESOURCE_ADMIN,
       GSS_TEXT_HTML, gss_user_get_resource, NULL, gss_user_post_resource, user);
+  r->name = g_strdup ("User");
   gss_module_set_admin_resource (GSS_MODULE (user), r);
 
   gss_server_add_resource (GSS_OBJECT_SERVER (user), "/profile",
