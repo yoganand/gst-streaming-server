@@ -904,12 +904,11 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
       if (n == NULL)
         return FALSE;
       obj = json_node_get_object (n);
-      if (obj == NULL)
-        return FALSE;
-
-      n = json_object_get_member (obj, "filename");
-      if (n == NULL)
-        return FALSE;
+      if (obj) {
+        n = json_object_get_member (obj, "filename");
+        if (n == NULL)
+          return FALSE;
+      }
       filename = json_node_get_string (n);
       if (filename == NULL)
         return FALSE;
