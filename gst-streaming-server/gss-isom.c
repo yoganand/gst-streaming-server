@@ -1591,7 +1591,7 @@ gss_isom_parse_btrt (GssIsomParser * file, GssIsomTrack * track,
 {
   //GssBoxBtrt *btrt = &track->btrt;
 
-  GST_ERROR ("got here");
+  GST_FIXME ("ignoring btrt box");
 }
 
 static Container stsd_atoms[] = {
@@ -3348,7 +3348,7 @@ gss_isom_pssh_serialize (const GssBoxPssh * pssh, GstByteWriter * bw)
 {
   int offset;
 
-  GST_ERROR ("serializing");
+  GST_DEBUG ("serializing");
   if (!pssh->present)
     return;
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('p', 's', 's', 'h'));
@@ -3975,7 +3975,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
 
   is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
-  GST_ERROR ("stsd entries %d", track->stsd.entry_count);
+  GST_DEBUG ("stsd entries %d", track->stsd.entry_count);
 
   if (pssh) {
     track->is_encrypted = TRUE;

@@ -621,7 +621,6 @@ gss_playready_add_protection_header (GssIsomMovie * movie,
     0xe0, 0x88, 0x5f, 0x95
   };
 
-  GST_ERROR ("got here");
   movie->pssh.present = TRUE;
 
   memcpy (movie->pssh.uuid, playready_uuid, 16);
