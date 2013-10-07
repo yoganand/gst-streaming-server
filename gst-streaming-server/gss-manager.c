@@ -187,7 +187,7 @@ gss_manager_get_resource (GssTransaction * t)
 
   GSS_A ("<hr>\n");
   GSS_A ("<h2>Add Pull Channel</h2>\n");
-  GSS_A ("<p>Pull channels are used for sources that are stremaing servers.\n");
+  GSS_A ("<p>Pull channels are used for sources that are streaming servers.\n");
   GSS_A ("This server connects to the remote server to pull the stream.</p>\n");
 
   GSS_A
