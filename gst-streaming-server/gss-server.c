@@ -102,6 +102,7 @@ static void gss_server_set_property (GObject * object, guint prop_id,
 static void gss_server_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 static void gss_server_setup_resources (GssServer * server);
+static void gss_server_attach (GssObject * object, GssServer * x_server);
 
 
 static gboolean periodic_timer (gpointer data);
@@ -110,7 +111,7 @@ static gboolean periodic_timer (gpointer data);
 GST_DEBUG_CATEGORY (gss_debug);
 
 
-G_DEFINE_TYPE (GssServer, gss_server, GSS_TYPE_OBJECT);
+G_DEFINE_TYPE (GssServer, gss_server, GSS_TYPE_MODULE);
 
 
 static const gchar *soup_method_source;
@@ -281,6 +282,7 @@ gss_server_init (GssServer * server)
     gss_server_rtsp_init (server);
 #endif
 
+  gss_server_add_module (server, GSS_MODULE (server));
   gss_server_setup_resources (server);
 
   g_timeout_add (1000, (GSourceFunc) periodic_timer, server);
@@ -300,7 +302,7 @@ gss_server_finalize (GObject * object)
     g_object_unref (server->ssl_server);
 
   g_list_free (server->featured_resources);
-  g_list_free (server->admin_resources);
+  g_list_free (server->modules);
 
   g_hash_table_unref (server->resources);
   for (i = 0; i < server->n_prefix_resources; i++) {
@@ -335,6 +337,8 @@ gss_server_class_init (GssServerClass * server_class)
   G_OBJECT_CLASS (server_class)->set_property = gss_server_set_property;
   G_OBJECT_CLASS (server_class)->get_property = gss_server_get_property;
   G_OBJECT_CLASS (server_class)->finalize = gss_server_finalize;
+
+  GSS_OBJECT_CLASS (server_class)->attach = gss_server_attach;
 
   g_object_class_install_property (G_OBJECT_CLASS (server_class),
       PROP_ENABLE_PUBLIC_INTERFACE,
@@ -606,6 +610,49 @@ gss_server_get_property (GObject * object, guint prop_id,
       g_assert_not_reached ();
       break;
   }
+}
+
+static void
+gss_server_get_resource (GssTransaction * t)
+{
+  GssServer *server = GSS_SERVER (t->resource->priv);
+  GString *s = g_string_new ("");
+
+  t->s = s;
+
+  gss_html_header (t);
+
+  g_string_append (s, "<h1>Server Configuration</h1><br>\n");
+
+  gss_config_append_config_block (G_OBJECT (server), t, FALSE);
+
+  gss_html_footer (t);
+}
+
+static void
+gss_server_post_resource (GssTransaction * t)
+{
+  GssServer *server = GSS_SERVER (t->resource->priv);
+  gboolean ret;
+
+  ret = gss_config_handle_post (G_OBJECT (server), t);
+
+  if (ret) {
+    gss_transaction_redirect (t, "");
+  } else {
+    gss_transaction_error (t, "Configuration Error");
+  }
+}
+
+static void
+gss_server_attach (GssObject * object, GssServer * x_server)
+{
+  GssServer *server = GSS_SERVER (object);
+
+  gss_module_set_admin_resource (GSS_MODULE (server),
+      gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/server",
+          GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_server_get_resource, NULL,
+          gss_server_post_resource, server));
 }
 
 void
@@ -907,16 +954,19 @@ gss_server_remove_program (GssServer * server, GssProgram * program)
 }
 
 void
-gss_server_add_admin_resource (GssServer * server, GssResource * resource,
-    const char *name)
+gss_server_add_module (GssServer * server, GssModule * module)
 {
-  g_return_if_fail (GSS_IS_SERVER (server));
-  g_return_if_fail (resource != NULL);
-  g_return_if_fail (name != NULL);
-  g_return_if_fail (name[0] != 0);
+  GssObjectClass *object_class = GSS_OBJECT_GET_CLASS (module);
 
-  resource->name = g_strdup (name);
-  server->admin_resources = g_list_append (server->admin_resources, resource);
+  g_return_if_fail (GSS_IS_SERVER (server));
+  g_return_if_fail (GSS_IS_MODULE (module));
+
+  server->modules = g_list_append (server->modules, module);
+  GSS_OBJECT_SERVER (module) = server;
+
+  if (object_class->attach) {
+    object_class->attach (GSS_OBJECT (module), server);
+  }
 }
 
 void
@@ -1362,4 +1412,15 @@ gss_asset_get_resource (GssTransaction * t)
   soup_message_set_response (t->msg, media_type, SOUP_MEMORY_TAKE,
       contents, size);
   soup_message_set_status (t->msg, SOUP_STATUS_OK);
+}
+
+void
+gss_server_create_module (GssServer * server, GssConfig * config, GType type,
+    const char *name)
+{
+  GObject *object;
+
+  object = gss_config_create_object (config, type, name);
+
+  gss_server_add_module (server, GSS_MODULE (object));
 }

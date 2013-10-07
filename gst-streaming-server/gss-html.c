@@ -273,11 +273,15 @@ gss_html_header (GssTransaction * t)
 
     GSS_A ("<li class='nav-header'>Administration</li>\n");
 
-    for (g = t->server->admin_resources; g; g = g_list_next (g)) {
-      GssResource *r = (GssResource *) g->data;
-      GSS_P ("<li %s><a href='%s%s'>%s</a></li>\n",
-          (r == t->resource) ? "class='active'" : "",
-          r->location, session_id, r->name);
+    for (g = t->server->modules; g; g = g_list_next (g)) {
+      GssModule *module = (GssModule *) g->data;
+      GST_ERROR ("module %s", GSS_OBJECT_NAME (module));
+      if (module->admin_resource) {
+        GSS_P ("<li %s><a href='%s%s'>%s</a></li>\n",
+            (module->admin_resource == t->resource) ? "class='active'" : "",
+            module->admin_resource->location, session_id,
+            GSS_OBJECT_NAME (module));
+      }
     }
   }
   GSS_A ("</ul>\n"

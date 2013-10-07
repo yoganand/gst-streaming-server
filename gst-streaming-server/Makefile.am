@@ -40,6 +40,7 @@ sources = \
 	gss-content.h \
 	gss-vod.c \
 	gss-manager.c \
+	gss-module.c \
 	gss-resource.c \
 	gss-object.c \
 	gss-playready.c \
@@ -84,6 +85,7 @@ gss_include_HEADERS = \
 	gss-rtsp.h \
 	gss-metrics.h \
 	gss-manager.h \
+	gss-module.h \
 	gss-object.h \
 	gss-playready.h \
 	gss-program.h \

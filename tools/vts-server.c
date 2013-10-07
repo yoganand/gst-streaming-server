@@ -85,8 +85,6 @@ static GOptionEntry entries[] = {
 
 GssServer *server;
 GssConfig *config;
-GssUser *user;
-GssManager *manager;
 GMainLoop *main_loop;
 
 static void G_GNUC_NORETURN
@@ -197,13 +195,8 @@ main (int argc, char *argv[])
 
   gss_config_add_server_resources (server);
 
-  user = (GssUser *) gss_config_create_object (config, GSS_TYPE_USER,
-      "admin.user");
-  gss_user_add_resources (user, server);
-
-  manager = (GssManager *) gss_config_create_object (config, GSS_TYPE_MANAGER,
-      "admin.manager");
-  gss_manager_add_resources (manager, server);
+  gss_server_create_module (server, config, GSS_TYPE_USER, "admin.user");
+  gss_server_create_module (server, config, GSS_TYPE_MANAGER, "admin.manager");
 
   gss_vts_new (server, "vts-stream");
 
@@ -217,8 +210,6 @@ main (int argc, char *argv[])
   main_loop = NULL;
 
   GSS_CLEANUP (server);
-  GSS_CLEANUP (user);
-  GSS_CLEANUP (manager);
 
   gss_deinit ();
   gst_deinit ();

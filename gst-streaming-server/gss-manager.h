@@ -44,14 +44,14 @@ typedef struct _GssManager GssManager;
 typedef struct _GssManagerClass GssManagerClass;
 
 struct _GssManager {
-  GssObject object;
+  GssModule module;
 
   /* properties */
   char *follow_hosts;
 };
 
 struct _GssManagerClass {
-  GssObjectClass object_class;
+  GssModuleClass module_class;
 
 };
 
@@ -63,8 +63,6 @@ void gss_manager_stop (GssManager *manager);
 gboolean gss_manager_create_pipeline (GssManager * manager);
 
 void gss_manager_set_location (GssManager *manager, const char *location);
-
-void gss_manager_add_resources (GssManager *manager, GssServer *server);
 
 #endif
 

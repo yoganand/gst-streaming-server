@@ -44,7 +44,7 @@ typedef struct _GssVod GssVod;
 typedef struct _GssVodClass GssVodClass;
 
 struct _GssVod {
-  GssObject object;
+  GssModule module;
   GHashTable *cache;
 
   /* properties */
@@ -55,14 +55,13 @@ struct _GssVod {
 };
 
 struct _GssVodClass {
-  GssObjectClass object_class;
+  GssModuleClass module_class;
 
 };
 
 GType gss_vod_get_type (void);
 
 GssVod *gss_vod_new (void);
-void gss_vod_add_resources (GssVod * vod, GssServer * server);
 
 #endif
 

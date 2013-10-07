@@ -65,11 +65,12 @@ static char *gss_user_get_permanent_sessions (GssUser * user);
 static void gss_user_add_permanent_session (GssUser * user,
     const char *session_id);
 static void gss_user_set_permanent_sessions (GssUser * user, const char *s);
+static void gss_user_attach (GssObject * object, GssServer * server);
 
 static void gss_user_info_free (GssUserInfo * ui);
 
 
-G_DEFINE_TYPE (GssUser, gss_user, GSS_TYPE_OBJECT);
+G_DEFINE_TYPE (GssUser, gss_user, GSS_TYPE_MODULE);
 
 static GObjectClass *parent_class;
 
@@ -90,6 +91,8 @@ gss_user_class_init (GssUserClass * user_class)
   G_OBJECT_CLASS (user_class)->set_property = gss_user_set_property;
   G_OBJECT_CLASS (user_class)->get_property = gss_user_get_property;
   G_OBJECT_CLASS (user_class)->finalize = gss_user_finalize;
+
+  GSS_OBJECT_CLASS (user_class)->attach = gss_user_attach;
 
   g_object_class_install_property (G_OBJECT_CLASS (user_class), PROP_USERS,
       g_param_spec_string ("users", "Users", "Users", DEFAULT_USERS,
@@ -220,19 +223,20 @@ _gss_user_authorize (GssSession * session, gpointer priv)
 }
 
 
-void
-gss_user_add_resources (GssUser * user, GssServer * server)
+static void
+gss_user_attach (GssObject * object, GssServer * server)
 {
+  GssUser *user = GSS_USER (object);
   GssResource *r;
 
   gss_session_set_authorization_function (_gss_user_authorize, user);
 
-  r = gss_server_add_resource (server, "/admin/users",
+  r = gss_server_add_resource (GSS_OBJECT_SERVER (user), "/admin/users",
       GSS_RESOURCE_ADMIN,
       GSS_TEXT_HTML, gss_user_get_resource, NULL, gss_user_post_resource, user);
-  gss_server_add_admin_resource (server, r, "Users");
+  gss_module_set_admin_resource (GSS_MODULE (user), r);
 
-  gss_server_add_resource (server, "/profile",
+  gss_server_add_resource (GSS_OBJECT_SERVER (user), "/profile",
       GSS_RESOURCE_UI | GSS_RESOURCE_USER,
       GSS_TEXT_HTML, gss_profile_get_resource, NULL, gss_profile_post_resource,
       user);

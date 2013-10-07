@@ -509,39 +509,6 @@ gss_config_handle_post_hash (GObject * object, GssTransaction * t,
   return TRUE;
 }
 
-
-static void
-gss_server_get_resource (GssTransaction * t)
-{
-  GssServer *server = GSS_SERVER (t->resource->priv);
-  GString *s = g_string_new ("");
-
-  t->s = s;
-
-  gss_html_header (t);
-
-  g_string_append (s, "<h1>Server Configuration</h1><br>\n");
-
-  gss_config_append_config_block (G_OBJECT (server), t, FALSE);
-
-  gss_html_footer (t);
-}
-
-static void
-gss_server_post_resource (GssTransaction * t)
-{
-  GssServer *server = GSS_SERVER (t->resource->priv);
-  gboolean ret;
-
-  ret = gss_config_handle_post (G_OBJECT (server), t);
-
-  if (ret) {
-    gss_transaction_redirect (t, "");
-  } else {
-    gss_transaction_error (t, "Configuration Error");
-  }
-}
-
 static void
 gss_config_get_resource (GssTransaction * t)
 {
@@ -1134,14 +1101,7 @@ done:
 void
 gss_config_add_server_resources (GssServer * server)
 {
-  GssResource *r;
-
-  r = gss_server_add_resource (server, "/admin/server", GSS_RESOURCE_ADMIN,
-      GSS_TEXT_HTML, gss_server_get_resource, NULL, gss_server_post_resource,
-      server);
-  gss_server_add_admin_resource (server, r, "Server");
-
-  r = gss_server_add_resource (server, "/admin/config", GSS_RESOURCE_ADMIN,
+  gss_server_add_resource (server, "/admin/config", GSS_RESOURCE_ADMIN,
       GSS_TEXT_HTML, gss_config_get_resource, NULL, gss_config_post_resource,
       NULL);
 

@@ -54,7 +54,7 @@ struct _GssUserInfo {
 };
 
 struct _GssUser {
-  GssObject object;
+  GssModule module;
 
   /* properties */
   GHashTable *users;
@@ -63,7 +63,7 @@ struct _GssUser {
 };
 
 struct _GssUserClass {
-  GssObjectClass object_class;
+  GssModuleClass module_class;
 
 };
 
@@ -75,8 +75,6 @@ char * gss_user_get_string (GssUser *user);
 GssUserInfo * gss_user_add_user_info (GssUser *user, const char *username, guint groups);
 
 void gss_user_set_location (GssUser *user, const char *location);
-
-void gss_user_add_resources (GssUser *user, GssServer *server);
 
 gboolean gss_session_is_producer (GssSession *session);
 

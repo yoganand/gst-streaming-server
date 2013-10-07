@@ -65,10 +65,11 @@ static void gss_playready_get_resource (GssTransaction * t);
 static void gss_playready_post_resource (GssTransaction * t);
 static char *gss_playready_generate_checksum (guint8 * key_id,
     guint8 * content_key);
+static void gss_playready_attach (GssObject * object, GssServer * server);
 
 static GssObject *parent_class;
 
-G_DEFINE_TYPE (GssPlayready, gss_playready, GSS_TYPE_OBJECT);
+G_DEFINE_TYPE (GssPlayready, gss_playready, GSS_TYPE_MODULE);
 
 static void
 gss_playready_init (GssPlayready * playready)
@@ -84,6 +85,8 @@ gss_playready_class_init (GssPlayreadyClass * playready_class)
   G_OBJECT_CLASS (playready_class)->set_property = gss_playready_set_property;
   G_OBJECT_CLASS (playready_class)->get_property = gss_playready_get_property;
   G_OBJECT_CLASS (playready_class)->finalize = gss_playready_finalize;
+
+  GSS_OBJECT_CLASS (playready_class)->attach = gss_playready_attach;
 
   g_object_class_install_property (G_OBJECT_CLASS (playready_class),
       PROP_LICENSE_URL, g_param_spec_string ("license-url", "License URL",
@@ -169,17 +172,17 @@ gss_playready_new (void)
   return g_object_new (GSS_TYPE_PLAYREADY, NULL);
 }
 
-void
-gss_playready_add_resources (GssPlayready * playready, GssServer * server)
+static void
+gss_playready_attach (GssObject * object, GssServer * server)
 {
+  GssPlayready *playready = GSS_PLAYREADY (object);
   GssResource *r;
 
-  GSS_OBJECT_SERVER (playready) = server;
-
-  r = gss_server_add_resource (server, "/admin/playready", GSS_RESOURCE_ADMIN,
+  r = gss_server_add_resource (GSS_OBJECT_SERVER (playready),
+      "/admin/playready", GSS_RESOURCE_ADMIN,
       GSS_TEXT_HTML, gss_playready_get_resource, NULL,
       gss_playready_post_resource, playready);
-  gss_server_add_admin_resource (server, r, "Playready");
+  gss_module_set_admin_resource (GSS_MODULE (playready), r);
 
   server->playready = playready;
 }

@@ -27,7 +27,7 @@
 #include <libsoup/soup.h>
 #include "gss-config.h"
 #include "gss-types.h"
-#include "gss-object.h"
+#include "gss-module.h"
 #include "gss-session.h"
 #include "gss-program.h"
 #include "gss-metrics.h"
@@ -53,7 +53,7 @@ typedef void (GssFooterHtml) (GssServer *server, GString *s, void *priv);
 
 struct _GssServer
 {
-  GssObject object;
+  GssModule module;
 
   /* properties */
   gboolean enable_public_interface;
@@ -98,7 +98,7 @@ struct _GssServer
   GssFooterHtml *footer_html;
   void *footer_html_priv;
 
-  GList *admin_resources;
+  GList *modules;
   GList *featured_resources;
   char *archive_dir;
 
@@ -115,7 +115,7 @@ struct _GssServer
 
 struct _GssServerClass
 {
-  GssObjectClass object_class;
+  GssModuleClass module_class;
 
 };
 
@@ -160,9 +160,10 @@ void gss_server_add_static_resource (GssServer * server, const char *filename,
 void gss_server_add_string_resource (GssServer * server, const char *filename,
     GssResourceFlags flags, const char *content_type, const char *string);
 
-void gss_server_add_admin_resource (GssServer * server, GssResource *resource,
-    const char *name);
+void gss_server_add_module (GssServer * server, GssModule *module);
 void gss_server_add_featured_resource (GssServer * server, GssResource *resource,
+    const char *name);
+void gss_server_create_module (GssServer *server, GssConfig *config, GType type,
     const char *name);
 
 void gss_server_add_resource_simple (GssServer * server, GssResource * r);

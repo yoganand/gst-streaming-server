@@ -40,7 +40,7 @@ G_BEGIN_DECLS
     (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_PLAYREADY))
 
 struct _GssPlayready {
-  GssObject object;
+  GssModule module;
 
   /* properties */
   char *license_url;
@@ -51,7 +51,7 @@ struct _GssPlayready {
 
 struct _GssPlayreadyClass
 {
-  GssObjectClass object_class;
+  GssModuleClass module_class;
 
 };
 
@@ -62,7 +62,6 @@ void gss_playready_set_key_seed_hex (GssPlayready *playready, const char *key_se
 char * gss_playready_get_key_seed_hex (GssPlayready *playready);
 void gss_playready_generate_key (GssPlayready *playready, guint8 *key,
         const guint8 * kid, int kid_len);
-void gss_playready_add_resources (GssPlayready * playready, GssServer * server);
 
 void gss_playready_setup (GssServer * server);
 gsize gss_playready_get_protection_header (GssAdaptive * adaptive,

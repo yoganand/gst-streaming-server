@@ -50,8 +50,9 @@ static void gss_vod_get_resource (GssTransaction * t);
 static void gss_vod_post_resource (GssTransaction * t);
 static void gss_vod_get_adaptive_resource (GssTransaction * t);
 static GssAdaptive *gss_vod_get_adaptive (GssVod * vod, const char *key);
+static void gss_vod_attach (GssObject * object, GssServer * server);
 
-G_DEFINE_TYPE (GssVod, gss_vod, GSS_TYPE_OBJECT);
+G_DEFINE_TYPE (GssVod, gss_vod, GSS_TYPE_MODULE);
 
 static GObjectClass *parent_class;
 
@@ -68,6 +69,8 @@ gss_vod_class_init (GssVodClass * vod_class)
   G_OBJECT_CLASS (vod_class)->set_property = gss_vod_set_property;
   G_OBJECT_CLASS (vod_class)->get_property = gss_vod_get_property;
   G_OBJECT_CLASS (vod_class)->finalize = gss_vod_finalize;
+
+  GSS_OBJECT_CLASS (vod_class)->attach = gss_vod_attach;
 
   g_object_class_install_property (G_OBJECT_CLASS (vod_class),
       PROP_ENDPOINT, g_param_spec_string ("endpoint", "Endpoint",
@@ -180,19 +183,20 @@ gss_vod_new (void)
   return vod;
 }
 
-void
-gss_vod_add_resources (GssVod * vod, GssServer * server)
+static void
+gss_vod_attach (GssObject * object, GssServer * server)
 {
+  GssVod *vod = GSS_VOD (object);
   GssResource *r;
 
-  GSS_OBJECT_SERVER (vod) = server;
+  r = gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/vod",
+      GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_vod_get_resource, NULL,
+      gss_vod_post_resource, vod);
+  gss_module_set_admin_resource (GSS_MODULE (vod), r);
 
-  r = gss_server_add_resource (server, "/admin/vod", GSS_RESOURCE_ADMIN,
-      GSS_TEXT_HTML, gss_vod_get_resource, NULL, gss_vod_post_resource, vod);
-  gss_server_add_admin_resource (server, r, "Video On Demand");
-
-  gss_server_add_resource (server, "/vod/", GSS_RESOURCE_PREFIX,
-      NULL, gss_vod_get_adaptive_resource, NULL, NULL, vod);
+  gss_server_add_resource (GSS_OBJECT_SERVER (object), "/vod/",
+      GSS_RESOURCE_PREFIX, NULL, gss_vod_get_adaptive_resource, NULL, NULL,
+      vod);
 
 }
 

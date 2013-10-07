@@ -47,8 +47,9 @@ static void gss_manager_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 static void gss_manager_get_resource (GssTransaction * t);
 static void gss_manager_post_resource (GssTransaction * t);
+static void gss_manager_attach (GssObject * object, GssServer * server);
 
-G_DEFINE_TYPE (GssManager, gss_manager, GSS_TYPE_OBJECT);
+G_DEFINE_TYPE (GssManager, gss_manager, GSS_TYPE_MODULE);
 
 static GObjectClass *parent_class;
 
@@ -64,6 +65,8 @@ gss_manager_class_init (GssManagerClass * manager_class)
   G_OBJECT_CLASS (manager_class)->set_property = gss_manager_set_property;
   G_OBJECT_CLASS (manager_class)->get_property = gss_manager_get_property;
   G_OBJECT_CLASS (manager_class)->finalize = gss_manager_finalize;
+
+  GSS_OBJECT_CLASS (manager_class)->attach = gss_manager_attach;
 
   g_object_class_install_property (G_OBJECT_CLASS (manager_class),
       PROP_FOLLOW_HOSTS, g_param_spec_string ("follow-hosts", "Follow Hosts",
@@ -142,15 +145,16 @@ gss_manager_new (void)
   return manager;
 }
 
-void
-gss_manager_add_resources (GssManager * manager, GssServer * server)
+static void
+gss_manager_attach (GssObject * object, GssServer * server)
 {
+  GssManager *manager = GSS_MANAGER (object);
   GssResource *r;
 
-  r = gss_server_add_resource (server, "/admin/manager", GSS_RESOURCE_ADMIN,
-      GSS_TEXT_HTML, gss_manager_get_resource, NULL, gss_manager_post_resource,
-      manager);
-  gss_server_add_admin_resource (server, r, "Manager");
+  r = gss_server_add_resource (GSS_OBJECT_SERVER (object), "/admin/manager",
+      GSS_RESOURCE_ADMIN, GSS_TEXT_HTML, gss_manager_get_resource, NULL,
+      gss_manager_post_resource, manager);
+  gss_module_set_admin_resource (GSS_MODULE (manager), r);
 
 }
 

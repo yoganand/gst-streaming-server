@@ -72,10 +72,6 @@ static GOptionEntry entries[] = {
 
 GssConfig *config;
 GssServer *server;
-GssUser *user;
-GssVod *vod;
-GssPlayready *pr;
-GssManager *manager;
 GMainLoop *main_loop;
 
 static void G_GNUC_NORETURN
@@ -184,24 +180,10 @@ main (int argc, char *argv[])
 
   gss_config_add_server_resources (server);
 
-  user = (GssUser *) gss_config_create_object (config, GSS_TYPE_USER,
-      "admin.user");
-  g_assert (user);
-  gss_user_add_resources (user, server);
-
-  manager = (GssManager *) gss_config_create_object (config, GSS_TYPE_MANAGER,
-      "admin.manager");
-  g_assert (manager);
-  gss_manager_add_resources (manager, server);
-
-  vod = (GssVod *) gss_config_create_object (config, GSS_TYPE_VOD, "admin.vod");
-  g_assert (vod);
-  gss_vod_add_resources (vod, server);
-
-  pr = (GssPlayready *) gss_config_create_object (config, GSS_TYPE_PLAYREADY,
-      "admin.pr");
-  g_assert (pr);
-  gss_playready_add_resources (pr, server);
+  gss_server_create_module (server, config, GSS_TYPE_USER, "admin.user");
+  gss_server_create_module (server, config, GSS_TYPE_MANAGER, "admin.manager");
+  gss_server_create_module (server, config, GSS_TYPE_VOD, "admin.vod");
+  gss_server_create_module (server, config, GSS_TYPE_PLAYREADY, "admin.pr");
 
   for (i = 0; i < 1; i++) {
     char *key;
@@ -227,8 +209,6 @@ main (int argc, char *argv[])
   main_loop = NULL;
 
   GSS_CLEANUP (server);
-  GSS_CLEANUP (user);
-  GSS_CLEANUP (manager);
 
   gss_deinit ();
   gst_deinit ();
