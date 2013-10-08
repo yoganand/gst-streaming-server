@@ -500,7 +500,7 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
             fragment->moof_size, fragment->mdat_size)) {
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (drm_type != GSS_DRM_CLEAR && i > 0) {
+      if (drm_type != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }
@@ -734,7 +734,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
       guint8 *mdat_data;
 
       mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (drm_type != GSS_DRM_CLEAR && start_time > 0) {
+      if (drm_type != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
             adaptive->content_key);
       }

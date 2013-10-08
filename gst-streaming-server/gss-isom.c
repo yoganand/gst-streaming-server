@@ -2363,21 +2363,18 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
   if (0)
     gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
 
-  if (fragment->timestamp > 0) {
-    if (is_ism) {
-      gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
-    } else {
-      int offset_table;
-      int *sizes;
+  if (is_ism) {
+    gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+  } else {
+    int offset_table;
+    int *sizes;
 
-      sizes =
-          g_malloc (sizeof (int) * fragment->sample_encryption.sample_count);
-      gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
-          bw, sizes, &offset_table);
-      gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
-      gss_isom_saio_serialize (&fragment->saio, bw, offset_table);
-      g_free (sizes);
-    }
+    sizes = g_malloc (sizeof (int) * fragment->sample_encryption.sample_count);
+    gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
+        bw, sizes, &offset_table);
+    gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
+    gss_isom_saio_serialize (&fragment->saio, bw, offset_table);
+    g_free (sizes);
   }
 
   BOX_FINISH (bw, offset);
