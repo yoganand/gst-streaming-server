@@ -2354,17 +2354,19 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
   gss_isom_tfhd_serialize (&fragment->tfhd, bw);
-  gss_isom_tfdt_serialize (&fragment->tfdt, bw);
+  if (0)
+    gss_isom_tfdt_serialize (&fragment->tfdt, bw);
   gss_isom_trun_serialize (&fragment->trun, bw);
   if (0 && is_video) {
     gss_isom_avcn_serialize (&fragment->avcn, bw);
     gss_isom_trik_serialize (&fragment->trik, bw);
   }
-  if (0)
+  if (1)
     gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
 
   if (is_ism) {
-    gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+    if (1)
+      gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
   } else {
     int offset_table;
     int *sizes;
