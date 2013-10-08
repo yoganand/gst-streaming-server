@@ -903,11 +903,13 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
       n = json_array_get_element (files_array, j);
       if (n == NULL)
         return FALSE;
-      obj = json_node_get_object (n);
-      if (obj) {
-        n = json_object_get_member (obj, "filename");
-        if (n == NULL)
-          return FALSE;
+      if (json_node_get_node_type (n) == JSON_NODE_OBJECT) {
+        obj = json_node_get_object (n);
+        if (obj) {
+          n = json_object_get_member (obj, "filename");
+          if (n == NULL)
+            return FALSE;
+        }
       }
       filename = json_node_get_string (n);
       if (filename == NULL)
