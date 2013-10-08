@@ -443,7 +443,6 @@ gss_playready_get_protection_header (GssAdaptive * adaptive,
       "<CUSTOMATTRIBUTES>"
       "<content_id>%s</content_id>"
       "%s%s%s"
-      "<IIS_DRM_VERSION>7.1.1064.0</IIS_DRM_VERSION>"
       "</CUSTOMATTRIBUTES>"
       "<LA_URL>%s</LA_URL>"
       "<DS_ID>AH+03juKbUGbHl1V/QIwRA==</DS_ID>"
