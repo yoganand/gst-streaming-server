@@ -399,6 +399,9 @@ gss_isom_parser_fixup (GssIsomParser * parser)
   int i;
   int j;
 
+  if (parser->movie == NULL)
+    return;
+
   for (j = 0; j < parser->movie->n_tracks; j++) {
     ts = 0;
     track = parser->movie->tracks[j];
@@ -949,9 +952,15 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
       se->samples[i].num_entries = 1;
       se->samples[i].entries = g_malloc0 (se->samples[i].num_entries *
           sizeof (GssBoxUUIDSampleEncryptionSampleEntry));
-      se->samples[i].entries[0].bytes_of_clear_data = 5;
-      se->samples[i].entries[0].bytes_of_encrypted_data =
-          trun->samples[i].size - 5;
+#define CLEAR 100
+      if (trun->samples[i].size >= CLEAR) {
+        se->samples[i].entries[0].bytes_of_clear_data = CLEAR;
+        se->samples[i].entries[0].bytes_of_encrypted_data =
+            trun->samples[i].size - CLEAR;
+      } else {
+        se->samples[i].entries[0].bytes_of_clear_data = trun->samples[i].size;
+        se->samples[i].entries[0].bytes_of_encrypted_data = 0;
+      }
     }
 
   }
