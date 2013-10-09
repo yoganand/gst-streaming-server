@@ -952,7 +952,7 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
       se->samples[i].num_entries = 1;
       se->samples[i].entries = g_malloc0 (se->samples[i].num_entries *
           sizeof (GssBoxUUIDSampleEncryptionSampleEntry));
-#define CLEAR 100
+#define CLEAR 1000
       if (trun->samples[i].size >= CLEAR) {
         se->samples[i].entries[0].bytes_of_clear_data = CLEAR;
         se->samples[i].entries[0].bytes_of_encrypted_data =
