@@ -2358,7 +2358,7 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gboolean is_video)
 {
   int offset;
-  gboolean is_ism = TRUE;
+  gboolean is_ism = FALSE;
 
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
