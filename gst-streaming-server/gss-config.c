@@ -25,6 +25,7 @@
 #include <gst/gstvalue.h>
 
 #include "gss-config.h"
+#include "gss-log.h"
 #include "gss-utils.h"
 #include "gss-server.h"
 #include "gss-html.h"
@@ -127,6 +128,7 @@ gss_config_get_property (GObject * object, guint prop_id,
 void
 gss_init (void)
 {
+  gss_log_init ();
 
 }
 

@@ -34,6 +34,7 @@ sources = \
 	gss-session.c \
 	gss-config.c \
 	gss-html.c \
+	gss-log.c \
 	gss-soup.c \
 	gss-metrics.c \
 	gss-content.c \
@@ -81,6 +82,7 @@ gss_include_HEADERS = \
 	gss-session.h \
 	gss-config.h \
 	gss-html.h \
+	gss-log.h \
 	gss-soup.h \
 	gss-rtsp.h \
 	gss-metrics.h \

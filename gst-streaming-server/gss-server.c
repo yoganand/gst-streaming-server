@@ -33,6 +33,7 @@
 #include "gss-vod.h"
 #include "gss-adaptive.h"
 #include "gss-playready.h"
+#include "gss-log.h"
 
 #define GST_CAT_DEFAULT gss_debug
 
@@ -106,9 +107,6 @@ static void gss_server_attach (GssObject * object, GssServer * x_server);
 
 
 static gboolean periodic_timer (gpointer data);
-
-
-GST_DEBUG_CATEGORY (gss_debug);
 
 
 G_DEFINE_TYPE (GssServer, gss_server, GSS_TYPE_MODULE);
@@ -330,8 +328,6 @@ gss_server_finalize (GObject * object)
 static void
 gss_server_class_init (GssServerClass * server_class)
 {
-  GST_DEBUG_CATEGORY_INIT (gss_debug, "gss", 0, "Streaming Server");
-
   soup_method_source = g_intern_static_string ("SOURCE");
 
   G_OBJECT_CLASS (server_class)->set_property = gss_server_set_property;
@@ -1160,6 +1156,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   }
   transaction->completion_time = g_get_real_time ();
 
+  gss_log_transaction (transaction);
   //gss_transaction_dump (transaction);
 
   g_free (transaction);
