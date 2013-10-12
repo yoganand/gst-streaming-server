@@ -41,7 +41,7 @@ gss_html_error_404 (GssServer * server, SoupMessage * msg)
   t.server = server;
   t.msg = msg;
   gss_html_header (&t);
-  GSS_A ("<h1>Error 404: Page not found</h1>\n");
+  GSS_A ("<h1>Error 404: Not found</h1>\n");
   gss_html_footer (&t);
 
   content = g_string_free (s, FALSE);
