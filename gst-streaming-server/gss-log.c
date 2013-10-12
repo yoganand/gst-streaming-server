@@ -48,7 +48,11 @@ log_handler (GstDebugCategory * category, GstDebugLevel level,
     const gchar * file, const gchar * function, gint line, GObject * object,
     GstDebugMessage * message, gpointer data)
 {
+#if GST_CHECK_VERSION(1,0,0)
+  static const char level_char[] = " EWFIDLT8M";
+#else
   static const char level_char[] = " EWIDLFTM";
+#endif
   char *s2;
 
   if (level > gst_debug_category_get_threshold (category))
@@ -162,15 +166,24 @@ gss_log_transaction (GssTransaction * t)
   }
   datetime = g_date_time_new_now_utc ();
   dt = g_date_time_format (datetime, "%Y-%m-%d %H:%M:%S");
-  s = g_strdup_printf ("%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
-      soup_address_get_physical (soup_client_context_get_address (t->client)),
-      dt,
-      t->msg->method,
-      t->path,
-      "HTTP/1.1",
-      t->msg->status_code,
-      (int) t->msg->response_body->length, "-", user_agent);
+  if (0) {
+    s = g_strdup_printf ("%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
+        soup_address_get_physical (soup_client_context_get_address (t->client)),
+        dt,
+        t->msg->method,
+        t->path,
+        "HTTP/1.1",
+        t->msg->status_code,
+        (int) t->msg->response_body->length, "-", user_agent);
+  } else {
+    s = g_strdup_printf ("%s %s %s \"%s\" %d %" G_GSIZE_FORMAT " %"
+        G_GUINT64_FORMAT,
+        soup_address_get_physical (soup_client_context_get_address (t->client)),
+        dt, t->msg->method, t->path, t->msg->status_code,
+        t->msg->response_body->length, t->finish_time - t->start_time);
+  }
   syslog (LOG_USER | LOG_INFO, "%s", s);
+  g_print ("%s\n", s);
   g_free (s);
   g_free (dt);
   g_date_time_unref (datetime);
