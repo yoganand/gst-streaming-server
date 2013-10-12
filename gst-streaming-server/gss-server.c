@@ -1102,16 +1102,10 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
         "must-revalidate");
   }
 
-  transaction = g_new0 (GssTransaction, 1);
-  transaction->server = server;
-  transaction->soupserver = soupserver;
-  transaction->msg = msg;
-  transaction->path = path;
-  transaction->query = query;
-  transaction->client = client;
+  transaction = gss_transaction_new (server, soupserver, msg, path,
+      query, client);
   transaction->resource = resource;
   transaction->session = session;
-  transaction->start_time = g_get_real_time ();
 
   if (resource->flags & GSS_RESOURCE_HTTP_ONLY) {
     if (soupserver != server->server) {
@@ -1159,7 +1153,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   gss_log_transaction (transaction);
   //gss_transaction_dump (transaction);
 
-  g_free (transaction);
+  gss_transaction_free (transaction);
 }
 
 static void

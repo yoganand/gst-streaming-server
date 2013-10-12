@@ -27,6 +27,31 @@
 #include <json-glib/json-glib.h>
 
 
+GssTransaction *
+gss_transaction_new (GssServer * server, SoupServer * soupserver,
+    SoupMessage * msg, const char *path, GHashTable * query,
+    SoupClientContext * client)
+{
+  GssTransaction *transaction;
+
+  transaction = g_new0 (GssTransaction, 1);
+  transaction->server = server;
+  transaction->soupserver = soupserver;
+  transaction->msg = msg;
+  transaction->path = path;
+  transaction->query = query;
+  transaction->client = client;
+  transaction->start_time = g_get_real_time ();
+
+  return transaction;
+}
+
+void
+gss_transaction_free (GssTransaction * transaction)
+{
+  g_free (transaction);
+}
+
 void
 gss_transaction_redirect (GssTransaction * t, const char *target)
 {
