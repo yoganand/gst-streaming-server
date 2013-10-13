@@ -177,10 +177,11 @@ gss_log_transaction (GssTransaction * t)
         (int) t->msg->response_body->length, "-", user_agent);
   } else {
     s = g_strdup_printf ("%s %s %s \"%s\" %d %" G_GSIZE_FORMAT " %"
-        G_GUINT64_FORMAT,
+        G_GUINT64_FORMAT " %s",
         soup_address_get_physical (soup_client_context_get_address (t->client)),
         dt, t->msg->method, t->path, t->msg->status_code,
-        t->msg->response_body->length, t->finish_time - t->start_time);
+        t->msg->response_body->length, t->finish_time - t->start_time,
+        t->debug_message ? t->debug_message : "");
   }
   syslog (LOG_USER | LOG_INFO, "%s", s);
   g_print ("%s\n", s);
