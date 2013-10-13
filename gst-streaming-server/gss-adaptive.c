@@ -77,7 +77,10 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
-    gss_transaction_error_not_found (t, "file not found (broken manifest?)");
+    GST_WARNING ("failed to open \"%s\", error=\"%s\", broken manifest?",
+        level->filename, g_strerror (errno));
+    gss_transaction_error_not_found (t,
+        "failed to open file (broken manifest?)");
     return NULL;
   }
 
@@ -91,6 +94,9 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
         i, fragment->chunks[i].offset, fragment->chunks[i].size);
     ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
     if (ret < 0) {
+      GST_WARNING ("failed to seek to %" G_GUINT64_FORMAT
+          " on file \"%s\", error=\"%s\"", fragment->chunks[i].offset,
+          level->filename, g_strerror (errno));
       gss_transaction_error_not_found (t, "failed to seek on file");
       close (fd);
       return NULL;
@@ -98,7 +104,11 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 
     n = read (fd, mdat_data + offset, fragment->chunks[i].size);
     if (n < fragment->chunks[i].size) {
-      gss_transaction_error_not_found (t, "failed to read on file");
+      GST_WARNING ("failed to read %" G_GUINT64_FORMAT " bytes at %"
+          G_GUINT64_FORMAT " from file \"%s\", error=\"%s\"",
+          fragment->chunks[i].size,
+          fragment->chunks[i].offset, level->filename, g_strerror (errno));
+      gss_transaction_error_not_found (t, "failed to read file");
       g_free (mdat_data);
       close (fd);
       return NULL;
@@ -943,7 +953,7 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
   filename = g_strdup_printf ("%s/gss-manifest", dir);
   ret = json_parser_load_from_file (parser, filename, &error);
   if (!ret) {
-    GST_ERROR ("failed to open %s", filename);
+    GST_DEBUG ("failed to open %s", filename);
     g_free (filename);
     g_object_unref (parser);
     g_error_free (error);
@@ -968,7 +978,7 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir)
   if (!ret) {
     gss_adaptive_free (adaptive);
     g_object_unref (parser);
-    GST_ERROR ("json format error in %s/gss-manifest", dir);
+    GST_WARNING ("json format error in %s/gss-manifest", dir);
     return NULL;
   }
 

@@ -323,7 +323,7 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
 
   adaptive = gss_vod_get_adaptive (vod, key);
   if (adaptive == NULL) {
-    GST_ERROR ("failed to load %s", key);
+    GST_DEBUG ("failed to load %s", key);
     g_free (key);
     g_free (content_version);
     gss_transaction_error_not_found (t, "failed to load");
