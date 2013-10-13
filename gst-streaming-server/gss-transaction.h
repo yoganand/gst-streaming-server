@@ -41,15 +41,18 @@ struct _GssTransaction {
   GssSession *session;
   GString *s;
   GString *script;
+  const char *debug_message;
   int id;
   guint64 start_time;
   guint64 completion_time;
+  guint64 finish_time;
 };
 
 GssTransaction * gss_transaction_new (GssServer *server,
     SoupServer * soupserver, SoupMessage * msg, const char *path,
     GHashTable * query, SoupClientContext * client);
 void gss_transaction_free (GssTransaction *transaction);
+void gss_transaction_error_not_found (GssTransaction *t, const char *reason);
 void gss_transaction_redirect (GssTransaction * t, const char *target);
 void gss_transaction_error (GssTransaction * t, const char *message);
 void gss_transaction_delay (GssTransaction *t, int msec);

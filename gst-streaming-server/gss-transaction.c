@@ -22,9 +22,13 @@
 
 #include "gss-html.h"
 #include "gss-transaction.h"
+#include "gss-log.h"
 
 #include <string.h>
 #include <json-glib/json-glib.h>
+
+static void gss_transaction_finalize (GssTransaction * t, SoupMessage * msg);
+static void gss_transaction_finished (SoupMessage * msg, GssTransaction * t);
 
 
 GssTransaction *
@@ -43,6 +47,11 @@ gss_transaction_new (GssServer * server, SoupServer * soupserver,
   transaction->client = client;
   transaction->start_time = g_get_real_time ();
 
+  g_signal_connect (msg, "finished", G_CALLBACK (gss_transaction_finished),
+      transaction);
+  g_object_weak_ref (G_OBJECT (msg), (GWeakNotify) (gss_transaction_finalize),
+      transaction);
+
   return transaction;
 }
 
@@ -50,6 +59,50 @@ void
 gss_transaction_free (GssTransaction * transaction)
 {
   g_free (transaction);
+}
+
+static void
+gss_transaction_finished (SoupMessage * msg, GssTransaction * t)
+{
+  t->finish_time = g_get_real_time ();
+
+  gss_log_transaction (t);
+  g_object_weak_unref (G_OBJECT (t->msg),
+      (GWeakNotify) (gss_transaction_finalize), t);
+  gss_transaction_free (t);
+}
+
+static void
+gss_transaction_finalize (GssTransaction * t, SoupMessage * msg)
+{
+  GST_ERROR ("message being finalized that was never completed");
+}
+
+void
+gss_transaction_error_not_found (GssTransaction * t, const char *reason)
+{
+  char *content;
+
+  t->debug_message = reason;
+  if (t->server->enable_public_interface) {
+    GString *s;
+    t->s = g_string_new ("");
+    s = t->s;
+    gss_html_header (t);
+    GSS_A ("<h1>Error 404: Not found</h1>\n");
+    gss_html_footer (t);
+
+    content = g_string_free (s, FALSE);
+    soup_message_set_response (t->msg, GSS_TEXT_HTML, SOUP_MEMORY_TAKE,
+        content, strlen (content));
+    t->s = NULL;
+  } else {
+    content = g_strdup_printf ("404 Not found\n");
+    soup_message_set_response (t->msg, GSS_TEXT_PLAIN, SOUP_MEMORY_TAKE,
+        content, strlen (content));
+  }
+
+  soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
 }
 
 void

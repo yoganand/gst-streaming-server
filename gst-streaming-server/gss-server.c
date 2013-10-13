@@ -1014,30 +1014,32 @@ gss_server_get_multifdsink_string (void)
       "sync-method=burst-keyframe " "burst-value=3000000000";
 }
 
+static GssResource *
+gss_server_lookup_resource (GssServer * server, const char *path)
+{
+  int i;
+
+  for (i = 0; i < server->n_prefix_resources; i++) {
+    if (g_str_has_prefix (path, server->prefix_resources[i]->location)) {
+      return server->prefix_resources[i];
+    }
+  }
+
+  return g_hash_table_lookup (server->resources, path);
+}
+
 static void
 gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     const char *path, GHashTable * query, SoupClientContext * client,
     gpointer user_data)
 {
   GssServer *server = (GssServer *) user_data;
-  GssResource *resource;
-  GssTransaction *transaction;
+  GssTransaction *t;
   GssSession *session;
-  int i;
 
-  //GST_ERROR ("%s %s", msg->method, path);
+  t = gss_transaction_new (server, soupserver, msg, path, query, client);
 
-  resource = NULL;
-  for (i = 0; i < server->n_prefix_resources; i++) {
-    if (g_str_has_prefix (path, server->prefix_resources[i]->location)) {
-      resource = server->prefix_resources[i];
-      break;
-    }
-  }
-
-  if (!resource) {
-    resource = g_hash_table_lookup (server->resources, path);
-  }
+  t->resource = gss_server_lookup_resource (server, path);
 
   if (!resource) {
     GST_ERROR ("404 %s %s", msg->method, path);
@@ -1045,14 +1047,14 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     return;
   }
 
-  if (resource->flags & GSS_RESOURCE_UI) {
+  if (t->resource->flags & GSS_RESOURCE_UI) {
     if (!server->enable_public_interface && soupserver == server->server) {
       gss_html_error_404 (server, msg);
       return;
     }
   }
 
-  if (resource->flags & GSS_RESOURCE_HTTPS_ONLY) {
+  if (t->resource->flags & GSS_RESOURCE_HTTPS_ONLY) {
     if (soupserver != server->ssl_server) {
       gss_html_error_404 (server, msg);
       return;
@@ -1060,20 +1062,20 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   }
 
   session = gss_session_get_session (query);
-
-  if (resource->flags & GSS_RESOURCE_USER) {
-    if (session == NULL) {
-      gss_html_error_404 (server, msg);
-      return;
-    }
-  }
-
   if (session && soupserver != server->ssl_server) {
     gss_session_invalidate (session);
     session = NULL;
   }
 
-  if (resource->flags & GSS_RESOURCE_ADMIN) {
+  if (t->resource->flags & GSS_RESOURCE_USER) {
+    if (session == NULL) {
+      gss_html_error_404 (server, msg);
+      return;
+    }
+  }
+  t->session = session;
+
+  if (t->resource->flags & GSS_RESOURCE_ADMIN) {
     if (session == NULL || !session->is_admin ||
         !gss_addr_range_list_check_address (server->admin_arl,
             soup_client_context_get_address (client))) {
@@ -1082,18 +1084,18 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     }
   }
 
-  if (resource->content_type) {
+  if (t->resource->content_type) {
     soup_message_headers_replace (msg->response_headers, "Content-Type",
-        resource->content_type);
+        t->resource->content_type);
   }
 
-  if (resource->etag) {
+  if (t->resource->etag) {
     const char *inm;
 
     soup_message_headers_append (msg->response_headers, "Cache-Control",
         "max-age=86400");
     inm = soup_message_headers_get_one (msg->request_headers, "If-None-Match");
-    if (inm && !strcmp (inm, resource->etag)) {
+    if (inm && !strcmp (inm, t->resource->etag)) {
       soup_message_set_status (msg, SOUP_STATUS_NOT_MODIFIED);
       return;
     }
@@ -1102,15 +1104,10 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
         "must-revalidate");
   }
 
-  transaction = gss_transaction_new (server, soupserver, msg, path,
-      query, client);
-  transaction->resource = resource;
-  transaction->session = session;
 
-  if (resource->flags & GSS_RESOURCE_HTTP_ONLY) {
+  if (t->resource->flags & GSS_RESOURCE_HTTP_ONLY) {
     if (soupserver != server->server) {
-      gss_resource_onetime_redirect (transaction);
-      g_free (transaction);
+      gss_resource_onetime_redirect (t);
       return;
     }
   }
@@ -1118,14 +1115,14 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
   soup_message_set_status (msg, SOUP_STATUS_OK);
 
   if ((msg->method == SOUP_METHOD_GET || msg->method == SOUP_METHOD_HEAD)
-      && resource->get_callback) {
-    resource->get_callback (transaction);
-  } else if (msg->method == SOUP_METHOD_PUT && resource->put_callback) {
-    resource->put_callback (transaction);
-  } else if (msg->method == SOUP_METHOD_POST && resource->post_callback) {
-    resource->post_callback (transaction);
-  } else if (msg->method == SOUP_METHOD_SOURCE && resource->put_callback) {
-    resource->put_callback (transaction);
+      && t->resource->get_callback) {
+    t->resource->get_callback (t);
+  } else if (msg->method == SOUP_METHOD_PUT && t->resource->put_callback) {
+    t->resource->put_callback (t);
+  } else if (msg->method == SOUP_METHOD_POST && t->resource->post_callback) {
+    t->resource->post_callback (t);
+  } else if (msg->method == SOUP_METHOD_SOURCE && t->resource->put_callback) {
+    t->resource->put_callback (t);
   } else if (msg->method == SOUP_METHOD_OPTIONS) {
     soup_message_headers_replace (msg->response_headers,
         "Access-Control-Allow-Origin", "*");
@@ -1139,21 +1136,15 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     gss_html_error_405 (server, msg);
   }
 
-  if (transaction->s) {
+  if (t->s) {
     int len;
     gchar *content;
 
-    len = transaction->s->len;
-    content = g_string_free (transaction->s, FALSE);
+    len = t->s->len;
+    content = g_string_free (t->s, FALSE);
     soup_message_body_append (msg->response_body, SOUP_MEMORY_TAKE,
         content, len);
   }
-  transaction->completion_time = g_get_real_time ();
-
-  gss_log_transaction (transaction);
-  //gss_transaction_dump (transaction);
-
-  gss_transaction_free (transaction);
 }
 
 static void
