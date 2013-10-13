@@ -77,8 +77,7 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 
   fd = open (level->filename, O_RDONLY);
   if (fd < 0) {
-    GST_WARNING ("file not found %s", level->filename);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "file not found (broken manifest?)");
     return NULL;
   }
 
@@ -92,17 +91,15 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
         i, fragment->chunks[i].offset, fragment->chunks[i].size);
     ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
     if (ret < 0) {
-      GST_WARNING ("failed to seek");
-      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      gss_transaction_error_not_found (t, "failed to seek on file");
       close (fd);
       return NULL;
     }
 
     n = read (fd, mdat_data + offset, fragment->chunks[i].size);
     if (n < fragment->chunks[i].size) {
-      GST_WARNING ("read failed");
+      gss_transaction_error_not_found (t, "failed to read on file");
       g_free (mdat_data);
-      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
       close (fd);
       return NULL;
     }
@@ -668,25 +665,29 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
   //GST_ERROR ("content request");
 
   if (t->query == NULL) {
-    GST_ERROR ("no query");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "no smooth streaming query");
     return;
   }
 
   stream = g_hash_table_lookup (t->query, "stream");
+  if (stream == NULL) {
+    gss_transaction_error_not_found (t, "missing stream parameterr");
+    return;
+  }
   start_time_str = g_hash_table_lookup (t->query, "start_time");
+  if (start_time_str == NULL) {
+    gss_transaction_error_not_found (t, "missing start_time parameter");
+    return;
+  }
   bitrate_str = g_hash_table_lookup (t->query, "bitrate");
-
-  if (stream == NULL || start_time_str == NULL || bitrate_str == NULL) {
-    GST_ERROR ("missing parameter");
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+  if (bitrate_str == NULL) {
+    gss_transaction_error_not_found (t, "missing bitrate parameter");
     return;
   }
 
   ret = parse_guint64 (bitrate_str, &bitrate);
   if (!ret) {
-    GST_ERROR ("bad bitrate %s", bitrate_str);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "bitrate is not a number");
     return;
   }
 
@@ -697,22 +698,21 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
     is_init = FALSE;
     ret = parse_guint64 (start_time_str, &start_time);
     if (!ret) {
-      GST_ERROR ("bad start_time %s", start_time_str);
-      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      gss_transaction_error_not_found (t,
+          "start_time is not a number or \"init\"");
       return;
     }
   }
 
   if (strcmp (stream, "audio") != 0 && strcmp (stream, "video") != 0) {
-    GST_ERROR ("bad stream %s", stream);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "stream is not \"audio\" or \"video\"");
     return;
   }
 
   level = gss_adaptive_get_level (adaptive, (stream[0] == 'v'), bitrate);
   if (level == NULL) {
-    GST_ERROR ("no level for %s, %" G_GUINT64_FORMAT, stream, bitrate);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t,
+        "level not found for stream and bitrate");
     return;
   }
 
@@ -723,8 +723,7 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive,
     fragment = gss_isom_track_get_fragment_by_timestamp (level->track,
         start_time);
     if (fragment == NULL) {
-      GST_ERROR ("no fragment for %" G_GUINT64_FORMAT, start_time);
-      soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+      gss_transaction_error_not_found (t, "fragment not found for start_time");
       return;
     }
     //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
@@ -1215,15 +1214,13 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
   drm = chomp (&path);
   drm_type = gss_drm_get_drm_type (drm);
   if (drm_type == GSS_DRM_UNKNOWN) {
-    GST_ERROR ("unknown drm type: %s", drm);
     g_free (drm);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "invalid drm type");
     return;
   }
   if (drm_type == GSS_DRM_CLEAR && !t->server->playready->allow_clear) {
-    GST_ERROR ("clear streaming disabled");
     g_free (drm);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "clear streaming disabled");
     return;
   }
   g_free (drm);
@@ -1231,9 +1228,8 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
   stream = chomp (&path);
   stream_type = gss_adaptive_get_stream_type (stream);
   if (stream_type == GSS_ADAPTIVE_STREAM_UNKNOWN) {
-    GST_ERROR ("unknown stream type: %s", stream);
     g_free (stream);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "invalid stream type");
     return;
   }
   g_free (stream);
@@ -1276,8 +1272,7 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
   }
 
   if (failed) {
-    GST_ERROR ("not found: %s, %s", t->path, path);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "invalid path for stream type");
   }
 }
 

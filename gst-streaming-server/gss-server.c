@@ -1041,22 +1041,21 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
 
   t->resource = gss_server_lookup_resource (server, path);
 
-  if (!resource) {
-    GST_ERROR ("404 %s %s", msg->method, path);
-    gss_html_error_404 (server, msg);
+  if (!t->resource) {
+    gss_transaction_error_not_found (t, "resource not found");
     return;
   }
 
   if (t->resource->flags & GSS_RESOURCE_UI) {
     if (!server->enable_public_interface && soupserver == server->server) {
-      gss_html_error_404 (server, msg);
+      gss_transaction_error_not_found (t, "public interface disabled");
       return;
     }
   }
 
   if (t->resource->flags & GSS_RESOURCE_HTTPS_ONLY) {
     if (soupserver != server->ssl_server) {
-      gss_html_error_404 (server, msg);
+      gss_transaction_error_not_found (t, "resource https only");
       return;
     }
   }
@@ -1069,7 +1068,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
 
   if (t->resource->flags & GSS_RESOURCE_USER) {
     if (session == NULL) {
-      gss_html_error_404 (server, msg);
+      gss_transaction_error_not_found (t, "resource requires login");
       return;
     }
   }
@@ -1381,8 +1380,7 @@ gss_asset_get_resource (GssTransaction * t)
   ret = g_file_get_contents (filename, &contents, &size, &error);
   if (!ret) {
     g_error_free (error);
-    GST_WARNING ("missing file %s", filename);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "file not found for asset");
     return;
   }
 

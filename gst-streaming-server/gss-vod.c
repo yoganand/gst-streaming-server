@@ -309,17 +309,15 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
   if (!content_version[0] ||
       !g_ascii_isxdigit (content_version[0]) || content_version[1] != 0) {
     g_free (key);
-    GST_ERROR ("invalid content version: %s", content_version);
     g_free (content_version);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "invalid content version");
     return;
   }
 
   if (g_ascii_xdigit_value (content_version[0]) != 0) {
     g_free (key);
-    GST_ERROR ("unavailable content version: %s", content_version);
     g_free (content_version);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "unavailable content version");
     return;
   }
 
@@ -328,7 +326,7 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
     GST_ERROR ("failed to load %s", key);
     g_free (key);
     g_free (content_version);
-    soup_message_set_status (t->msg, SOUP_STATUS_NOT_FOUND);
+    gss_transaction_error_not_found (t, "failed to load");
     return;
   }
   g_free (key);
