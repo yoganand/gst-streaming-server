@@ -5,7 +5,7 @@
     <ew:title></ew:title>
     <ew:license-url>http://playready.directtaps.net/pr/svc/rightsmanager.asmx</ew:license-url>
     <ew:key-seed>5d5068bec9b384ff6044867159f16d6b755544fcd5116989b1acc4278e88</ew:key-seed>
-    <ew:allow-clear>true</ew:allow-clear>
+    <ew:allow-clear>false</ew:allow-clear>
   </ew:playready>
   <ew:vod>
     <ew:name>admin.vod</ew:name>
@@ -26,29 +26,13 @@
     <ew:users></ew:users>
     <ew:admin-password0></ew:admin-password0>
     <ew:admin-password1></ew:admin-password1>
-    <ew:permanent-sessions>00000000</ew:permanent-sessions>
+    <ew:permanent-sessions></ew:permanent-sessions>
   </ew:user>
   <ew:server>
     <ew:name>admin.server</ew:name>
     <ew:title>GStreamer Streaming Server</ew:title>
     <ew:enable-public-interface>true</ew:enable-public-interface>
-    <ew:server-hostname>ginger</ew:server-hostname>
-    <ew:max-connections>10000</ew:max-connections>
-    <ew:max-rate>100000</ew:max-rate>
-    <ew:admin-hosts-allow>0.0.0.0/0</ew:admin-hosts-allow>
-    <ew:kiosk-hosts-allow></ew:kiosk-hosts-allow>
-    <ew:admin-token>f09e5ebc80c348d2ccf8a59a8cd37827</ew:admin-token>
-    <ew:enable-html5-video>true</ew:enable-html5-video>
-    <ew:enable-cortado>false</ew:enable-cortado>
-    <ew:enable-flash>true</ew:enable-flash>
-    <ew:enable-vod>false</ew:enable-vod>
-    <ew:archive-dir>/mnt/sdb1</ew:archive-dir>
-  </ew:server>
-  <ew:server>
-    <ew:name>admin.server</ew:name>
-    <ew:title>GStreamer Streaming Server</ew:title>
-    <ew:enable-public-interface>true</ew:enable-public-interface>
-    <ew:server-hostname>ginger</ew:server-hostname>
+    <ew:server-hostname>meeper</ew:server-hostname>
     <ew:max-connections>10000</ew:max-connections>
     <ew:max-rate>100000</ew:max-rate>
     <ew:admin-hosts-allow>0.0.0.0/0</ew:admin-hosts-allow>
