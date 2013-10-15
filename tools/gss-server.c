@@ -184,7 +184,7 @@ main (int argc, char *argv[])
   gss_server_create_module (server, config, GSS_TYPE_VOD, "admin.vod");
   gss_server_create_module (server, config, GSS_TYPE_PLAYREADY, "admin.pr");
 
-  for (i = 0; i < 1; i++) {
+  for (i = 0; i < 0; i++) {
     char *key;
 
     key = g_strdup_printf ("stream%d", i);
