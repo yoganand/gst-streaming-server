@@ -144,6 +144,8 @@ gss_config_attach (GssConfig * config, GObject * object)
   g_return_if_fail (GSS_IS_CONFIG (config));
   g_return_if_fail (G_IS_OBJECT (object));
 
+  g_return_if_fail (g_object_get_data (object, "GssConfig") == NULL);
+
   /* FIXME need a detach */
 
   g_object_set_data (object, "GssConfig", config);
@@ -1050,10 +1052,10 @@ gss_config_load_object (GssConfig * config, GObject * object, const char *name)
   g_return_if_fail (G_IS_OBJECT (object));
   g_return_if_fail (name != NULL);
 
+  gss_config_attach (config, object);
+
   if (config->doc == NULL)
     return;
-
-  gss_config_attach (config, object);
 
   type_name = get_xml_class_name (G_OBJECT_TYPE_NAME (object));
 

@@ -164,7 +164,6 @@ main (int argc, char *argv[])
       "http-port", http_port, "https-port", https_port,
       "title", "GStreamer Streaming Server", NULL);
   gss_config_load_object (config, G_OBJECT (server), "admin.server");
-  gss_config_attach (config, G_OBJECT (server));
 
   if (enable_daemon)
     daemonize ();
