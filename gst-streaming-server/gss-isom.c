@@ -949,18 +949,16 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
     /* This actually is for just H.264, not all video */
     se->flags |= 0x0002;
     for (i = 0; i < n_samples; i++) {
+      int clear_bytes;
       se->samples[i].num_entries = 1;
       se->samples[i].entries = g_malloc0 (se->samples[i].num_entries *
           sizeof (GssBoxUUIDSampleEncryptionSampleEntry));
-#define CLEAR 1000
-      if (trun->samples[i].size >= CLEAR) {
-        se->samples[i].entries[0].bytes_of_clear_data = CLEAR;
-        se->samples[i].entries[0].bytes_of_encrypted_data =
-            trun->samples[i].size - CLEAR;
-      } else {
-        se->samples[i].entries[0].bytes_of_clear_data = trun->samples[i].size;
-        se->samples[i].entries[0].bytes_of_encrypted_data = 0;
-      }
+      /* x264 header is around 750 bytes */
+      clear_bytes = (fragment->timestamp == 0 && i == 0) ? 1000 : 16;
+      clear_bytes = MIN (clear_bytes, trun->samples[i].size);
+      se->samples[i].entries[0].bytes_of_clear_data = clear_bytes;
+      se->samples[i].entries[0].bytes_of_encrypted_data =
+          trun->samples[i].size - clear_bytes;
     }
 
   }
@@ -2358,7 +2356,7 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gboolean is_video)
 {
   int offset;
-  gboolean is_ism = FALSE;
+  gboolean is_ism = TRUE;
 
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
