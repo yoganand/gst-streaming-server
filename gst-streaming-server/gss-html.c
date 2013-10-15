@@ -204,7 +204,9 @@ gss_html_header (GssTransaction * t)
         "<i class='icon-user'></i> %s\n"
         "<span class='caret'></span></a>\n", t->session->username);
   } else {
-    t->server->append_login_html (t->server, t);
+    if (t->server->append_login_html) {
+      t->server->append_login_html (t->server, t);
+    }
   }
 
   GSS_P ("<ul class='dropdown-menu'>\n"
@@ -335,12 +337,14 @@ gss_html_footer_bare (GssTransaction * t)
 
   GSS_A ("<script src='/bootstrap/js/jquery.js'></script>\n");
   GSS_A ("<script src='/bootstrap/js/bootstrap.js'></script>\n");
+  if (t->server->enable_persona) {
 #ifdef use_internal_include_js
-  GSS_A ("<script src=\"/include.js\" type=\"text/javascript\"></script>\n");
+    GSS_A ("<script src=\"/include.js\" type=\"text/javascript\"></script>\n");
 #else
-  GSS_A
-      ("<script src=\"https://login.persona.org/include.js\" type=\"text/javascript\"></script>\n");
+    GSS_A
+        ("<script src=\"https://login.persona.org/include.js\" type=\"text/javascript\"></script>\n");
 #endif
+  }
   if (t->server->enable_flowplayer) {
     GSS_A
         ("<script type='text/javascript' src=\"/flowplayer-3.2.11.min.js\"></script>\n"

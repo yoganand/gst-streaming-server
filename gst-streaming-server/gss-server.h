@@ -74,6 +74,7 @@ struct _GssServer
   gboolean enable_vod;
 
   gboolean enable_osplayer;
+  gboolean enable_persona;
   gboolean enable_flowplayer;
   char *alt_hostname;
   gboolean enable_programs;

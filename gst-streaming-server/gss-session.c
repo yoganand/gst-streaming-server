@@ -54,7 +54,9 @@ gss_session_add_session_callbacks (GssServer * server)
 {
   if (0)
     server->append_login_html = append_login_html_login;
-  server->append_login_html = append_login_html_browserid;
+  if (server->enable_persona) {
+    server->append_login_html = append_login_html_browserid;
+  }
   if (0)
     server->append_login_html = append_login_html_cas;
 
