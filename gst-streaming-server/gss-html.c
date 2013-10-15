@@ -324,7 +324,6 @@ gss_html_footer (GssTransaction * t)
   }
 
   GSS_A ("</div><!--/.fluid-container-->\n");
-  GSS_A ("</body>\n");
 
   gss_html_footer_bare (t);
 }
