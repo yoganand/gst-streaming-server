@@ -766,8 +766,9 @@ gss_server_setup_resources (GssServer * server)
       gss_server_resource_main_page, NULL, NULL, NULL);
   gss_server_add_resource (server, "/list", GSS_RESOURCE_UI, GSS_TEXT_PLAIN,
       gss_server_resource_list, NULL, NULL, NULL);
-  gss_server_add_string_resource (server, "/check", 0,
-      GSS_TEXT_HTML, "<html>status: ok</html>\n");
+  gss_server_add_string_resource (server, "/check", 0, GSS_TEXT_HTML,
+      "<!DOCTYPE html><html><title>Status</title>"
+      "<body>status: ok</body></html>\n");
 
   gss_server_add_resource (server, "/about", GSS_RESOURCE_UI, GSS_TEXT_HTML,
       gss_server_resource_about, NULL, NULL, NULL);
