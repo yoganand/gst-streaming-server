@@ -33,7 +33,6 @@ test_get_status("/vod/elephantsdream", 404)
 test_get_status("/vod/elephantsdream/", 404)
 test_get_status("/vod/elephantsdream/0/pr", 404)
 test_get_status("/vod/elephantsdream/0/pr/ism", 404)
-test_get_status("/vod/elephantsdream/0/pr/ism/Manifest", 200)
 test_get_status("/vod/broken/0/pr/ism/Manifest", 404)
 test_get_status("/vod/elephantsdream/0/pr/ism/Manifest", 200)
 
@@ -45,6 +44,7 @@ test_get_status("/vod/elephantsdream/0/pr/ism/broken", 404)
 
 test_get_status("/vod/broken/0/pr/ism/content", 404)
 
+test_get_checksum("/vod/elephantsdream/0/pr/ism/Manifest", "279527329bac1ee684e9b9c11f4914225491007a")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=752766", "7ac1f4eb8f6d3b1035aa404a4dc339a06f6d25ab")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=1392712", "460ad7ff103420b58a44e7d4635a2a0d4bf8e183")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=2341910", "bf2896df824d27009a06f96d0eac57d4c9f8e20d")
@@ -65,18 +65,19 @@ test_get_status("/vod/elephantsdream/0/pr/ism/content?start_time=0&bitrate=75242
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&bitrate=752428", 404)
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0", 404)
 
-clear_enabled=False
+clear_enabled=True
 if clear_enabled:
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=752766", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=1392712", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=2341910", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=4771928", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=audio&start_time=0&bitrate=134578", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=752766", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=1392712", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=2341910", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=4771928", 200)
-  test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=audio&start_time=50346666&bitrate=134578", 200)
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/Manifest", "c4ae5af94a7a983c3adddd4b1ef0f70802c3baa4")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=749643", "4dee4d4163d874db5566122476b5dea038e0b7df")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=1389589", "b750696e883d9cd064ffb24aa83ced7288f2b796")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=2338787", "4129295af4f9e18d09431d3d257cfd2c4f79ab25")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=4768805", "6419a2adf7cf996c86c883840e29ded0ba0f7492")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=audio&start_time=0&bitrate=131527", "cbfe0889f53cd60c9f54dd10656c11cedd331107")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=749643", "41a9b14300deb5de5404bcbf19cf5744c6011308")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=1389589", "fd66cbfd82d5afce8d0286655e0b100c4e506f93")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=2338787", "a17d30e6048393fd600e87ed7ecf3444e5f75d17")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=50416000&bitrate=4768805", "99bd9297f76c351bb2cd6da80f0265249735eb82")
+  test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=audio&start_time=50346666&bitrate=131527", "7a21c50cd4ab497f8b166f3e42a7b41a3d0aeef2")
 
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=broken&start_time=0&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=broken&bitrate=752428", 404)

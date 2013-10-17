@@ -1141,12 +1141,14 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
     adaptive->max_height = MAX (adaptive->max_height, track->mp4v.height);
   }
 
-  generate_iv (level, filename, track->tkhd.track_id);
+  if (adaptive->drm_type != GSS_DRM_CLEAR) {
+    generate_iv (level, filename, track->tkhd.track_id);
 
-  for (i = 0; i < track->n_fragments; i++) {
-    GssIsomFragment *fragment = track->fragments[i];
-    gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
-        fragment);
+    for (i = 0; i < track->n_fragments; i++) {
+      GssIsomFragment *fragment = track->fragments[i];
+      gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
+          fragment);
+    }
   }
 
   if (adaptive->drm_type == GSS_DRM_PLAYREADY) {
