@@ -48,8 +48,9 @@ static void gss_vod_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 static void gss_vod_get_resource (GssTransaction * t);
 static void gss_vod_post_resource (GssTransaction * t);
+static GssAdaptive *gss_vod_get_adaptive (GssVod * vod, const char *key,
+    const char *version, GssDrmType drm_type, GssAdaptiveStream stream_type);
 static void gss_vod_get_adaptive_resource (GssTransaction * t);
-static GssAdaptive *gss_vod_get_adaptive (GssVod * vod, const char *key);
 static void gss_vod_attach (GssObject * object, GssServer * server);
 
 G_DEFINE_TYPE (GssVod, gss_vod, GSS_TYPE_MODULE);
@@ -298,6 +299,10 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
   char *content_version;
   GssAdaptive *adaptive;
   const char *path;
+  char *drm;
+  char *stream;
+  GssDrmType drm_type;
+  GssAdaptiveStream stream_type;
 
   GST_DEBUG ("path: %s", t->path);
 
@@ -305,45 +310,68 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
 
   key = chomp (&path);
   content_version = chomp (&path);
+  drm = chomp (&path);
+  drm_type = gss_drm_get_drm_type (drm);
+  stream = chomp (&path);
+  stream_type = gss_adaptive_get_stream_type (stream);
 
   if (!content_version[0] ||
       !g_ascii_isxdigit (content_version[0]) || content_version[1] != 0) {
-    g_free (key);
-    g_free (content_version);
     gss_transaction_error_not_found (t, "invalid content version");
-    return;
+    goto error;
   }
 
   if (g_ascii_xdigit_value (content_version[0]) != 0) {
-    g_free (key);
-    g_free (content_version);
     gss_transaction_error_not_found (t, "unavailable content version");
-    return;
+    goto error;
   }
 
-  adaptive = gss_vod_get_adaptive (vod, key);
+  if (drm_type == GSS_DRM_UNKNOWN) {
+    gss_transaction_error_not_found (t, "invalid drm type");
+    goto error;
+  }
+
+  if (drm_type == GSS_DRM_CLEAR && !t->server->playready->allow_clear) {
+    gss_transaction_error_not_found (t, "clear streaming disabled");
+    goto error;
+  }
+
+  if (stream_type == GSS_ADAPTIVE_STREAM_UNKNOWN) {
+    gss_transaction_error_not_found (t, "invalid stream type");
+    goto error;
+  }
+
+  adaptive =
+      gss_vod_get_adaptive (vod, key, content_version, drm_type, stream_type);
   if (adaptive == NULL) {
     GST_DEBUG ("failed to load %s", key);
-    g_free (key);
-    g_free (content_version);
     gss_transaction_error_not_found (t, "failed to load");
-    return;
+    goto error;
   }
-  g_free (key);
-  g_free (content_version);
 
   GST_DEBUG ("subpath: %s", path);
 
   gss_adaptive_get_resource (t, adaptive, path);
 
+error:
+  g_free (key);
+  g_free (content_version);
+  g_free (stream);
+  g_free (drm);
 }
 
 static GssAdaptive *
-gss_vod_get_adaptive (GssVod * vod, const char *key)
+gss_vod_get_adaptive (GssVod * vod, const char *key, const char *version,
+    GssDrmType drm_type, GssAdaptiveStream stream_type)
 {
   GssAdaptive *adaptive;
+  char *hash_key;
 
-  adaptive = g_hash_table_lookup (vod->cache, key);
+  hash_key = g_strdup_printf ("%s/%s/%s/%s",
+      key, version, gss_drm_get_drm_name (drm_type),
+      gss_adaptive_stream_get_name (stream_type));
+
+  adaptive = g_hash_table_lookup (vod->cache, hash_key);
   if (adaptive == NULL) {
     char *dir;
 
@@ -368,11 +396,15 @@ gss_vod_get_adaptive (GssVod * vod, const char *key)
         g_assert_not_reached ();
     }
 
-    adaptive = gss_adaptive_load (GSS_OBJECT_SERVER (vod), key, dir);
+    adaptive =
+        gss_adaptive_load (GSS_OBJECT_SERVER (vod), key, dir, version, drm_type,
+        stream_type);
     if (adaptive == NULL)
       return NULL;
-    g_hash_table_replace (vod->cache, g_strdup (key), adaptive);
+    g_hash_table_replace (vod->cache, hash_key, adaptive);
     g_free (dir);
+  } else {
+    g_free (hash_key);
   }
   return adaptive;
 }

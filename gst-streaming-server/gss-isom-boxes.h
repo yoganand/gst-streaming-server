@@ -145,6 +145,8 @@ struct _GssBoxTrunSample
 
 struct _GssBoxSdtp
 {
+  gboolean present;
+
   guint8 version;
   guint32 flags;
 

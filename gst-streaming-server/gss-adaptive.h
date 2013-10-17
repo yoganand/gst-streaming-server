@@ -59,6 +59,8 @@ struct _GssAdaptive
 {
   GssServer *server;
   char *content_id;
+  GssDrmType drm_type;
+  GssAdaptiveStream stream_type;
   guint64 duration;
 
   int max_width;
@@ -105,9 +107,13 @@ void gss_adaptive_free (GssAdaptive * adaptive);
 GssAdaptiveLevel *gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video, guint64 bitrate);
 
 GssAdaptiveStream gss_adaptive_get_stream_type (const char *s);
-GssAdaptive * gss_adaptive_load (GssServer * server, const char *key, const char *dir);
+GssAdaptive * gss_adaptive_load (GssServer * server, const char *key,
+    const char *dir, const char *version, GssDrmType drm_type,
+    GssAdaptiveStream stream_type);
 void gss_adaptive_get_resource (GssTransaction * t, GssAdaptive *adaptive,
     const char *subpath);
+
+const char *gss_adaptive_stream_get_name (GssAdaptiveStream stream_type);
 
 
 G_END_DECLS

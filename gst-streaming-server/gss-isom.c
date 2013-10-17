@@ -2218,6 +2218,9 @@ gss_isom_sdtp_serialize (GssBoxSdtp * sdtp, GstByteWriter * bw,
   int offset;
   int i;
 
+  if (!sdtp->present)
+    return;
+
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'd', 't', 'p'));
 
   gst_byte_writer_put_uint8 (bw, sdtp->version);
@@ -2356,12 +2359,11 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gboolean is_video)
 {
   int offset;
-  gboolean is_ism = FALSE;
 
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
   gss_isom_tfhd_serialize (&fragment->tfhd, bw);
-  if (!is_ism) {
+  if (0) {
     gss_isom_tfdt_serialize (&fragment->tfdt, bw);
   }
   gss_isom_trun_serialize (&fragment->trun, bw);
@@ -2369,13 +2371,12 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     gss_isom_avcn_serialize (&fragment->avcn, bw);
     gss_isom_trik_serialize (&fragment->trik, bw);
   }
-  if (is_ism) {
-    gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
-  }
+  gss_isom_sdtp_serialize (&fragment->sdtp, bw, fragment->trun.sample_count);
 
-  if (is_ism) {
-    gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
-  } else {
+  gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
+
+  if (0) {
+    /* FIXME do this differently */
     int offset_table;
     int *sizes;
 
@@ -3860,6 +3861,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     video_fragment->n_mdat_chunks = n_samples;
     video_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
 
+    video_fragment->sdtp.present = TRUE;
     video_fragment->sdtp.sample_flags = g_malloc0 (sizeof (guint8) * n_samples);
     video_fragment->sdtp.sample_flags[0] = 0x14;
     for (j = 1; j < n_samples; j++) {
@@ -3924,6 +3926,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     audio_fragment->trun.data_offset = 12;
     samples = g_malloc0 (sizeof (GssBoxTrunSample) * n_samples);
 
+    audio_fragment->sdtp.present = TRUE;
     audio_fragment->sdtp.sample_flags =
         g_malloc0 (sizeof (guint32) * n_samples);
 
@@ -3972,6 +3975,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
 }
 
+#if 0
 void
 gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
     const GssBoxPssh * pssh)
@@ -4008,6 +4012,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
   track->dash_size += track->dash_header_and_sidx_size;
 
 }
+#endif
 
 int
 gss_isom_track_get_index_from_timestamp (GssIsomTrack * track,

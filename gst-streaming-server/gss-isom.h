@@ -262,8 +262,10 @@ GssIsomFragment *gss_isom_fragment_new (void);
 void gss_isom_fragment_free (GssIsomFragment * fragment);
 
 void gss_isom_parser_fragmentize (GssIsomParser *file);
+#if 0
 void gss_isom_track_prepare_streaming (GssIsomMovie *movie, GssIsomTrack *track,
     const GssBoxPssh *pssh);
+#endif
 
 guint64 gss_isom_track_get_n_samples (GssIsomTrack *track);
 
