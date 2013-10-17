@@ -3923,8 +3923,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
             audio_track->mdhd.timescale, 10000000));
 #endif
     audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
-        gst_util_uint64_scale_int (video_timestamp,
-            audio_track->mdhd.timescale, video_track->mdhd.timescale));
+        video_timestamp);
 
     audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
     audio_fragment->tfhd.flags = 0;
