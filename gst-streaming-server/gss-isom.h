@@ -70,6 +70,8 @@ struct _GssIsomFragment {
   guint64 timestamp;
   guint64 duration;
   int index;
+  guint8 *mdat_header;
+  int mdat_header_size;
 
   GssBoxMfhd mfhd;
   GssBoxTfhd tfhd;
