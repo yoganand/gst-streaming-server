@@ -3384,7 +3384,7 @@ fixup_track (GssIsomTrack * track, gboolean is_video)
   track->tkhd.duration = 0;
 
   track->mdhd.version = 1;
-  track->mdhd.timescale = 10000000;
+  //track->mdhd.timescale = 10000000;
   track->mdhd.duration = 0;
   //track->stsd.entry_count = 0;
   track->stsz.sample_count = 0;
@@ -3883,16 +3883,22 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       gss_isom_sample_iter_get_sample (&video_iter, &sample);
 
       video_timescale_ts += sample.duration;
+#if 0
       next_timestamp = gst_util_uint64_scale_int (video_timescale_ts,
           10000000, video_track->mdhd.timescale);
+#endif
+      next_timestamp = video_timescale_ts;
       samples[j].duration = next_timestamp - video_timestamp;
       video_timestamp = next_timestamp;
       samples[j].size = sample.size;
       samples[j].flags = 0;
+#if 0
       samples[j].composition_time_offset =
           gst_util_uint64_scale_int (sample.composition_time_offset +
           video_track->mdhd.timescale, 10000000,
           video_track->mdhd.timescale) - 10000000;
+#endif
+      samples[j].composition_time_offset = sample.composition_time_offset;
 
       video_fragment->chunks[j].offset = sample.offset;
       video_fragment->chunks[j].size = sample.size;
@@ -3911,9 +3917,13 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
     audio_fragment->mfhd.sequence_number = i;
 
+#if 0
     audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
         gst_util_uint64_scale_int (video_timestamp,
             audio_track->mdhd.timescale, 10000000));
+#endif
+    audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
+        video_timestamp);
 
     audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
     audio_fragment->tfhd.flags = 0;
@@ -3945,8 +3955,11 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       gss_isom_sample_iter_get_sample (&audio_iter, &sample);
 
       audio_timescale_ts += sample.duration;
+#if 0
       next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
           10000000, audio_track->mdhd.timescale);
+#endif
+      next_timestamp = audio_timescale_ts;
       samples[j].duration = next_timestamp - audio_timestamp;
       audio_timestamp = next_timestamp;
 
@@ -3970,7 +3983,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     audio_index += n_samples;
   }
 
-  file->movie->mvhd.timescale = 10000000;
+  //file->movie->mvhd.timescale = 10000000;
   fixup_track (video_track, TRUE);
   fixup_track (audio_track, FALSE);
 
