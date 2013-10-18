@@ -65,6 +65,8 @@ struct _GssIsomFragment {
   guint8 *moof_data;
   guint64 moof_size;
   int mdat_size;
+  guint8 *mdat_header;
+  int mdat_header_size;
   int n_mdat_chunks;
   GssMdatChunk *chunks;
   guint64 timestamp;

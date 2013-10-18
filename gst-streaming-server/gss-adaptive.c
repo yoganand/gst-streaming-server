@@ -1028,6 +1028,7 @@ estimate_bitrate (GssIsomTrack * track)
   for (i = 0; i < track->n_fragments; i++) {
     GssIsomFragment *fragment = track->fragments[i];
     size += fragment->moof_size;
+    size += fragment->mdat_header_size;
     size += fragment->mdat_size;
     duration += fragment->duration;
   }
@@ -1060,6 +1061,7 @@ gss_adaptive_convert_ism (GssAdaptive * adaptive, GssIsomMovie * movie,
     gss_isom_fragment_serialize (fragment, &fragment->moof_data,
         &fragment->moof_size, is_video);
     offset += fragment->moof_size;
+    offset += fragment->mdat_header_size;
     offset += fragment->mdat_size;
   }
   track->dash_size = offset;
@@ -1100,6 +1102,7 @@ gss_adaptive_convert_isoff_ondemand (GssAdaptive * adaptive,
     gss_isom_fragment_serialize (fragment, &fragment->moof_data,
         &fragment->moof_size, is_video);
     offset += fragment->moof_size;
+    offset += fragment->mdat_header_size;
     offset += fragment->mdat_size;
   }
   track->dash_size = offset;

@@ -2272,21 +2272,18 @@ gss_isom_sample_encryption_serialize (GssBoxUUIDSampleEncryption * se,
 
 static void
 gss_isom_serialize_custom_encryption_tables (GssBoxUUIDSampleEncryption * se,
-    GstByteWriter * bw, int *sizes, int *offset_table)
+    GstByteWriter * bw, int *sizes)
 {
-  /* CENC-style sample encryption tables, in a custom UUID atom (hack) */
-  int offset_uuid;
+  /* CENC-style sample encryption tables */
   int i, j;
-
-  offset_uuid = BOX_INIT (bw, GST_MAKE_FOURCC ('u', 'u', 'i', 'd'));
-
-  gst_byte_writer_put_data (bw, uuid_gss_sample_encryption, 16);
-  *offset_table = bw->parent.byte;
 
   for (i = 0; i < se->sample_count; i++) {
     int sample_offset = bw->parent.byte;
     gst_byte_writer_put_uint64_be (bw, se->samples[i].iv);
     if (se->flags & 0x0002) {
+      /* FIXME wtf is this.  This is not my beautiful CENC */
+      gst_byte_writer_put_uint16_be (bw, se->samples[i].num_entries);
+
       for (j = 0; j < se->samples[i].num_entries; j++) {
         gst_byte_writer_put_uint16_be (bw,
             se->samples[i].entries[j].bytes_of_clear_data);
@@ -2296,7 +2293,6 @@ gss_isom_serialize_custom_encryption_tables (GssBoxUUIDSampleEncryption * se,
     }
     sizes[i] = bw->parent.byte - sample_offset;
   }
-  BOX_FINISH (bw, offset_uuid);
 }
 
 static gboolean
@@ -2385,15 +2381,18 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
 
   if (0) {
     /* FIXME do this differently */
-    int offset_table;
     int *sizes;
+    GstByteWriter *table_bw;
 
     sizes = g_malloc (sizeof (int) * fragment->sample_encryption.sample_count);
+    table_bw = gst_byte_writer_new ();
     gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
-        bw, sizes, &offset_table);
+        table_bw, sizes);
     gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
-    gss_isom_saio_serialize (&fragment->saio, bw, offset_table);
+    gss_isom_saio_serialize (&fragment->saio, bw, 0);
     g_free (sizes);
+    //fragment->mdat_header_size = gst_byte_writer_get_pos (table_bw);
+    //fragment->mdat_header = gst_byte_writer_free_and_get_data (table_bw);
   }
 
   BOX_FINISH (bw, offset);
@@ -2464,10 +2463,15 @@ gss_isom_fragment_serialize (GssIsomFragment * fragment, guint8 ** data,
   BOX_FINISH (bw, offset_moof);
 
   GST_WRITE_UINT32_BE ((void *) (bw->parent.data +
-          fragment->trun.data_offset_fixup), bw->parent.byte + 8 - offset_moof);
+          fragment->trun.data_offset_fixup),
+      bw->parent.byte + 8 - offset_moof + fragment->mdat_header_size);
 
-  gst_byte_writer_put_uint32_be (bw, fragment->mdat_size);
+  gst_byte_writer_put_uint32_be (bw,
+      fragment->mdat_header_size + fragment->mdat_size);
   gst_byte_writer_put_uint32_le (bw, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
+
+  gst_byte_writer_put_data (bw, fragment->mdat_header,
+      fragment->mdat_header_size);
 
   *size = bw->parent.byte;
   *data = gst_byte_writer_free_and_get_data (bw);
@@ -3518,7 +3522,7 @@ create_sidx (GssBoxSidx * sidx, GssIsomTrack * track)
   sidx->entries = g_malloc0 (sizeof (GssBoxSidxEntry) * sidx->n_entries);
   for (i = 0; i < sidx->n_entries; i++) {
     sidx->entries[i].reference_size = track->fragments[i]->moof_size +
-        track->fragments[i]->mdat_size;
+        track->fragments[i]->mdat_header_size + track->fragments[i]->mdat_size;
     sidx->entries[i].subsegment_duration = track->fragments[i]->duration;
     /* FIXME fixup */
     if (i < sidx->n_entries - 1) {
