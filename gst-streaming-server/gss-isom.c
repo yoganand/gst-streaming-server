@@ -2309,7 +2309,8 @@ check_sizes (int *sizes, int n)
 }
 
 static void
-gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes)
+gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes,
+    gboolean show_all)
 {
   int offset_saiz;
 
@@ -2324,11 +2325,11 @@ gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes)
     gst_byte_writer_put_uint32_be (bw, saiz->aux_info_type_parameter);
   }
 
-  if (check_sizes (sizes, saiz->sample_count)) {
+  if (!show_all && check_sizes (sizes, saiz->sample_count)) {
     gst_byte_writer_put_uint8 (bw, sizes[0]);
     /* FIXME It's unclear what to write here */
-    gst_byte_writer_put_uint32_be (bw, 1);
-    //gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
+    //gst_byte_writer_put_uint32_be (bw, 1);
+    gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
   } else {
     int i;
     gst_byte_writer_put_uint8 (bw, 0);
@@ -2370,6 +2371,11 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
 
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
+  if (!is_video) {
+    fragment->tfhd.track_id = 1;
+    fragment->tfdt.version = 1;
+  }
+
   gss_isom_tfhd_serialize (&fragment->tfhd, bw);
   gss_isom_tfdt_serialize (&fragment->tfdt, bw);
   gss_isom_trun_serialize (&fragment->trun, bw);
@@ -2390,7 +2396,7 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
     table_bw = gst_byte_writer_new ();
     gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
         table_bw, sizes);
-    gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
+    gss_isom_saiz_serialize (&fragment->saiz, bw, sizes, is_video);
     /* We can calculate how many bytes are left before the mdat */
     table_offset = gst_byte_writer_get_pos (bw) + 28;
     gss_isom_saio_serialize (&fragment->saio, bw, table_offset);
@@ -2929,10 +2935,10 @@ gss_isom_stsd_serialize (GssIsomTrack * track, GstByteWriter * bw)
       gst_byte_writer_put_uint32_be (bw, 0x00480000);
 
       gst_byte_writer_put_uint32_be (bw, 0x00000000);
-      gst_byte_writer_put_uint32_be (bw, 0x00010a41);
-      gst_byte_writer_put_uint32_be (bw, 0x56432043);   //"AVC Coding"
-      gst_byte_writer_put_uint32_be (bw, 0x6f64696e);
-      gst_byte_writer_put_uint32_be (bw, 0x67000000);
+      gst_byte_writer_put_uint32_be (bw, 0x00010000);
+      gst_byte_writer_put_uint32_be (bw, 0x00000000);   //"AVC Coding"
+      gst_byte_writer_put_uint32_be (bw, 0x00000000);
+      gst_byte_writer_put_uint32_be (bw, 0x00000000);
       gst_byte_writer_put_uint32_be (bw, 0x00000000);
       gst_byte_writer_put_uint32_be (bw, 0x00000000);
       gst_byte_writer_put_uint32_be (bw, 0x00000000);
@@ -3765,6 +3771,7 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
   }
   if (is_video) {
     track->vmhd.flags = 1;
+    track->esds.codec_data[3] = 0x1e;
   }
 #endif
 
