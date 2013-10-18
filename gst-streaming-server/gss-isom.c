@@ -970,8 +970,6 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
   }
   fragment->saiz.sample_count = n_samples;
   fragment->saio.entry_count = 1;
-  fragment->saio.present = TRUE;
-  fragment->saiz.present = TRUE;
 }
 
 static void
@@ -2080,6 +2078,9 @@ gss_isom_tfdt_serialize (GssBoxTfdt * tfdt, GstByteWriter * bw)
 {
   int offset;
 
+  if (!tfdt->present)
+    return;
+
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'f', 'd', 't'));
 
   gst_byte_writer_put_uint8 (bw, tfdt->version);
@@ -2367,9 +2368,7 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
   offset = BOX_INIT (bw, GST_MAKE_FOURCC ('t', 'r', 'a', 'f'));
 
   gss_isom_tfhd_serialize (&fragment->tfhd, bw);
-  if (0) {
-    gss_isom_tfdt_serialize (&fragment->tfdt, bw);
-  }
+  gss_isom_tfdt_serialize (&fragment->tfdt, bw);
   gss_isom_trun_serialize (&fragment->trun, bw);
   if (0 && is_video) {
     gss_isom_avcn_serialize (&fragment->avcn, bw);
@@ -2379,20 +2378,22 @@ gss_isom_traf_serialize (GssIsomFragment * fragment, GstByteWriter * bw,
 
   gss_isom_sample_encryption_serialize (&fragment->sample_encryption, bw);
 
-  if (0) {
-    /* FIXME do this differently */
+  if (fragment->saiz.present) {
     int *sizes;
     GstByteWriter *table_bw;
+    int table_offset;
 
     sizes = g_malloc (sizeof (int) * fragment->sample_encryption.sample_count);
     table_bw = gst_byte_writer_new ();
     gss_isom_serialize_custom_encryption_tables (&fragment->sample_encryption,
         table_bw, sizes);
     gss_isom_saiz_serialize (&fragment->saiz, bw, sizes);
-    gss_isom_saio_serialize (&fragment->saio, bw, 0);
+    /* We can calculate how many bytes are left before the mdat */
+    table_offset = gst_byte_writer_get_pos (bw) + 28;
+    gss_isom_saio_serialize (&fragment->saio, bw, table_offset);
     g_free (sizes);
-    //fragment->mdat_header_size = gst_byte_writer_get_pos (table_bw);
-    //fragment->mdat_header = gst_byte_writer_free_and_get_data (table_bw);
+    fragment->mdat_header_size = gst_byte_writer_get_pos (table_bw);
+    fragment->mdat_header = gst_byte_writer_free_and_get_data (table_bw);
   }
 
   BOX_FINISH (bw, offset);

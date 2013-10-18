@@ -1153,6 +1153,14 @@ gss_level_from_track (GssAdaptive * adaptive, GssIsomTrack * track,
       GssIsomFragment *fragment = track->fragments[i];
       gss_playready_setup_iv (adaptive->server->playready, adaptive, level,
           fragment);
+      /* Hack to prevent serialization of sample encryption UUID and
+       * enable saiz/saio serialization */
+      if (adaptive->stream_type == GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND) {
+        fragment->sample_encryption.present = FALSE;
+        fragment->saiz.present = TRUE;
+        fragment->saio.present = TRUE;
+        fragment->tfdt.present = TRUE;
+      }
     }
   }
 

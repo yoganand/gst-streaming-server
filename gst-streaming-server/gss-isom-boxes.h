@@ -188,6 +188,7 @@ struct _GssBoxAvcn
 
 struct _GssBoxTfdt
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
 
