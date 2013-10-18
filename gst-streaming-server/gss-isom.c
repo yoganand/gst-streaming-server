@@ -3649,7 +3649,7 @@ gss_isom_movie_serialize_track_ccff (GssIsomMovie * movie, GssIsomTrack * track,
 
 void
 gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
-    guint8 ** data, gsize * header_size, gsize * size, const GssBoxPssh * pssh)
+    guint8 ** data, gsize * header_size, gsize * size)
 {
   GstByteWriter *bw;
   int offset;
@@ -3667,9 +3667,7 @@ gss_isom_movie_serialize_track_dash (GssIsomMovie * movie, GssIsomTrack * track,
   offset_moov = BOX_INIT (bw, GST_MAKE_FOURCC ('m', 'o', 'o', 'v'));
 
   gss_isom_mvhd_serialize (&movie->mvhd, bw);
-  if (pssh) {
-    gss_isom_pssh_serialize (pssh, bw);
-  }
+  gss_isom_pssh_serialize (&movie->pssh, bw);
   gss_isom_track_serialize (track, bw);
 
   {

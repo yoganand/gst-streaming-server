@@ -1077,16 +1077,18 @@ gss_adaptive_convert_isoff_ondemand (GssAdaptive * adaptive,
   int i;
   guint64 offset = 0;
   gboolean is_video;
-  GssBoxPssh pssh = { 0 };
 
   is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 
   GST_DEBUG ("stsd entries %d", track->stsd.entry_count);
 
-  pssh.data = adaptive->drm_info.data;
-  pssh.len = adaptive->drm_info.data_len;
-  memcpy (pssh.uuid, gss_drm_get_drm_uuid (adaptive->drm_info.drm_type), 16);
-  pssh.present = TRUE;
+  if (drm_type != GSS_DRM_CLEAR) {
+    movie->pssh.data = adaptive->drm_info.data;
+    movie->pssh.len = adaptive->drm_info.data_len;
+    memcpy (movie->pssh.uuid,
+        gss_drm_get_drm_uuid (adaptive->drm_info.drm_type), 16);
+    movie->pssh.present = TRUE;
+  }
 
   if (drm_type == GSS_DRM_PLAYREADY) {
     track->is_encrypted = TRUE;
@@ -1104,7 +1106,7 @@ gss_adaptive_convert_isoff_ondemand (GssAdaptive * adaptive,
 
   gss_isom_movie_serialize_track_dash (movie, track,
       &track->dash_header_data, &track->dash_header_size,
-      &track->dash_header_and_sidx_size, NULL);
+      &track->dash_header_and_sidx_size);
 
   track->dash_size += track->dash_header_and_sidx_size;
 }
