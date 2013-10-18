@@ -671,6 +671,7 @@ struct _GssBoxSinf
 
 struct _GssBoxSaiz
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 aux_info_type;
@@ -682,6 +683,7 @@ struct _GssBoxSaiz
 
 struct _GssBoxSaio
 {
+  gboolean present;
   guint8 version;
   guint32 flags;
   guint32 aux_info_type;

@@ -970,6 +970,8 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
   }
   fragment->saiz.sample_count = n_samples;
   fragment->saio.entry_count = 1;
+  fragment->saio.present = TRUE;
+  fragment->saiz.present = TRUE;
 }
 
 static void
@@ -2313,6 +2315,9 @@ gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes)
 {
   int offset_saiz;
 
+  if (!saiz->present)
+    return;
+
   offset_saiz = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'z'));
   gst_byte_writer_put_uint8 (bw, saiz->version);
   gst_byte_writer_put_uint24_be (bw, saiz->flags);
@@ -2340,6 +2345,9 @@ gss_isom_saio_serialize (GssBoxSaio * saio, GstByteWriter * bw,
     int table_offset)
 {
   int offset_saio;
+
+  if (!saio->present)
+    return;
 
   offset_saio = BOX_INIT (bw, GST_MAKE_FOURCC ('s', 'a', 'i', 'o'));
   gst_byte_writer_put_uint8 (bw, saio->version);
