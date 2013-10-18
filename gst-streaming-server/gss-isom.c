@@ -2325,7 +2325,9 @@ gss_isom_saiz_serialize (GssBoxSaiz * saiz, GstByteWriter * bw, int *sizes)
 
   if (check_sizes (sizes, saiz->sample_count)) {
     gst_byte_writer_put_uint8 (bw, sizes[0]);
+    /* FIXME It's unclear what to write here */
     gst_byte_writer_put_uint32_be (bw, 1);
+    //gst_byte_writer_put_uint32_be (bw, saiz->sample_count);
   } else {
     int i;
     gst_byte_writer_put_uint8 (bw, 0);

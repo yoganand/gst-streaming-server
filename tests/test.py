@@ -2,6 +2,7 @@
 
 import httplib
 import hashlib
+import sys
 
 
 def test_get_status(url, expected_status):
@@ -19,9 +20,23 @@ def test_get_checksum(url, expected_checksum):
   res = conn.getresponse()
   m = hashlib.sha1()
   m.update(res.read())
-  #print 'test_get_checksum("%s", "%s")' % (url, m.hexdigest())
+  print 'test_get_checksum("%s", "%s")' % (url, m.hexdigest())
   assert m.hexdigest() == expected_checksum
 
+def test_get_checksum_range(url, start, end, expected_checksum):
+  print ("Testing \"%s\"" % (url, ))
+  conn = httplib.HTTPConnection("localhost", 8080)
+  r = "bytes=%d-%d" % (start, end)
+  conn.request("GET", url, "", {"Range": r})
+  res = conn.getresponse()
+  m = hashlib.sha1()
+  m.update(res.read())
+  assert res.status == 206
+  print 'test_get_checksum_range("%s", %d, %d, "%s")' % (url, start, end, m.hexdigest())
+  assert m.hexdigest() == expected_checksum
+
+
+#sys.exit(0)
 
 test_get_status("/", 200)
 
@@ -65,7 +80,7 @@ test_get_status("/vod/elephantsdream/0/pr/ism/content?start_time=0&bitrate=75242
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&bitrate=752428", 404)
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0", 404)
 
-clear_enabled=True
+clear_enabled=False
 if clear_enabled:
   test_get_checksum("/vod/elephantsdream/0/clear/ism/Manifest", "c4ae5af94a7a983c3adddd4b1ef0f70802c3baa4")
   test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=749643", "4dee4d4163d874db5566122476b5dea038e0b7df")
@@ -87,4 +102,13 @@ if clear_enabled:
   test_get_status("/vod/elephantsdream/0/clear/ism/content?start_time=0&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0", 404)
+
+test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "d715a878f0852a12e0f1fe645d075284a33cadcb")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 3261, 435523, "b0f06d388a4cce0e67a401599d6623b80dc498fe")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 3763, 88937, "8f806e477816f59ba6c069afdfef2b7d5359d249")
+
+
+
+
+
 
