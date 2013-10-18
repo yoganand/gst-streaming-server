@@ -1225,8 +1225,11 @@ load_file (GssAdaptive * adaptive, const char *filename)
     gss_isom_parser_fragmentize (file);
   }
 
-  gss_playready_add_protection_header (file->movie, adaptive,
-      adaptive->server->playready->license_url, NULL);
+  if (adaptive->drm_type == GSS_DRM_PLAYREADY &&
+      adaptive->stream_type == GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND) {
+    gss_playready_add_protection_header (file->movie, adaptive,
+        adaptive->server->playready->license_url, NULL);
+  }
 
   if (adaptive->duration == 0) {
     adaptive->duration = gss_isom_movie_get_duration (file->movie);
