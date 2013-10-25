@@ -37,6 +37,7 @@
 #include "gss-content.h"
 #include "gss-isom.h"
 #include "gss-playready.h"
+#include "gss-sglist.h"
 #include "gss-utils.h"
 
 #include <string.h>
@@ -63,12 +64,10 @@ static guint8 *
 gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
     GssAdaptiveLevel * level, GssIsomFragment * fragment)
 {
+  GError *error = NULL;
   guint8 *mdat_data;
-  off_t ret;
   int fd;
-  ssize_t n;
-  int i;
-  int offset;
+  gboolean ret;
 
   g_return_val_if_fail (t != NULL, NULL);
   g_return_val_if_fail (adaptive != NULL, NULL);
@@ -88,33 +87,16 @@ gss_adaptive_assemble_chunk (GssTransaction * t, GssAdaptive * adaptive,
 
   GST_WRITE_UINT32_BE (mdat_data, fragment->mdat_size);
   GST_WRITE_UINT32_LE (mdat_data + 4, GST_MAKE_FOURCC ('m', 'd', 'a', 't'));
-  offset = 8;
-  for (i = 0; i < fragment->n_mdat_chunks; i++) {
-    GST_DEBUG ("chunk %d: %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
-        i, fragment->chunks[i].offset, fragment->chunks[i].size);
-    ret = lseek (fd, fragment->chunks[i].offset, SEEK_SET);
-    if (ret < 0) {
-      GST_WARNING ("failed to seek to %" G_GUINT64_FORMAT
-          " on file \"%s\", error=\"%s\"", fragment->chunks[i].offset,
-          level->filename, g_strerror (errno));
-      gss_transaction_error_not_found (t, "failed to seek on file");
-      close (fd);
-      return NULL;
-    }
 
-    n = read (fd, mdat_data + offset, fragment->chunks[i].size);
-    if (n < fragment->chunks[i].size) {
-      GST_WARNING ("failed to read %" G_GUINT64_FORMAT " bytes at %"
-          G_GUINT64_FORMAT " from file \"%s\", error=\"%s\"",
-          fragment->chunks[i].size,
-          fragment->chunks[i].offset, level->filename, g_strerror (errno));
-      gss_transaction_error_not_found (t, "failed to read file");
-      g_free (mdat_data);
-      close (fd);
-      return NULL;
-    }
-    offset += fragment->chunks[i].size;
+  ret = gss_sglist_load (fragment->sglist, fd, mdat_data + 8, &error);
+  if (!ret) {
+    gss_transaction_error_not_found (t, error->message);
+    g_error_free (error);
+    g_free (mdat_data);
+    close (fd);
+    return NULL;
   }
+
   close (fd);
 
   return mdat_data;

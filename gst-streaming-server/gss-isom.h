@@ -23,6 +23,7 @@
 
 #include "gss-isom-boxes.h"
 #include "gss-server.h"
+#include "gss-sglist.h"
 
 G_BEGIN_DECLS
 
@@ -32,7 +33,6 @@ typedef struct _GssIsomMovie GssIsomMovie;
 typedef struct _GssIsomParser GssIsomParser;
 typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
-typedef struct _GssMdatChunk GssMdatChunk;
 typedef struct _GssChunk GssChunk;
 
 typedef enum
@@ -46,11 +46,6 @@ typedef enum
   GSS_ISOM_FTYP_QT__ = (1 << 6),
   GSS_ISOM_FTYP_ISO6 = (1 << 7),
 } GssIsomFtyp;
-
-struct _GssMdatChunk {
-  guint64 offset;
-  guint64 size;
-};
 
 struct _GssChunk {
   guint64 offset;
@@ -67,11 +62,10 @@ struct _GssIsomFragment {
   int mdat_size;
   guint8 *mdat_header;
   int mdat_header_size;
-  int n_mdat_chunks;
-  GssMdatChunk *chunks;
   guint64 timestamp;
   guint64 duration;
   int index;
+  GssSGList *sglist;
 
   GssBoxMfhd mfhd;
   GssBoxTfhd tfhd;

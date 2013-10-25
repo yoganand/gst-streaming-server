@@ -311,10 +311,9 @@ gss_isom_parser_parse_file (GssIsomParser * parser, const char *filename)
       if (parser->is_isml) {
         parser->current_fragment->mdat_size = size;
 
-        parser->current_fragment->n_mdat_chunks = 1;
-        parser->current_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * 1);
-        parser->current_fragment->chunks[0].offset = parser->offset + 8;
-        parser->current_fragment->chunks[0].size = size - 8;
+        parser->current_fragment->sglist = gss_sglist_new (1);
+        parser->current_fragment->sglist->chunks[0].offset = parser->offset + 8;
+        parser->current_fragment->sglist->chunks[0].size = size - 8;
       }
     } else if (atom == GST_MAKE_FOURCC ('m', 'f', 'r', 'a')) {
       gss_isom_parse_mfra (parser, parser->offset, size);
@@ -504,7 +503,7 @@ gss_isom_fragment_free (GssIsomFragment * fragment)
     g_free (fragment->sample_encryption.samples[i].entries);
   }
   g_free (fragment->sample_encryption.samples);
-  g_free (fragment->chunks);
+  gss_sglist_free (fragment->sglist);
   g_free (fragment);
 }
 
@@ -3871,8 +3870,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     video_fragment->trun.data_offset = 12;
 
     video_fragment->mdat_size = 8;
-    video_fragment->n_mdat_chunks = n_samples;
-    video_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
+    video_fragment->sglist = gss_sglist_new (n_samples);
 
     video_fragment->sdtp.present = TRUE;
     video_fragment->sdtp.sample_flags = g_malloc0 (sizeof (guint8) * n_samples);
@@ -3902,8 +3900,8 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
           video_track->mdhd.timescale, 10000000,
           video_track->mdhd.timescale) - 10000000;
 
-      video_fragment->chunks[j].offset = sample.offset;
-      video_fragment->chunks[j].size = sample.size;
+      video_fragment->sglist->chunks[j].offset = sample.offset;
+      video_fragment->sglist->chunks[j].size = sample.size;
       video_fragment->mdat_size += sample.size;
 
       gss_isom_sample_iter_iterate (&video_iter);
@@ -3932,8 +3930,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     n_samples = audio_index_end - audio_index;
 
     audio_fragment->mdat_size = 8;
-    audio_fragment->n_mdat_chunks = n_samples;
-    audio_fragment->chunks = g_malloc (sizeof (GssMdatChunk) * n_samples);
+    audio_fragment->sglist = gss_sglist_new (n_samples);
 
     audio_fragment->trun.sample_count = n_samples;
     audio_fragment->trun.data_offset = 12;
@@ -3961,8 +3958,8 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
       samples[j].flags = 0;
       samples[j].composition_time_offset = sample.composition_time_offset;
 
-      audio_fragment->chunks[j].offset = sample.offset;
-      audio_fragment->chunks[j].size = sample.size;
+      audio_fragment->sglist->chunks[j].offset = sample.offset;
+      audio_fragment->sglist->chunks[j].size = sample.size;
       audio_fragment->mdat_size += sample.size;
 
       gss_isom_sample_iter_iterate (&audio_iter);

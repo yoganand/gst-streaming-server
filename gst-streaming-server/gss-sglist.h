@@ -1,5 +1,5 @@
 /* GStreamer Streaming Server
- * Copyright (C) 2013 David Schleef <ds@schleef.org>
+ * Copyright (C) 2013 Rdio Inc <ingestions@rd.io>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,24 +17,34 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GSS_LOG_H_
-#define _GSS_LOG_H_
 
-#include <glib.h>
-#include <gss-transaction.h>
+#ifndef _GSS_SGLIST_H
+#define _GSS_SGLIST_H
+
+#include "gss-isom-boxes.h"
+#include "gss-server.h"
 
 G_BEGIN_DECLS
 
-typedef enum {
-  GSS_ERROR_FILE_SEEK,
-  GSS_ERROR_FILE_READ
-} GssErrorEnum;
+typedef struct _GssSGList GssSGList;
+typedef struct _GssSGChunk GssSGChunk;
 
-GQuark _gss_error_quark;
+struct _GssSGChunk {
+  gsize offset;
+  gsize size;
+};
 
-void gss_log_init (void);
-void gss_log_send_syslog (int level, const char *msg);
-void gss_log_transaction (GssTransaction *t);
+struct _GssSGList {
+  int n_chunks;
+  GssSGChunk *chunks;
+};
+
+
+GssSGList *gss_sglist_new (int n_chunks);
+void gss_sglist_free (GssSGList *sglist);
+gsize gss_sglist_get_size (GssSGList *sglist);
+gboolean gss_sglist_load (GssSGList *sglist, int fd, guint8 *dest,
+    GError **error);
 
 
 G_END_DECLS

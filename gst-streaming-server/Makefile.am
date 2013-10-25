@@ -51,6 +51,7 @@ sources = \
 	gss-adaptive.c \
 	gss-isom.c \
 	gss-iso-atoms.h \
+	gss-sglist.c \
 	gss-stream.c \
 	gss-transaction.c \
 	gss-user.c \
@@ -96,6 +97,7 @@ gss_include_HEADERS = \
 	gss-resource.h \
 	gss-adaptive.h \
 	gss-isom.h \
+	gss-sglist.h \
 	gss-stream.h \
 	gss-transaction.h \
 	gss-types.h \

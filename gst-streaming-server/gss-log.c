@@ -41,6 +41,8 @@ gss_log_init (void)
   g_log_set_default_handler (glog_handler, NULL);
 
   openlog ("gst-streaming-server", LOG_NDELAY, LOG_DAEMON);
+
+  _gss_error_quark = g_quark_from_static_string ("GStreamer Streaming Server");
 }
 
 static void
