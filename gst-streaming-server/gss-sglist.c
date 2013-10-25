@@ -109,3 +109,18 @@ gss_sglist_load (GssSGList * sglist, int fd, guint8 * dest, GError ** error)
 
   return TRUE;
 }
+
+void
+gss_sglist_merge (GssSGList * sglist)
+{
+  int i;
+
+  for (i = sglist->n_chunks - 1; i > 0; i--) {
+    if (sglist->chunks[i].offset ==
+        sglist->chunks[i - 1].offset + sglist->chunks[i - 1].size) {
+      sglist->chunks[i - 1].size += sglist->chunks[i].size;
+      sglist->chunks[i].size = 0;
+      sglist->chunks[i].offset = 0;
+    }
+  }
+}

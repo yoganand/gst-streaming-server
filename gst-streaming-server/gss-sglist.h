@@ -45,6 +45,7 @@ void gss_sglist_free (GssSGList *sglist);
 gsize gss_sglist_get_size (GssSGList *sglist);
 gboolean gss_sglist_load (GssSGList *sglist, int fd, guint8 *dest,
     GError **error);
+void gss_sglist_merge (GssSGList *sglist);
 
 
 G_END_DECLS
