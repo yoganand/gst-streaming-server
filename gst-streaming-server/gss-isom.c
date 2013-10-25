@@ -116,6 +116,10 @@ static void gss_isom_parse_container (GssIsomParser * parser,
 static void gss_isom_parse_ignore (GssIsomParser * parser, GssIsomTrack * track,
     GstByteReader * br);
 static void gst_byte_reader_dump (GstByteReader * br);
+static void gss_isom_parser_fragmentize_track_video (GssIsomTrack *
+    video_track);
+static void gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
+    GssIsomTrack * video_track);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
 
@@ -3778,15 +3782,6 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
   GssIsomTrack *video_track;
   GssIsomTrack *audio_track;
   int n_fragments;
-  int i;
-  guint64 video_timestamp = 0;
-  guint64 audio_timestamp = 0;
-  guint64 video_timescale_ts = 0;
-  guint64 audio_timescale_ts = 0;
-  int audio_index = 0;
-  int audio_index_end;
-  GssIsomSampleIterator video_iter;
-  GssIsomSampleIterator audio_iter;
 
   video_track = gss_isom_movie_get_video_track (file->movie);
   if (video_track == NULL) {
@@ -3804,21 +3799,144 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     return;
   }
 
+  video_track->filename = file->filename;
+
+  gss_isom_parser_fragmentize_track_video (video_track);
+
   audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track == NULL) {
     GST_ERROR ("no audio track");
     return;
   }
 
-  video_track->filename = file->filename;
   audio_track->filename = file->filename;
+
+  gss_isom_parser_fragmentize_track_audio (audio_track, video_track);
+
+  file->movie->mvhd.timescale = 10000000;
+  fixup_track (video_track, TRUE);
+  fixup_track (audio_track, FALSE);
+
+  file->movie->mehd.version = 1;
+  /* FIXME */
+  n_fragments = video_track->stss.entry_count;
+  file->movie->mehd.fragment_duration =
+      video_track->fragments[n_fragments - 1]->timestamp +
+      video_track->fragments[n_fragments - 1]->duration;
+  file->movie->mvhd.duration =
+      video_track->fragments[n_fragments - 1]->timestamp +
+      video_track->fragments[n_fragments - 1]->duration;
+}
+
+
+static void
+gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
+    GssIsomTrack * video_track)
+{
+  int n_fragments;
+  int i;
+  guint64 audio_timestamp = 0;
+  guint64 audio_timescale_ts = 0;
+  int audio_index = 0;
+  int audio_index_end;
+  GssIsomSampleIterator audio_iter;
+
+  n_fragments = video_track->stss.entry_count;
+
+  audio_track->tkhd.track_id = 2;
+  audio_track->trex.track_id = 2;
+  audio_track->trex.default_sample_description_index = 1;
+
+  audio_track->fragments = g_malloc0 (sizeof (GssIsomFragment *) * n_fragments);
+  audio_track->n_fragments = n_fragments;
+  audio_track->n_fragments_alloc = n_fragments;
+
+  gss_isom_sample_iter_init (&audio_iter, audio_track);
+
+  for (i = 0; i < n_fragments; i++) {
+    GssIsomFragment *audio_fragment;
+    guint64 video_timestamp;
+    guint64 n_samples;
+    GssBoxTrunSample *samples;
+    int j;
+
+    audio_fragment = gss_isom_fragment_new ();
+    audio_track->fragments[i] = audio_fragment;
+    audio_fragment->index = i;
+    audio_fragment->mfhd.sequence_number = i;
+
+    video_timestamp = video_track->fragments[i]->timestamp +
+        video_track->fragments[i]->duration;
+    audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
+        gst_util_uint64_scale_int (video_timestamp,
+            audio_track->mdhd.timescale, 10000000));
+
+    audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
+    audio_fragment->tfhd.flags = 0;
+    audio_fragment->tfhd.default_sample_duration = 0;
+    audio_fragment->tfhd.default_sample_size = 0;
+    audio_fragment->tfhd.default_sample_flags = 0xc0;
+
+    n_samples = audio_index_end - audio_index;
+
+    audio_fragment->mdat_size = 8;
+    audio_fragment->sglist = gss_sglist_new (n_samples);
+
+    audio_fragment->trun.sample_count = n_samples;
+    audio_fragment->trun.data_offset = 12;
+    samples = g_malloc0 (sizeof (GssBoxTrunSample) * n_samples);
+
+    audio_fragment->sdtp.present = TRUE;
+    audio_fragment->sdtp.sample_flags =
+        g_malloc0 (sizeof (guint32) * n_samples);
+
+    audio_fragment->timestamp = audio_timestamp;
+    audio_fragment->tfdt.start_time = audio_timestamp;
+    for (j = 0; j < n_samples; j++) {
+      GssIsomSample sample;
+      guint64 next_timestamp;
+
+      gss_isom_sample_iter_get_sample (&audio_iter, &sample);
+
+      audio_timescale_ts += sample.duration;
+      next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
+          10000000, audio_track->mdhd.timescale);
+      samples[j].duration = next_timestamp - audio_timestamp;
+      audio_timestamp = next_timestamp;
+
+      samples[j].size = sample.size;
+      samples[j].flags = 0;
+      samples[j].composition_time_offset = sample.composition_time_offset;
+
+      audio_fragment->sglist->chunks[j].offset = sample.offset;
+      audio_fragment->sglist->chunks[j].size = sample.size;
+      audio_fragment->mdat_size += sample.size;
+
+      gss_isom_sample_iter_iterate (&audio_iter);
+    }
+    audio_fragment->trun.samples = samples;
+    audio_fragment->trun.version = 1;
+    /* FIXME not all strictly necessary, should be handled in serializer */
+    audio_fragment->trun.flags =
+        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_DATA_OFFSET;
+    audio_fragment->duration = audio_timestamp - audio_fragment->timestamp;
+
+    audio_index += n_samples;
+  }
+}
+
+static void
+gss_isom_parser_fragmentize_track_video (GssIsomTrack * video_track)
+{
+  int n_fragments;
+  int i;
+  guint64 video_timestamp = 0;
+  guint64 video_timescale_ts = 0;
+  GssIsomSampleIterator video_iter;
 
   video_track->tkhd.track_id = 1;
   video_track->trex.track_id = 1;
   video_track->trex.default_sample_description_index = 1;
-  audio_track->tkhd.track_id = 2;
-  audio_track->trex.track_id = 2;
-  audio_track->trex.default_sample_description_index = 1;
 
   n_fragments = video_track->stss.entry_count;
 
@@ -3826,24 +3944,16 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
   video_track->n_fragments = n_fragments;
   video_track->n_fragments_alloc = n_fragments;
 
-  audio_track->fragments = g_malloc0 (sizeof (GssIsomFragment *) * n_fragments);
-  audio_track->n_fragments = n_fragments;
-  audio_track->n_fragments_alloc = n_fragments;
-
   gss_isom_sample_iter_init (&video_iter, video_track);
-  gss_isom_sample_iter_init (&audio_iter, audio_track);
+
 
   for (i = 0; i < n_fragments; i++) {
-    GssIsomFragment *audio_fragment;
     GssIsomFragment *video_fragment;
     guint64 n_samples;
     GssBoxTrunSample *samples;
     int sample_offset;
     int j;
 
-    audio_fragment = gss_isom_fragment_new ();
-    audio_track->fragments[i] = audio_fragment;
-    audio_fragment->index = i;
     video_fragment = gss_isom_fragment_new ();
     video_track->fragments[i] = video_fragment;
     video_fragment->index = i;
@@ -3915,74 +4025,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
     video_fragment->trun.first_sample_flags = 0x40;
     video_fragment->duration = video_timestamp - video_fragment->timestamp;
 
-    audio_fragment->mfhd.sequence_number = i;
-
-    audio_index_end = gss_isom_track_get_index_from_timestamp (audio_track,
-        gst_util_uint64_scale_int (video_timestamp,
-            audio_track->mdhd.timescale, 10000000));
-
-    audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
-    audio_fragment->tfhd.flags = 0;
-    audio_fragment->tfhd.default_sample_duration = 0;
-    audio_fragment->tfhd.default_sample_size = 0;
-    audio_fragment->tfhd.default_sample_flags = 0xc0;
-
-    n_samples = audio_index_end - audio_index;
-
-    audio_fragment->mdat_size = 8;
-    audio_fragment->sglist = gss_sglist_new (n_samples);
-
-    audio_fragment->trun.sample_count = n_samples;
-    audio_fragment->trun.data_offset = 12;
-    samples = g_malloc0 (sizeof (GssBoxTrunSample) * n_samples);
-
-    audio_fragment->sdtp.present = TRUE;
-    audio_fragment->sdtp.sample_flags =
-        g_malloc0 (sizeof (guint32) * n_samples);
-
-    audio_fragment->timestamp = audio_timestamp;
-    audio_fragment->tfdt.start_time = audio_timestamp;
-    for (j = 0; j < n_samples; j++) {
-      GssIsomSample sample;
-      guint64 next_timestamp;
-
-      gss_isom_sample_iter_get_sample (&audio_iter, &sample);
-
-      audio_timescale_ts += sample.duration;
-      next_timestamp = gst_util_uint64_scale_int (audio_timescale_ts,
-          10000000, audio_track->mdhd.timescale);
-      samples[j].duration = next_timestamp - audio_timestamp;
-      audio_timestamp = next_timestamp;
-
-      samples[j].size = sample.size;
-      samples[j].flags = 0;
-      samples[j].composition_time_offset = sample.composition_time_offset;
-
-      audio_fragment->sglist->chunks[j].offset = sample.offset;
-      audio_fragment->sglist->chunks[j].size = sample.size;
-      audio_fragment->mdat_size += sample.size;
-
-      gss_isom_sample_iter_iterate (&audio_iter);
-    }
-    audio_fragment->trun.samples = samples;
-    audio_fragment->trun.version = 1;
-    /* FIXME not all strictly necessary, should be handled in serializer */
-    audio_fragment->trun.flags =
-        TR_SAMPLE_DURATION | TR_SAMPLE_SIZE | TR_DATA_OFFSET;
-    audio_fragment->duration = audio_timestamp - audio_fragment->timestamp;
-
-    audio_index += n_samples;
   }
-
-  file->movie->mvhd.timescale = 10000000;
-  fixup_track (video_track, TRUE);
-  fixup_track (audio_track, FALSE);
-
-  file->movie->mehd.version = 1;
-  /* FIXME */
-  file->movie->mehd.fragment_duration = video_timestamp;
-  file->movie->mvhd.duration = video_timestamp;
-
 }
 
 #if 0
