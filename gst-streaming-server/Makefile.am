@@ -23,8 +23,8 @@ libgss_@GST_API_VERSION@_la_LIBADD = \
 	$(JSON_GLIB_LIBS) \
 	$(OPENSSL_LIBS)
 libgss_@GST_API_VERSION@_la_LDFLAGS = \
-	-version-info $(GSS_LIBVERSION) \
-	-no-undefined -export-symbols-regex 'gss_'
+	$(GST_LT_LDFLAGS) \
+	-export-symbols-regex 'gss_'
 libgss_@GST_API_VERSION@_la_SOURCES = \
 	$(sources)
 

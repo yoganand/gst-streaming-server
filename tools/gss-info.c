@@ -7,8 +7,8 @@
 
 #include <openssl/aes.h>
 
+#include "config.h"
 
-#define GETTEXT_PACKAGE NULL
 
 gboolean verbose;
 

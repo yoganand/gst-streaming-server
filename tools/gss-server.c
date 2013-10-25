@@ -41,8 +41,6 @@
 #include <stdlib.h>
 
 
-#define GETTEXT_PACKAGE "ew-stream-server"
-
 #define CONFIG_FILENAME "config"
 
 #define LOG g_print

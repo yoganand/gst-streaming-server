@@ -25,7 +25,6 @@
 #include <gst/gst.h>
 #include <stdlib.h>
 
-#define GETTEXT_PACKAGE "transcoder"
 
 
 typedef struct _GssTranscoder GssTranscoder;

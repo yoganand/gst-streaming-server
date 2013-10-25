@@ -47,8 +47,6 @@
 //#define STREAM_TYPE GSS_STREAM_TYPE_M2TS_H264BASE_AAC
 
 
-#define GETTEXT_PACKAGE "ew-stream-server"
-
 #define CONFIG_FILENAME "config"
 
 #define LOG g_print

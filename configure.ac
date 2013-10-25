@@ -1,32 +1,96 @@
-AC_PREREQ([2.58])
-dnl PLEASE remove the nano when doing a release
-AC_INIT(gst-streaming-server,0.10.0.1)
+AC_PREREQ([2.68])
 
-AS_NANO([GSS_UNRELEASED=no],[GSS_UNRELEASED=yes])
+dnl please read gstreamer/docs/random/autotools before changing this file
 
-AC_CANONICAL_HOST([])
-AM_INIT_AUTOMAKE(1.6)
+dnl initialize autoconf
+dnl releases only do -Wall, git and prerelease does -Werror too
+dnl use a three digit version number for releases, and four for git/prerelease
+AC_INIT([GStreamer Streaming Server],[0.10.0.1],[http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer],[gst-streaming-server])
 
+AG_GST_INIT
+
+dnl initialize automake
+AM_INIT_AUTOMAKE([-Wno-portability 1.11 no-dist-gzip dist-xz tar-ustar])
+
+dnl define PACKAGE_VERSION_* variables
+AS_VERSION
+
+dnl check if this is a release version
+AS_NANO(GST_GIT="no", GST_GIT="yes")
+
+dnl can autoconf find the source ?
+AC_CONFIG_SRCDIR([gst/audiotestsrc/gstaudiotestsrc.c])
+
+dnl define the output header for config
+AC_CONFIG_HEADERS([config.h])
+
+dnl AM_MAINTAINER_MODE only provides the option to configure to enable it
+AM_MAINTAINER_MODE([enable])
+
+dnl sets host_* variables
+AC_CANONICAL_HOST
+
+dnl use pretty build output with automake >= 1.11
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],
+  [AM_DEFAULT_VERBOSITY=1
+   AC_SUBST(AM_DEFAULT_VERBOSITY)])
+
+dnl our libraries and install dirs use GST_API_VERSION in the filename
+dnl to allow side-by-side installation of different API versions
 GST_API_VERSION=1.0
 AC_SUBST(GST_API_VERSION)
-
-AC_CONFIG_HEADERS(config.h)
+AC_DEFINE_UNQUOTED(GST_API_VERSION, "$GST_API_VERSION",
+  [GStreamer API Version])
 
 dnl CURRENT, REVISION, AGE
 dnl - library source changed -> increment REVISION
 dnl - interfaces added/removed/changed -> increment CURRENT, REVISION = 0
 dnl - interfaces added -> increment AGE
 dnl - interfaces removed -> AGE = 0
-GSS_LIBVERSION="0:0:0"
-AC_SUBST(GSS_LIBVERSION)
+dnl
+dnl Keep CURRENT as MINOR * 100 + MICRO
+dnl Ex : 1.0.0 => 0
+dnl      1.0.3 => 3
+dnl      1.1.0 => 100
+dnl      1.2.5 => 205
+dnl      1.10.9 (who knows) => 1009
+dnl
+dnl sets GST_LT_LDFLAGS
+AS_LIBTOOL(GST, 0, 0, 0)
 
-AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
-AM_PROG_AS
-AC_PROG_CXX
-AM_PROG_CC_C_O
-AC_SYS_LARGEFILE
-LT_PATH_NM
+dnl *** required versions of GStreamer stuff ***
+GST_REQ=1.0.0
+
+dnl *** autotools stuff ****
+
+dnl allow for different autotools
+AS_AUTOTOOLS_ALTERNATE
+
+dnl Add parameters for aclocal
+AC_SUBST(ACLOCAL_AMFLAGS, "-I m4 -I common/m4")
+
+dnl set up gettext
+dnl the version check needs to stay here because autopoint greps for it
+AM_GNU_GETTEXT_VERSION([0.17])
+AM_GNU_GETTEXT([external])
+AG_GST_GETTEXT([gst-streaming-server-$GST_API_VERSION])
+
+dnl *** check for arguments to configure ***
+
+AG_GST_ARG_DISABLE_FATAL_WARNINGS
+
+AG_GST_ARG_DEBUG
+AG_GST_ARG_PROFILING
+AG_GST_ARG_VALGRIND
+AG_GST_ARG_GCOV
+
+AG_GST_ARG_EXAMPLES
+
+AG_GST_ARG_WITH_PKG_CONFIG_PATH
+AG_GST_ARG_WITH_PACKAGE_NAME
+AG_GST_ARG_WITH_PACKAGE_ORIGIN
+
+AG_GST_PKG_CONFIG_PATH
 
 dnl allow for different autotools
 AS_AUTOTOOLS_ALTERNATE
@@ -42,11 +106,22 @@ dnl the version check needs to stay here because autopoint greps for it
 #AM_GNU_GETTEXT_VERSION([0.11.5])
 #AM_GNU_GETTEXT([external])
 
+AC_LIBTOOL_WIN32_DLL
+AC_PROG_LIBTOOL
+AM_PROG_AS
+AC_PROG_CXX
+AM_PROG_CC_C_O
+AC_SYS_LARGEFILE
+LT_PATH_NM
+
+AC_PATH_PROG(VALGRIND_PATH, valgrind, no)
+AM_CONDITIONAL(HAVE_VALGRIND, test ! "x$VALGRIND_PATH" = "xno")
+
 AC_CHECK_LIBM
 AC_SUBST(LIBM)
 
 AS_COMPILER_FLAG(-Wall, GSS_CFLAGS="$GSS_CFLAGS -Wall")
-if test "x$GSS_UNRELEASED" = "xyes"
+if test "x$GSS_GIT" = "xyes"
 then
   AS_COMPILER_FLAG(-Werror, GSS_CFLAGS="$GSS_CFLAGS -Werror")
 fi
@@ -114,6 +189,16 @@ fi
 AC_SUBST(GST_CFLAGS)
 AC_SUBST(GST_LIBS)
 
+PKG_CHECK_MODULES(GST_CHECK, gstreamer-check-$GST_API_VERSION,
+    HAVE_GST_CHECK=yes, HAVE_GST_CHECK=no)
+if test "$HAVE_GST_CHECK" != yes ; then
+  echo GStreamer check library is required to build
+  exit 1
+fi
+AM_CONDITIONAL(HAVE_GST_CHECK, test "x$HAVE_GST_CHECK" = "xyes")
+AC_SUBST(GST_CHECK_CFLAGS)
+AC_SUBST(GST_CHECK_LIBS)
+
 PKG_CHECK_MODULES(GST_RTSP_SERVER, gst-rtsp-server-$GST_API_VERSION >= 0.10.1,
     HAVE_GST_RTSP_SERVER=yes, HAVE_GST_RTSP_SERVER=no)
 if test "$HAVE_GST_RTSP_SERVER" = yes ; then
@@ -177,7 +262,12 @@ pkgconfig/Makefile
 pkgconfig/gst-streaming-server-uninstalled.pc
 pkgconfig/gst-streaming-server.pc
 tools/Makefile
+tests/Makefile
+tests/check/Makefile
 doc/version.entities
+po/Makefile.in
+common/Makefile
+common/m4/Makefile
 ])
 AC_OUTPUT
 

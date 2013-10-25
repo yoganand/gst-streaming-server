@@ -1,10 +1,11 @@
 
+#include "config.h"
+
 #include <gst-streaming-server/gss-isom.h>
 
 #include <stdio.h>
 
 
-#define GETTEXT_PACKAGE NULL
 
 gboolean verbose = FALSE;
 gboolean dump = FALSE;
