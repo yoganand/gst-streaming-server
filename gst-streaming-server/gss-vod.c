@@ -399,10 +399,12 @@ gss_vod_get_adaptive (GssVod * vod, const char *key, const char *version,
     adaptive =
         gss_adaptive_load (GSS_OBJECT_SERVER (vod), key, dir, version, drm_type,
         stream_type);
-    if (adaptive == NULL)
-      return NULL;
-    g_hash_table_replace (vod->cache, hash_key, adaptive);
     g_free (dir);
+    if (adaptive == NULL) {
+      g_free (hash_key);
+      return NULL;
+    }
+    g_hash_table_replace (vod->cache, hash_key, adaptive);
   } else {
     g_free (hash_key);
   }

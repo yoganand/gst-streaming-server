@@ -301,7 +301,8 @@ gss_server_finalize (GObject * object)
     g_object_unref (server->ssl_server);
 
   g_list_free (server->featured_resources);
-  g_list_free (server->modules);
+  server->modules = g_list_remove (server->modules, server);
+  g_list_free_full (server->modules, g_object_unref);
 
   g_hash_table_unref (server->resources);
   for (i = 0; i < server->n_prefix_resources; i++) {
@@ -321,7 +322,6 @@ gss_server_finalize (GObject * object)
   g_free (server->archive_dir);
   g_free (server->cas_server);
   g_object_unref (server->client_session);
-  g_object_unref (server->playready);
 
   parent_class->finalize (object);
 }

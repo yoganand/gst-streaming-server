@@ -446,6 +446,7 @@ gss_isom_track_free (GssIsomTrack * track)
   g_free (track->stsh.entries);
   g_free (track->esds_store.data);
   g_free (track->ccff_header_data);
+  g_free (track->dash_header_data);
   g_free (track);
 }
 
@@ -507,6 +508,8 @@ gss_isom_fragment_free (GssIsomFragment * fragment)
     g_free (fragment->sample_encryption.samples[i].entries);
   }
   g_free (fragment->sample_encryption.samples);
+  g_free (fragment->moof_data);
+  g_free (fragment->mdat_header);
   gss_sglist_free (fragment->sglist);
   g_free (fragment);
 }

@@ -109,6 +109,7 @@ log_handler (GstDebugCategory * category, GstDebugLevel level,
 #ifdef ENABLE_DEBUG
   g_print ("%s", s2);
 #endif
+  g_free (s2);
 }
 
 static void
@@ -141,6 +142,7 @@ glog_handler (const gchar * log_domain, GLogLevelFlags log_level,
 #ifdef ENABLE_DEBUG
   g_print ("%s", s2);
 #endif
+  g_free (s2);
 }
 
 void
@@ -160,6 +162,7 @@ gss_log_transaction (GssTransaction * t)
   const char *user_agent;
   GDateTime *datetime;
   char *dt;
+  const char *addr;
 
   user_agent = soup_message_headers_get_one (t->msg->request_headers,
       "User-Agent");
@@ -168,9 +171,11 @@ gss_log_transaction (GssTransaction * t)
   }
   datetime = g_date_time_new_now_utc ();
   dt = g_date_time_format (datetime, "%Y-%m-%d %H:%M:%S");
+  addr =
+      soup_address_get_physical (soup_client_context_get_address (t->client));
   if (0) {
     s = g_strdup_printf ("%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
-        soup_address_get_physical (soup_client_context_get_address (t->client)),
+        addr,
         dt,
         t->msg->method,
         t->path,
@@ -178,14 +183,17 @@ gss_log_transaction (GssTransaction * t)
         t->msg->status_code,
         (int) t->msg->response_body->length, "-", user_agent);
   } else {
+    char *uri;
+    uri = soup_uri_to_string (soup_message_get_uri (t->msg), TRUE);
     s = g_strdup_printf ("%s %s %s \"%s\" %d %" G_GSIZE_FORMAT " %"
         G_GUINT64_FORMAT " %s",
-        soup_address_get_physical (soup_client_context_get_address (t->client)),
+        addr,
         dt, t->msg->method,
-        soup_uri_to_string (soup_message_get_uri (t->msg), TRUE),
+        uri,
         t->msg->status_code,
         t->msg->response_body->length, t->finish_time - t->start_time,
         t->debug_message ? t->debug_message : "");
+    g_free (uri);
   }
   syslog (LOG_USER | LOG_INFO, "%s", s);
   g_print ("%s\n", s);

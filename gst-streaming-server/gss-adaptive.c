@@ -774,6 +774,7 @@ gss_adaptive_free (GssAdaptive * adaptive)
     g_free (adaptive->video_levels[i].filename);
     g_free (adaptive->video_levels[i].codec);
   }
+  g_free (adaptive->drm_info.data);
   g_free (adaptive->audio_levels);
   g_free (adaptive->video_levels);
   g_free (adaptive->content_id);
@@ -1206,12 +1207,13 @@ load_file (GssAdaptive * adaptive, const char *filename)
   if (file->movie->tracks[0]->n_fragments == 0) {
     gss_isom_parser_fragmentize (file);
   }
-
+#if 0
   if (adaptive->drm_type == GSS_DRM_PLAYREADY &&
       adaptive->stream_type == GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND) {
     gss_playready_add_protection_header (file->movie, adaptive,
         adaptive->server->playready->license_url, NULL);
   }
+#endif
 
   if (adaptive->duration == 0) {
     adaptive->duration = gss_isom_movie_get_duration (file->movie);
