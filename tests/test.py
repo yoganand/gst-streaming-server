@@ -2,7 +2,9 @@
 
 import httplib
 import hashlib
+import os
 import sys
+import time
 
 
 def test_get_status(url, expected_status):
@@ -35,6 +37,15 @@ def test_get_checksum_range(url, start, end, expected_checksum):
   print 'test_get_checksum_range("%s", %d, %d, "%s")' % (url, start, end, m.hexdigest())
   assert m.hexdigest() == expected_checksum
 
+
+args = ['../tools/gss-server']
+pid = os.spawnv(os.P_NOWAIT, "../tools/gss-server", args)
+print "PID is %d" % (pid,)
+
+time.sleep(2)
+
+#if pid != 0:
+#  sys.exit(1)
 
 #sys.exit(0)
 
@@ -109,6 +120,8 @@ test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 37
 
 
 
+os.kill(pid, 9)
+os.waitpid(pid, 0)
 
 
 
