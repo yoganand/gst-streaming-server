@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 
 typedef struct _GssAdaptive GssAdaptive;
 typedef struct _GssAdaptiveLevel GssAdaptiveLevel;
+typedef struct _GssAdaptiveAsync GssAdaptiveAsync;
 
 typedef enum {
   GSS_ADAPTIVE_STREAM_UNKNOWN,
@@ -102,6 +103,21 @@ struct _GssAdaptiveLevel
   guint64 iv;
 };
 
+struct _GssAdaptiveAsync
+{
+  GssAdaptive *adaptive;
+  GssAdaptiveLevel *level;
+  GssIsomFragment *fragment;
+
+  GssTransaction *transaction;
+
+  guint8 *data;
+  gsize size;
+
+  void (*process) (GssAdaptiveAsync *async);
+  void (*finish) (GssAdaptiveAsync *async);
+};
+
 GssAdaptive *gss_adaptive_new (void);
 void gss_adaptive_free (GssAdaptive * adaptive);
 GssAdaptiveLevel *gss_adaptive_get_level (GssAdaptive * adaptive, gboolean video, guint64 bitrate);
@@ -114,6 +130,11 @@ void gss_adaptive_get_resource (GssTransaction * t, GssAdaptive *adaptive,
     const char *subpath);
 
 const char *gss_adaptive_stream_get_name (GssAdaptiveStream stream_type);
+
+GssAdaptiveAsync * gss_adaptive_async_new (void);
+void gss_adaptive_async_free (GssAdaptiveAsync *async);
+void gss_adaptive_async_push (GssAdaptiveAsync *async);
+
 
 
 G_END_DECLS

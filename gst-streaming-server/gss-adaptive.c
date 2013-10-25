@@ -58,6 +58,8 @@ static void gss_adaptive_resource_get_manifest (GssTransaction * t,
 static void gss_adaptive_resource_get_content (GssTransaction * t,
     GssAdaptive * adaptive);
 static void load_file (GssAdaptive * adaptive, const char *filename);
+static void gss_adaptive_async_assemble_chunk (GssAdaptiveAsync * async);
+static void gss_adaptive_async_assemble_chunk_finish (GssAdaptiveAsync * async);
 
 
 static guint8 *
@@ -706,10 +708,15 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     return;
   }
 
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      (stream[0] == 'v') ? "video/mp4" : "audio/mp4");
+
   if (is_init) {
     soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
         level->track->ccff_header_data, level->track->ccff_header_size);
   } else {
+    GssAdaptiveAsync *async;
+
     fragment = gss_isom_track_get_fragment_by_timestamp (level->track,
         start_time);
     if (fragment == NULL) {
@@ -719,25 +726,44 @@ gss_adaptive_resource_get_content (GssTransaction * t, GssAdaptive * adaptive)
     //GST_ERROR ("frag %s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
     //    level->filename, fragment->offset, fragment->size);
 
-    {
-      guint8 *mdat_data;
+    soup_server_pause_message (t->soupserver, t->msg);
 
-      mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (adaptive->drm_type != GSS_DRM_CLEAR) {
-        gss_playready_encrypt_samples (fragment, mdat_data,
-            adaptive->content_key);
-      }
+    async = gss_adaptive_async_new ();
+    async->adaptive = adaptive;
+    async->level = level;
+    async->fragment = fragment;
+    async->transaction = t;
+    async->process = gss_adaptive_async_assemble_chunk;
+    async->finish = gss_adaptive_async_assemble_chunk_finish;
 
-      soup_message_set_status (t->msg, SOUP_STATUS_OK);
-      /* strip off mdat header at end of moof_data */
-      soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
-          fragment->moof_data, fragment->moof_size - 8);
-      soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE,
-          mdat_data, fragment->mdat_size);
-    }
+    gss_adaptive_async_push (async);
   }
-  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
-      (stream[0] == 'v') ? "video/mp4" : "audio/mp4");
+}
+
+static void
+gss_adaptive_async_assemble_chunk (GssAdaptiveAsync * async)
+{
+
+  async->data = gss_adaptive_assemble_chunk (async->transaction,
+      async->adaptive, async->level, async->fragment);
+  if (async->adaptive->drm_type != GSS_DRM_CLEAR) {
+    gss_playready_encrypt_samples (async->fragment, async->data,
+        async->adaptive->content_key);
+  }
+}
+
+static void
+gss_adaptive_async_assemble_chunk_finish (GssAdaptiveAsync * async)
+{
+  GssTransaction *t = async->transaction;
+
+  soup_message_set_status (t->msg, SOUP_STATUS_OK);
+  /* strip off mdat header at end of moof_data */
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_COPY,
+      async->fragment->moof_data, async->fragment->moof_size - 8);
+  soup_message_body_append (t->msg->response_body, SOUP_MEMORY_TAKE,
+      async->data, async->fragment->mdat_size);
+  soup_server_unpause_message (t->soupserver, t->msg);
 }
 
 GssAdaptive *
@@ -1341,4 +1367,69 @@ gss_adaptive_stream_get_name (GssAdaptiveStream stream_type)
     default:
       return "unknown";
   }
+}
+
+
+static GAsyncQueue *async_queue;
+static gboolean async_threads_stop = FALSE;
+
+static gboolean
+gss_adaptive_async_finish (gpointer priv)
+{
+  GssAdaptiveAsync *async = priv;
+
+  async->finish (async);
+  gss_adaptive_async_free (async);
+
+  return FALSE;
+}
+
+static gpointer
+gss_adaptive_async_thread (gpointer unused)
+{
+  GssAdaptiveAsync *async;
+
+  while (!async_threads_stop) {
+    async = g_async_queue_pop (async_queue);
+
+    async->process (async);
+    g_idle_add (gss_adaptive_async_finish, async);
+  }
+  return NULL;
+}
+
+
+void
+gss_adaptive_async_init (void)
+{
+  int i;
+
+  async_queue = g_async_queue_new ();
+
+#define N_THREADS 1
+  for (i = 0; i < N_THREADS; i++) {
+    g_thread_new ("gss_worker", gss_adaptive_async_thread, NULL);
+  }
+}
+
+GssAdaptiveAsync *
+gss_adaptive_async_new (void)
+{
+  return g_malloc0 (sizeof (GssAdaptiveAsync));
+}
+
+void
+gss_adaptive_async_free (GssAdaptiveAsync * async)
+{
+  g_free (async);
+}
+
+void
+gss_adaptive_async_push (GssAdaptiveAsync * async)
+{
+  if (async_queue == NULL) {
+    gss_adaptive_async_init ();
+  }
+
+  g_async_queue_push (async_queue, async);
 }
