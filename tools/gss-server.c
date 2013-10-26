@@ -24,6 +24,7 @@
 
 #include "gss-server.h"
 #include "gst-streaming-server/gss-user.h"
+#include "gst-streaming-server/gss-log.h"
 #include "gst-streaming-server/gss-manager.h"
 #include "gst-streaming-server/gss-push.h"
 #include "gst-streaming-server/gss-utils.h"
@@ -154,6 +155,8 @@ main (int argc, char *argv[])
   g_option_context_free (context);
 
   gss_init ();
+  if (cl_verbose)
+    gss_log_set_verbosity (2);
 
   config = g_object_new (GSS_TYPE_CONFIG, "config-file", "config", NULL);
   gss_config_load_config_file (config);

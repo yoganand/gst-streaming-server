@@ -12,6 +12,8 @@
 
 #define ENABLE_DEBUG
 
+static int gss_log_verbosity = 0;
+
 static void log_handler (GstDebugCategory * category, GstDebugLevel level,
     const gchar * file, const gchar * function, gint line, GObject * object,
     GstDebugMessage * message, gpointer data);
@@ -43,6 +45,12 @@ gss_log_init (void)
   openlog ("gst-streaming-server", LOG_NDELAY, LOG_DAEMON);
 
   _gss_error_quark = g_quark_from_static_string ("GStreamer Streaming Server");
+}
+
+void
+gss_log_set_verbosity (int level)
+{
+  gss_log_verbosity = level;
 }
 
 static void
@@ -106,9 +114,8 @@ log_handler (GstDebugCategory * category, GstDebugLevel level,
 
   gss_log_send_syslog (level, s2);
 
-#ifdef ENABLE_DEBUG
-  g_print ("%s", s2);
-#endif
+  if (gss_log_verbosity >= 1)
+    g_print ("%s", s2);
   g_free (s2);
 }
 
@@ -135,13 +142,18 @@ glog_handler (const gchar * log_domain, GLogLevelFlags log_level,
     level = 2;
   }
 
+  if (strncmp (message, "Custom constructor for class SoupServer returned NULL",
+          53) == 0) {
+    /* Assume someone will fix this some day */
+    return;
+  }
+
   s2 = g_strdup_printf ("%c %-10.10s glib:glib %s\n",
       level_char, log_domain, message);
 
   gss_log_send_syslog (level, s2);
-#ifdef ENABLE_DEBUG
-  g_print ("%s", s2);
-#endif
+  if (gss_log_verbosity >= 1)
+    g_print ("%s", s2);
   g_free (s2);
 }
 
@@ -196,7 +208,8 @@ gss_log_transaction (GssTransaction * t)
     g_free (uri);
   }
   syslog (LOG_USER | LOG_INFO, "%s", s);
-  g_print ("%s\n", s);
+  if (gss_log_verbosity >= 2)
+    g_print ("%s\n", s);
   g_free (s);
   g_free (dt);
   g_date_time_unref (datetime);

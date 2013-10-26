@@ -21,7 +21,7 @@
 #define _GSS_LOG_H_
 
 #include <glib.h>
-#include <gss-transaction.h>
+#include <gst-streaming-server/gss-transaction.h>
 
 G_BEGIN_DECLS
 
@@ -33,6 +33,7 @@ typedef enum {
 GQuark _gss_error_quark;
 
 void gss_log_init (void);
+void gss_log_set_verbosity (int level);
 void gss_log_send_syslog (int level, const char *msg);
 void gss_log_transaction (GssTransaction *t);
 
