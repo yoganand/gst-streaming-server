@@ -67,6 +67,13 @@ gss_transaction_finished (SoupMessage * msg, GssTransaction * t)
   t->finish_time = g_get_real_time ();
 
   gss_log_transaction (t);
+  if (!t->async && t->finish_time - t->start_time > 1000) {
+    char *uri;
+    uri = soup_uri_to_string (soup_message_get_uri (t->msg), TRUE);
+    GST_WARNING ("synchronous transaction too slow: %" G_GUINT64_FORMAT
+        " us, \"%s\"", t->finish_time - t->start_time, uri);
+    g_free (uri);
+  }
   g_object_weak_unref (G_OBJECT (t->msg),
       (GWeakNotify) (gss_transaction_finalize), t);
   gss_transaction_free (t);

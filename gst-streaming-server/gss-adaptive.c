@@ -1431,5 +1431,6 @@ gss_adaptive_async_push (GssAdaptiveAsync * async)
     gss_adaptive_async_init ();
   }
 
+  async->transaction->async = TRUE;
   g_async_queue_push (async_queue, async);
 }

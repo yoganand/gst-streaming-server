@@ -46,6 +46,7 @@ struct _GssTransaction {
   guint64 start_time;
   guint64 completion_time;
   guint64 finish_time;
+  gboolean async;
 };
 
 GssTransaction * gss_transaction_new (GssServer *server,
