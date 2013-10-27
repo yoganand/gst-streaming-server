@@ -165,11 +165,89 @@ gss_transaction_delay (GssTransaction * t, int msec)
   new_t = g_malloc0 (sizeof (GssTransaction));
   memcpy (new_t, t, sizeof (GssTransaction));
 
+  t->async = TRUE;
   soup_server_pause_message (t->soupserver, t->msg);
   g_timeout_add (msec, unpause, new_t);
 }
 
+#define ASYNC_THREADS 1
+static GAsyncQueue *async_queue;
+static GThread *async_threads[ASYNC_THREADS];
 
+static gboolean
+gss_transaction_async_finish (gpointer priv)
+{
+  GssTransaction *t = priv;
+
+  if (t->finish)
+    t->finish (t, t->priv);
+
+  return FALSE;
+}
+
+static gpointer
+gss_transaction_async_thread (gpointer unused)
+{
+  GssTransaction *t;
+
+  while (TRUE) {
+    t = g_async_queue_pop (async_queue);
+    if (t->server == NULL) {
+      g_free (t);
+      g_thread_exit (NULL);
+    }
+
+    if (t->process)
+      t->process (t, t->priv);
+    g_idle_add (gss_transaction_async_finish, t);
+  }
+  return NULL;
+}
+
+void
+_priv_gss_transaction_initialize (void)
+{
+  int i;
+
+  async_queue = g_async_queue_new ();
+
+  for (i = 0; i < ASYNC_THREADS; i++) {
+    async_threads[i] =
+        g_thread_new ("gss_worker", gss_transaction_async_thread, NULL);
+  }
+}
+
+void
+_priv_gss_transaction_cleanup (void)
+{
+  int i;
+
+  for (i = 0; i < ASYNC_THREADS; i++) {
+    GssTransaction *t = g_malloc0 (sizeof (GssTransaction));
+    /* Send a fake transaction to cause each thread to exit */
+    g_async_queue_push (async_queue, t);
+  }
+  for (i = 0; i < ASYNC_THREADS; i++) {
+    g_thread_join (async_threads[i]);
+  }
+  g_async_queue_unref (async_queue);
+  async_queue = NULL;
+}
+
+void
+gss_transaction_process_async (GssTransaction * t,
+    GssTransactionFunc process, GssTransactionFunc finish, gpointer priv)
+{
+  if (async_queue == NULL) {
+    _priv_gss_transaction_initialize ();
+  }
+
+  t->async = TRUE;
+  t->process = process;
+  t->finish = finish;
+  t->priv = priv;
+  g_async_queue_push (async_queue, t);
+}
 
 
 /* some stuff copied from json-glib because it needs a one-line

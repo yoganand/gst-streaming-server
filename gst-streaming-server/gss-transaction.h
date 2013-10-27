@@ -29,6 +29,8 @@
 G_BEGIN_DECLS
 
 typedef void (GssTransactionCallback)(GssTransaction *transaction);
+typedef void (GssTransactionFunc)(GssTransaction *transaction,
+    gpointer priv);
 
 struct _GssTransaction {
   GssServer *server;
@@ -46,7 +48,11 @@ struct _GssTransaction {
   guint64 start_time;
   guint64 completion_time;
   guint64 finish_time;
+
   gboolean async;
+  GssTransactionFunc *process;
+  GssTransactionFunc *finish;
+  gpointer priv;
 };
 
 GssTransaction * gss_transaction_new (GssServer *server,
@@ -58,6 +64,8 @@ void gss_transaction_redirect (GssTransaction * t, const char *target);
 void gss_transaction_error (GssTransaction * t, const char *message);
 void gss_transaction_delay (GssTransaction *t, int msec);
 void gss_transaction_dump (GssTransaction *t);
+void gss_transaction_process_async (GssTransaction *t,
+    GssTransactionFunc process, GssTransactionFunc finish, gpointer priv);
 
 gchar *gss_json_gobject_to_data (GObject * gobject, gsize * length);
 

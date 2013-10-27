@@ -124,18 +124,22 @@ gss_config_get_property (GObject * object, guint prop_id,
   }
 }
 
+void _priv_gss_transaction_initialize (void);
+void _priv_gss_transaction_cleanup (void);
 
 void
 gss_init (void)
 {
   gss_log_init ();
 
+  _priv_gss_transaction_initialize ();
 }
 
 void
 gss_deinit (void)
 {
   _gss_utils_deinit ();
+  _priv_gss_transaction_cleanup ();
 }
 
 void
