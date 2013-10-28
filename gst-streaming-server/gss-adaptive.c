@@ -305,7 +305,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
       "  type=\"static\"\n"
       "  mediaPresentationDuration=\"PT%dS\"\n"
-      "  minBufferTime=\"PT2S\"\n"
+      "  minBufferTime=\"PT10S\"\n"
       "  profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\">\n",
       (int) (adaptive->duration / GSS_ISM_SECOND));
   GSS_P ("  <Period>\n");
@@ -546,7 +546,7 @@ gss_adaptive_resource_get_dash_live_mpd (GssTransaction * t,
   GSS_P ("  xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd\"\n"
       "  type=\"static\"\n"
       "  mediaPresentationDuration=\"PT%dS\"\n"
-      "  minBufferTime=\"PT4S\"\n"
+      "  minBufferTime=\"PT10S\"\n"
       "  profiles=\"urn:mpeg:dash:profile:isoff-live:2011\">\n",
       (int) (adaptive->duration / GSS_ISM_SECOND));
   GSS_P ("  <Period>\n");
