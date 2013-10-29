@@ -14,7 +14,7 @@ chdir /var/lib/gst-streaming-server
 
 console output
 
-#respawn
+respawn
 
 env HTTP_PORT=80
 env HTTPS_PORT=443
