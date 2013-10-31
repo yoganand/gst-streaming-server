@@ -444,7 +444,7 @@ segment_probe (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
       gst_event_parse_segment (event, &segment);
 
       if (segment->start == clip_start * GST_SECOND &&
-          (clip_end != 0.0 && segment->stop == clip_end * GST_SECOND)) {
+          (clip_end == 0.0 || segment->stop == clip_end * GST_SECOND)) {
         return GST_PAD_PROBE_OK;
       }
 
