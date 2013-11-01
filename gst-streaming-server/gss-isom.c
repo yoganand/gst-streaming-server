@@ -191,6 +191,12 @@ gss_isom_track_is_video (GssIsomTrack * track)
   return (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
 }
 
+gboolean
+gss_isom_track_is_audio (GssIsomTrack * track)
+{
+  return (track->hdlr.handler_type == GST_MAKE_FOURCC ('s', 'o', 'u', 'n'));
+}
+
 guint64
 gss_isom_movie_get_duration (GssIsomMovie * movie)
 {
@@ -3554,7 +3560,7 @@ gss_isom_track_serialize_dash (GssIsomTrack * track, guint8 ** data, int *size)
   gboolean is_video;
   GssBoxMvhd mvhd;
 
-  is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
+  is_video = gss_isom_track_is_video (track);
 
   bw = gst_byte_writer_new ();
 
@@ -4040,7 +4046,7 @@ gss_isom_track_prepare_streaming (GssIsomMovie * movie, GssIsomTrack * track,
   guint64 offset = 0;
   gboolean is_video;
 
-  is_video = (track->hdlr.handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e'));
+  is_video = gss_isom_track_is_video (track);
 
   GST_DEBUG ("stsd entries %d", track->stsd.entry_count);
 
