@@ -117,9 +117,9 @@ static void gss_isom_parse_ignore (GssIsomParser * parser, GssIsomTrack * track,
     GstByteReader * br);
 static void gst_byte_reader_dump (GstByteReader * br);
 static void gss_isom_parser_fragmentize_track_video (GssIsomTrack *
-    video_track);
+    video_track, gboolean is_dash);
 static void gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
-    GssIsomTrack * video_track);
+    GssIsomTrack * video_track, gboolean is_dash);
 
 static guint64 gss_isom_moof_get_duration (GssIsomFragment * fragment);
 
@@ -3791,7 +3791,7 @@ gss_isom_movie_get_audio_track (GssIsomMovie * movie)
 }
 
 void
-gss_isom_parser_fragmentize (GssIsomParser * file)
+gss_isom_parser_fragmentize (GssIsomParser * file, gboolean is_dash)
 {
   GssIsomTrack *video_track;
   GssIsomTrack *audio_track;
@@ -3815,7 +3815,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
   video_track->filename = file->filename;
 
-  gss_isom_parser_fragmentize_track_video (video_track);
+  gss_isom_parser_fragmentize_track_video (video_track, is_dash);
 
   audio_track = gss_isom_movie_get_audio_track (file->movie);
   if (audio_track == NULL) {
@@ -3825,7 +3825,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
   audio_track->filename = file->filename;
 
-  gss_isom_parser_fragmentize_track_audio (audio_track, video_track);
+  gss_isom_parser_fragmentize_track_audio (audio_track, video_track, is_dash);
 
   file->movie->mvhd.timescale = 10000000;
   fixup_track (video_track, TRUE);
@@ -3845,7 +3845,7 @@ gss_isom_parser_fragmentize (GssIsomParser * file)
 
 static void
 gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
-    GssIsomTrack * video_track)
+    GssIsomTrack * video_track, gboolean is_dash)
 {
   int n_fragments;
   int i;
@@ -3885,6 +3885,9 @@ gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
         gst_util_uint64_scale_int (video_timestamp,
             audio_track->mdhd.timescale, 10000000));
 
+    if (is_dash) {
+      audio_fragment->tfdt.present = TRUE;
+    }
     audio_fragment->tfhd.track_id = audio_track->tkhd.track_id;
     audio_fragment->tfhd.flags = 0;
     audio_fragment->tfhd.default_sample_duration = 0;
@@ -3940,7 +3943,8 @@ gss_isom_parser_fragmentize_track_audio (GssIsomTrack * audio_track,
 }
 
 static void
-gss_isom_parser_fragmentize_track_video (GssIsomTrack * video_track)
+gss_isom_parser_fragmentize_track_video (GssIsomTrack * video_track,
+    gboolean is_dash)
 {
   int n_fragments;
   int i;
@@ -3974,6 +3978,9 @@ gss_isom_parser_fragmentize_track_video (GssIsomTrack * video_track)
 
     video_fragment->mfhd.sequence_number = i;
 
+    if (is_dash) {
+      video_fragment->tfdt.present = TRUE;
+    }
     video_fragment->tfhd.track_id = video_track->tkhd.track_id;
     video_fragment->tfhd.flags = 0;
     video_fragment->tfhd.default_sample_duration = 0x061a80;

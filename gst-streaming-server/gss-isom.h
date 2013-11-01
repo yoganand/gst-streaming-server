@@ -257,7 +257,7 @@ GssIsomTrack * gss_isom_movie_get_track_by_id (GssIsomMovie * movie, int track_i
 GssIsomFragment *gss_isom_fragment_new (void);
 void gss_isom_fragment_free (GssIsomFragment * fragment);
 
-void gss_isom_parser_fragmentize (GssIsomParser *file);
+void gss_isom_parser_fragmentize (GssIsomParser *file, gboolean is_dash);
 #if 0
 void gss_isom_track_prepare_streaming (GssIsomMovie *movie, GssIsomTrack *track,
     const GssBoxPssh *pssh);

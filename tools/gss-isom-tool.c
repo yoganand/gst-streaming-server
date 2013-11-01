@@ -61,7 +61,7 @@ main (int argc, char *argv[])
       int j;
       GssIsomTrack *track;
 
-      gss_isom_parser_fragmentize (file);
+      gss_isom_parser_fragmentize (file, TRUE);
 
       track = file->movie->tracks[0];
 

@@ -1235,7 +1235,9 @@ load_file (GssAdaptive * adaptive, const char *filename)
   gss_isom_parser_parse_file (file, filename);
 
   if (file->movie->tracks[0]->n_fragments == 0) {
-    gss_isom_parser_fragmentize (file);
+    gss_isom_parser_fragmentize (file,
+        adaptive->stream_type == GSS_ADAPTIVE_STREAM_ISOFF_ONDEMAND ||
+        adaptive->stream_type == GSS_ADAPTIVE_STREAM_ISOFF_LIVE);
   }
 #if 0
   if (adaptive->drm_type == GSS_DRM_PLAYREADY &&
