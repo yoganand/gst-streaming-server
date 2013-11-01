@@ -463,6 +463,8 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     end = level->track->dash_size;
   }
   GST_DEBUG ("%s: range: %ld-%ld", path, start, end);
+  t->start = start;
+  t->end = end;
 
   offset = start;
   n_bytes = end - start;

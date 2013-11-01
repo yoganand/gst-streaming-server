@@ -48,6 +48,7 @@ struct _GssTransaction {
   guint64 start_time;
   guint64 completion_time;
   guint64 finish_time;
+  gsize start, end;
 
   gboolean async;
   GssTransactionFunc *process;
