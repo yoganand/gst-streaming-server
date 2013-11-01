@@ -3533,7 +3533,7 @@ create_sidx (GssBoxSidx * sidx, GssIsomTrack * track)
 
   sidx->version = 0;
   sidx->flags = 0;
-  sidx->reference_id = 1;       /* FIXME wut? */
+  sidx->reference_id = track->tkhd.track_id;
   sidx->timescale = track->mdhd.timescale;
   sidx->earliest_presentation_time = 0;
   sidx->first_offset = 0;
