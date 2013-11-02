@@ -3542,8 +3542,8 @@ create_sidx (GssBoxSidx * sidx, GssIsomTrack * track)
   sidx->entries = g_malloc0 (sizeof (GssBoxSidxEntry) * sidx->n_entries);
   for (i = 0; i < sidx->n_entries; i++) {
     sidx->entries[i].reference_size = track->fragments[i]->moof_size +
-        track->fragments[i]->mdat_header_size + track->fragments[i]->mdat_size;
-    sidx->entries[i].subsegment_duration = track->fragments[i]->duration;
+        track->fragments[i]->mdat_header_size + track->fragments[i]->mdat_size -
+        8;
     /* FIXME fixup */
     if (i < sidx->n_entries - 1) {
       sidx->entries[i].subsegment_duration -= 30;
