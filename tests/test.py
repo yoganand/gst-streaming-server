@@ -38,16 +38,17 @@ def test_get_checksum_range(url, start, end, expected_checksum):
   assert m.hexdigest() == expected_checksum
 
 
-args = ['../tools/gss-server']
-pid = os.spawnv(os.P_NOWAIT, "../tools/gss-server", args)
-print "PID is %d" % (pid,)
+#args = ['../tools/gss-server']
+#pid = os.spawnv(os.P_NOWAIT, "../tools/gss-server", args)
+#print "PID is %d" % (pid,)
 
-time.sleep(2)
+#time.sleep(2)
 
 #if pid != 0:
 #  sys.exit(1)
 
 #sys.exit(0)
+
 
 test_get_status("/", 200)
 
@@ -114,14 +115,16 @@ if clear_enabled:
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0", 404)
 
-test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "d715a878f0852a12e0f1fe645d075284a33cadcb")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 3261, 435523, "b0f06d388a4cce0e67a401599d6623b80dc498fe")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 3763, 88937, "8f806e477816f59ba6c069afdfef2b7d5359d249")
+test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "0a39d83723a1d0bca3946eb47b5e3344baf83cb5")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "a43a1f9b3dba34bcb98d30528e1e828514f4beb3")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 656, 2247, "22aaa93c0732299c523fc9a8640052d40c74604e")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "00dfe3aeca60abee5be5eb1274ead41707cf04d1")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 0, 597, "54774c1a7a9829e0e8acf0ec94f0253f95717b57")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 598, 2189, "3ced228b3e6a707ae45d5ed65721b0e486d82a52")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 2190, 85915, "e45ac47f528379452fe22e2c9ce4491d5ae084db")
 
-
-
-os.kill(pid, 9)
-os.waitpid(pid, 0)
+#os.kill(pid, 9)
+#os.waitpid(pid, 0)
 
 
 
