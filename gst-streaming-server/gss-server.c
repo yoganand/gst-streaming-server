@@ -811,6 +811,8 @@ gss_server_setup_resources (GssServer * server)
   gss_server_add_string_resource (server, "/robots.txt", 0,
       GSS_TEXT_PLAIN, "User-agent: *\nDisallow: /\n");
 
+  gss_server_add_static_resource (server, "/dash.min.js", 0,
+      "text/javascript", gss_data_dash_min_js, gss_data_dash_min_js_len);
   gss_server_add_static_resource (server, "/include.js", 0,
       "text/javascript", gss_data_include_js, gss_data_include_js_len);
   gss_server_add_static_resource (server,

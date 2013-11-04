@@ -110,6 +110,7 @@ content_files= \
 	content/bootstrap-responsive.css \
 	content/bootstrap.css \
 	content/bootstrap.js \
+	content/dash.min.js \
 	content/footer-entropywave.png \
 	content/glyphicons-halflings-white.png \
 	content/glyphicons-halflings.png \

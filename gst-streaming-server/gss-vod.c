@@ -52,6 +52,7 @@ static GssAdaptive *gss_vod_get_adaptive (GssVod * vod, const char *key,
     const char *version, GssDrmType drm_type, GssAdaptiveStream stream_type);
 static void gss_vod_get_adaptive_resource (GssTransaction * t);
 static void gss_vod_attach (GssObject * object, GssServer * server);
+static void gss_vod_player_get_resource (GssTransaction * t);
 
 G_DEFINE_TYPE (GssVod, gss_vod, GSS_TYPE_MODULE);
 
@@ -200,6 +201,9 @@ gss_vod_attach (GssObject * object, GssServer * server)
       GSS_RESOURCE_PREFIX, NULL, gss_vod_get_adaptive_resource, NULL, NULL,
       vod);
 
+  gss_server_add_resource (GSS_OBJECT_SERVER (object), "/vod-player",
+      GSS_RESOURCE_UI, GSS_TEXT_HTML, gss_vod_player_get_resource,
+      NULL, NULL, vod);
 }
 
 static void
@@ -409,4 +413,51 @@ gss_vod_get_adaptive (GssVod * vod, const char *key, const char *version,
     g_free (hash_key);
   }
   return adaptive;
+}
+
+static void
+gss_vod_player_get_resource (GssTransaction * t)
+{
+  //GssVod *vod = GSS_VOD (t->resource->priv);
+  GString *s = g_string_new ("");
+  const char *url;
+
+  t->s = s;
+
+  url =
+      "http://localhost:8080/vod/elephantsdream/0/clear/isoff-ondemand/manifest.mpd";
+
+  gss_html_header (t);
+
+  GSS_A ("<h1>Video On Demand</h1>\n");
+  GSS_A ("<br>\n");
+  GSS_A ("<script src=\"dash.min.js\"></script>\n");
+  GSS_A ("<script>\n");
+  GSS_A ("function startVideo() {\n");
+  GSS_A ("  video = document.querySelector(\".dash-video-player video\");\n");
+  GSS_A ("  context = new Dash.di.DashContext();\n");
+  GSS_A ("  player = new MediaPlayer(context);\n");
+  GSS_A ("  player.startup();\n");
+  GSS_A ("  player.attachView(video);\n");
+  GSS_A ("  player.setAutoPlay(false);\n");
+  GSS_P ("  url = \"%s\";\n", url);
+  GSS_A ("  player.attachSource(url);\n");
+  GSS_A ("}\n");
+  GSS_A ("</script>\n");
+  GSS_A ("<style>\n");
+  GSS_A ("  video {\n");
+  GSS_A ("    width: 640px;\n");
+  GSS_A ("    height: 360px\n");
+  GSS_A ("  }\n");
+  GSS_A ("</style>\n");
+  GSS_A ("<div class=\"dash-video-player\">\n");
+  GSS_A ("  <video controls=\"true\" autoplay=\"true\"></video>\n");
+  GSS_A ("</div>\n");
+  GSS_A ("<script>\n");
+  GSS_A ("document.body.onload=startVideo()\n");
+  GSS_A ("</script>\n");
+  GSS_A ("\n");
+  GSS_A ("\n");
+
+  gss_html_footer (t);
 }
