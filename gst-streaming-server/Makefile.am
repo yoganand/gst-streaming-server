@@ -50,6 +50,7 @@ sources = \
 	gss-push.c \
 	gss-adaptive.c \
 	gss-isom.c \
+	gss-isom-dump.c \
 	gss-iso-atoms.h \
 	gss-sglist.c \
 	gss-stream.c \

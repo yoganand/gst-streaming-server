@@ -280,6 +280,7 @@ void gss_isom_track_convert_h264_codec_data (GssIsomTrack *track);
 void gss_isom_parser_dump (GssIsomParser *file);
 void gss_isom_movie_dump (GssIsomMovie *movie);
 void gss_isom_track_dump (GssIsomTrack *track);
+void gss_isom_fragment_dump (GssIsomFragment *fragment);
 gboolean gss_isom_track_is_video (GssIsomTrack * track);
 gboolean gss_isom_track_is_audio (GssIsomTrack * track);
 
