@@ -2544,12 +2544,7 @@ gss_isom_hdlr_serialize (GssBoxHdlr * hdlr, GstByteWriter * bw)
   gst_byte_writer_put_uint32_be (bw, 0);
   gst_byte_writer_put_uint32_le (bw, hdlr->handler_type);
   gst_byte_writer_fill (bw, 0, 12);
-  //put_string (bw, hdlr->name, TRUE);
-  if (hdlr->handler_type == GST_MAKE_FOURCC ('v', 'i', 'd', 'e')) {
-    put_string (bw, "Video Media Handler", TRUE);
-  } else {
-    put_string (bw, "Audio Media Handler", TRUE);
-  }
+  put_string (bw, hdlr->name, TRUE);
 
   BOX_FINISH (bw, offset);
 }
