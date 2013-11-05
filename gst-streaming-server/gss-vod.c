@@ -25,6 +25,7 @@
 #include "gss-html.h"
 #include "gss-adaptive.h"
 #include "gss-playready.h"
+#include "gss-soup.h"
 
 
 enum
@@ -420,12 +421,23 @@ gss_vod_player_get_resource (GssTransaction * t)
 {
   //GssVod *vod = GSS_VOD (t->resource->priv);
   GString *s = g_string_new ("");
-  const char *url;
+  char *url;
+  char *base_url;
+  const char *content_id;
 
   t->s = s;
 
-  url =
-      "http://localhost:8080/vod/elephantsdream/0/clear/isoff-ondemand/manifest.mpd";
+  content_id = NULL;
+  if (t->query) {
+    content_id = g_hash_table_lookup (t->query, "content_id");
+  }
+  if (content_id == NULL) {
+    content_id = "elephantsdream";
+  }
+  base_url = gss_soup_get_base_url_http (t->server, t->msg);
+  url = g_strdup_printf ("%s/vod/%s/0/clear/isoff-ondemand/manifest.mpd",
+      base_url, content_id);
+  g_free (base_url);
 
   gss_html_header (t);
 
@@ -460,4 +472,6 @@ gss_vod_player_get_resource (GssTransaction * t)
   GSS_A ("\n");
 
   gss_html_footer (t);
+
+  g_free (url);
 }
