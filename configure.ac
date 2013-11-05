@@ -254,6 +254,7 @@ AC_SUBST(GSS_LIBS)
 
 AS_HOST_DEFINES()
 
+#tests/check/Makefile
 AC_CONFIG_FILES([
 Makefile 
 doc/Makefile
@@ -263,7 +264,6 @@ pkgconfig/gst-streaming-server-uninstalled.pc
 pkgconfig/gst-streaming-server.pc
 tools/Makefile
 tests/Makefile
-tests/check/Makefile
 doc/version.entities
 po/Makefile.in
 common/Makefile

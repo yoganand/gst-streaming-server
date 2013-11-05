@@ -1,5 +1,5 @@
 
-SUBDIRS = check
+#SUBDIRS = check
 
 
 check-local:
