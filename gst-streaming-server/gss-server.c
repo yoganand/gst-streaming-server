@@ -1366,6 +1366,46 @@ gss_server_resource_about (GssTransaction * t)
   GSS_P ("Boston, MA 02110-1301, USA.\n");
   GSS_P ("</pre>\n");
 
+  GSS_P ("<h3>dashif.org DASH player</h3>\n");
+  GSS_P ("<pre>\n");
+  GSS_P ("The copyright in this software is being made available under\n");
+  GSS_P ("the BSD License,\n");
+  GSS_P ("included below. This software may be subject to other third\n");
+  GSS_P ("party and contributor rights, including patent rights, and no\n");
+  GSS_P ("such rights are granted under this license.\n");
+  GSS_P ("\n");
+  GSS_P ("Copyright (c) 2013, Digital Primates\n");
+  GSS_P ("All rights reserved.\n");
+  GSS_P ("\n");
+  GSS_P ("Redistribution and use in source and binary forms, with or\n");
+  GSS_P ("without modification, are permitted provided that the following\n");
+  GSS_P ("conditions are met:\n");
+  GSS_P ("Redistributions of source code must retain the above copyright\n");
+  GSS_P ("notice, this list of conditions and the following disclaimer.\n");
+  GSS_P ("Redistributions in binary form must reproduce the above copyright\n");
+  GSS_P ("notice, this list of conditions and the following disclaimer in\n");
+  GSS_P ("the documentation and/or other materials provided with the\n");
+  GSS_P ("distribution.\n");
+  GSS_P ("Neither the name of the Digital Primates nor the names of its\n");
+  GSS_P ("contributors may be used to endorse or promote products derived\n");
+  GSS_P ("from this software without specific prior written permission.\n");
+  GSS_P ("\n");
+  GSS_P ("THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND\n");
+  GSS_P ("CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES,\n");
+  GSS_P ("INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF\n");
+  GSS_P ("MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\n");
+  GSS_P ("DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR\n");
+  GSS_P ("CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,\n");
+  GSS_P ("SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT\n");
+  GSS_P ("LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF\n");
+  GSS_P ("USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED\n");
+  GSS_P ("AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT\n");
+  GSS_P ("LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING\n");
+  GSS_P ("IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF\n");
+  GSS_P ("THE POSSIBILITY OF SUCH DAMAGE.\n");
+  GSS_P ("\n");
+  GSS_P ("</pre>\n");
+
   gss_html_footer (t);
 }
 
