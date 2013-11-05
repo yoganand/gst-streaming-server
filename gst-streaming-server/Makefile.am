@@ -15,13 +15,15 @@ libgss_@GST_API_VERSION@_la_CFLAGS = \
 	$(SOUP_CFLAGS) \
 	$(GST_RTSP_SERVER_CFLAGS) \
 	$(JSON_GLIB_CFLAGS) \
-	$(OPENSSL_CFLAGS)
+	$(OPENSSL_CFLAGS) \
+	$(LIBXML2_CFLAGS)
 libgss_@GST_API_VERSION@_la_LIBADD = \
 	$(GST_RTSP_SERVER_LIBS) \
 	$(GST_LIBS) \
 	$(SOUP_LIBS) \
 	$(JSON_GLIB_LIBS) \
-	$(OPENSSL_LIBS)
+	$(OPENSSL_LIBS) \
+	$(LIBXML2_LIBS)
 libgss_@GST_API_VERSION@_la_LDFLAGS = \
 	$(GST_LT_LDFLAGS) \
 	-export-symbols-regex 'gss_'
@@ -70,13 +72,15 @@ libgss_la_CFLAGS = \
 	$(SOUP_CFLAGS) \
 	$(GST_RTSP_SERVER_CFLAGS) \
 	$(JSON_GLIB_CFLAGS) \
-	$(OPENSSL_CFLAGS)
+	$(OPENSSL_CFLAGS) \
+	$(LIBXML2_CFLAGS)
 libgss_la_LIBS = \
 	$(GST_RTSP_SERVER_LIBS) \
 	$(GST_LIBS) \
 	$(SOUP_LIBS) \
 	$(JSON_GLIB_LIBS) \
-	$(OPENSSL_LIBS)
+	$(OPENSSL_LIBS) \
+	$(LIBXML2_LIBS)
 libgss_la_SOURCES = $(sources)
 
 gss_include_HEADERS = \
