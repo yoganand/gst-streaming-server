@@ -171,76 +171,34 @@ case "${with_gst_api_version}" in
     ;;
 esac
 
-dnl *** check for arguments to configure ***
+dnl *** check for dependencies ***
 
 GLIB_REQ=2.26.0
-PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQ, HAVE_GLIB=yes, HAVE_GLIB=no)
-if test "$HAVE_GLIB" != yes ; then
-  echo "glib-2.0 >= $GLIB_REQ is required to build"
-  exit 1
-fi
+AG_GST_PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQ, yes)
 
-PKG_CHECK_MODULES(GST, gstreamer-$GST_API_VERSION gstreamer-base-$GST_API_VERSION,
-    HAVE_GST=yes, HAVE_GST=no)
-if test "$HAVE_GST" != yes ; then
-  echo GStreamer is required to build
-  exit 1
-fi
-AC_SUBST(GST_CFLAGS)
-AC_SUBST(GST_LIBS)
+AG_GST_PKG_CHECK_MODULES(GST,
+    gstreamer-$GST_API_VERSION gstreamer-base-$GST_API_VERSION, yes)
 
-PKG_CHECK_MODULES(GST_CHECK, gstreamer-check-$GST_API_VERSION,
-    HAVE_GST_CHECK=yes, HAVE_GST_CHECK=no)
-if test "$HAVE_GST_CHECK" != yes ; then
-  echo GStreamer check library is required to build
-  exit 1
-fi
+AG_GST_PKG_CHECK_MODULES(GST_CHECK, gstreamer-check-$GST_API_VERSION, yes)
 AM_CONDITIONAL(HAVE_GST_CHECK, test "x$HAVE_GST_CHECK" = "xyes")
-AC_SUBST(GST_CHECK_CFLAGS)
-AC_SUBST(GST_CHECK_LIBS)
 
-PKG_CHECK_MODULES(GST_RTSP_SERVER, gst-rtsp-server-$GST_API_VERSION >= 0.10.1,
-    HAVE_GST_RTSP_SERVER=yes, HAVE_GST_RTSP_SERVER=no)
+GST_RTSP_SERVER_REQ=0.10.1
+AG_GST_PKG_CHECK_MODULES(GST_RTSP_SERVER,
+    gst-rtsp-server-$GST_API_VERSION >= $GST_RTSP_SERVER_REQ)
 if test "$HAVE_GST_RTSP_SERVER" = yes ; then
   AC_DEFINE(ENABLE_RTSP, 1, [Enable RTSP])
-else
-  #echo gst-rtsp-server is needed to build
-  #exit 1
-  :
 fi
 AM_CONDITIONAL(ENABLE_RTSP, [test "$HAVE_GST_RTSP_SERVER" = yes])
-AC_SUBST(GST_RTSP_SERVER_CFLAGS)
-AC_SUBST(GST_RTSP_SERVER_LIBS)
 
 LIBSOUP_REQ=2.38.0
-PKG_CHECK_MODULES(SOUP, libsoup-2.4 > LIBSOUP_REQ, HAVE_SOUP=yes, HAVE_SOUP=no)
-if test "$HAVE_SOUP" != yes ; then
-  echo libsoup is needed to build
-  exit 1
-fi
-AC_SUBST(SOUP_CFLAGS)
-AC_SUBST(SOUP_LIBS)
+AG_GST_PKG_CHECK_MODULES(SOUP, libsoup-2.4 > LIBSOUP_REQ, yes)
 
 JSON_GLIB_REQ=1.0
-PKG_CHECK_MODULES(JSON_GLIB, json-glib-1.0 > JSON_GLIB_REQ, HAVE_JSON_GLIB=yes, HAVE_JSON_GLIB=no)
-if test "$HAVE_JSON_GLIB" != yes ; then
-  echo json-glib is needed to build
-  exit 1
-fi
-AC_SUBST(JSON_GLIB_CFLAGS)
-AC_SUBST(JSON_GLIB_LIBS)
+AG_GST_PKG_CHECK_MODULES(JSON_GLIB,json-glib-1.0 > JSON_GLIB_REQ, yes)
 
-PKG_CHECK_MODULES(OPENSSL, openssl, HAVE_OPENSSL=yes, HAVE_OPENSSL=no)
-#if test "$HAVE_OPENSSL" != yes ; then
-#  echo openssl needed to build
-#  exit 1
-#fi
-AC_SUBST(OPENSSL_CFLAGS)
-AC_SUBST(OPENSSL_LIBS)
+AG_GST_PKG_CHECK_MODULES(OPENSSL, openssl)
 
 AG_GST_PKG_CHECK_MODULES(LIBXML2, libxml-2.0, yes)
-AC_SUBST(LIBXML2_CFLAGS)
-AC_SUBST(LIBXML2_LIBS)
 
 AM_CONDITIONAL(ENABLE_STATIC_LIB, [false])
 
