@@ -45,12 +45,11 @@ struct _GssTransaction {
   GString *script;
   const char *debug_message;
   int id;
-  guint64 start_time;
-  guint64 completion_time;
-  guint64 finish_time;
+  gint64 sync_process_time;
+  gint64 async_process_time;
+  gint64 total_time;
   gsize start, end;
 
-  gboolean async;
   GssTransactionFunc *process;
   GssTransactionFunc *finish;
   gpointer priv;

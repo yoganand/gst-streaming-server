@@ -28,6 +28,8 @@
 #include <json-glib/json-glib.h>
 
 static void gss_transaction_finalize (GssTransaction * t, SoupMessage * msg);
+static void gss_transaction_wrote_headers (SoupMessage * msg,
+    GssTransaction * t);
 static void gss_transaction_finished (SoupMessage * msg, GssTransaction * t);
 
 
@@ -45,8 +47,11 @@ gss_transaction_new (GssServer * server, SoupServer * soupserver,
   transaction->path = path;
   transaction->query = query;
   transaction->client = client;
-  transaction->start_time = g_get_real_time ();
+  transaction->sync_process_time = -g_get_real_time ();
+  transaction->total_time = -g_get_real_time ();
 
+  g_signal_connect (msg, "wrote-headers",
+      G_CALLBACK (gss_transaction_wrote_headers), transaction);
   g_signal_connect (msg, "finished", G_CALLBACK (gss_transaction_finished),
       transaction);
   g_object_weak_ref (G_OBJECT (msg), (GWeakNotify) (gss_transaction_finalize),
@@ -62,16 +67,24 @@ gss_transaction_free (GssTransaction * transaction)
 }
 
 static void
+gss_transaction_wrote_headers (SoupMessage * msg, GssTransaction * t)
+{
+  if (t->sync_process_time < 0) {
+    t->sync_process_time += g_get_real_time ();
+  }
+}
+
+static void
 gss_transaction_finished (SoupMessage * msg, GssTransaction * t)
 {
-  t->finish_time = g_get_real_time ();
+  t->total_time += g_get_real_time ();
 
   gss_log_transaction (t);
-  if (!t->async && t->finish_time - t->start_time > 1000) {
+  if (t->sync_process_time > 1000) {
     char *uri;
     uri = soup_uri_to_string (soup_message_get_uri (t->msg), TRUE);
-    GST_WARNING ("synchronous transaction too slow: %" G_GUINT64_FORMAT
-        " us, \"%s\"", t->finish_time - t->start_time, uri);
+    GST_WARNING ("synchronous processing too slow: %" G_GUINT64_FORMAT
+        " us, \"%s\"", t->sync_process_time, uri);
     g_free (uri);
   }
   g_object_weak_unref (G_OBJECT (t->msg),
@@ -165,7 +178,6 @@ gss_transaction_delay (GssTransaction * t, int msec)
   new_t = g_malloc0 (sizeof (GssTransaction));
   memcpy (new_t, t, sizeof (GssTransaction));
 
-  t->async = TRUE;
   soup_server_pause_message (t->soupserver, t->msg);
   g_timeout_add (msec, unpause, new_t);
 }
@@ -197,8 +209,10 @@ gss_transaction_async_thread (gpointer unused)
       g_thread_exit (NULL);
     }
 
+    t->async_process_time -= g_get_real_time ();
     if (t->process)
       t->process (t, t->priv);
+    t->async_process_time += g_get_real_time ();
     g_idle_add (gss_transaction_async_finish, t);
   }
   return NULL;
@@ -242,7 +256,8 @@ gss_transaction_process_async (GssTransaction * t,
     _priv_gss_transaction_initialize ();
   }
 
-  t->async = TRUE;
+  t->sync_process_time += g_get_real_time ();
+
   t->process = process;
   t->finish = finish;
   t->priv = priv;
@@ -513,8 +528,6 @@ gss_transaction_dump (GssTransaction * t)
   g_print ("From: %s\n",
       soup_address_get_physical (soup_client_context_get_address (t->client)));
   g_print ("Status: %d\n", t->msg->status_code);
-  g_print ("Response Latency: %" G_GUINT64_FORMAT " us\n",
-      t->completion_time - t->start_time);
   g_print ("Request Headers:\n");
   soup_message_headers_iter_init (&iter, t->msg->request_headers);
   while (soup_message_headers_iter_next (&iter, &name, &value)) {
