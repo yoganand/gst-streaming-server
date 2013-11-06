@@ -270,6 +270,8 @@ append_content_protection (GssTransaction * t, GssAdaptive * adaptive,
 
   if (adaptive->drm_type == GSS_DRM_PLAYREADY) {
     char *prot_header_base64;
+    GSS_A ("      <ContentProtection schemeIdUri=\"urn:mpeg:dash:"
+        "mp4protection:2011\" value=\"cenc\"/>\n");
     GSS_A ("      <ContentProtection "
         "schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\">\n");
     prot_header_base64 =
