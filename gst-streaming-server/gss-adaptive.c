@@ -62,6 +62,9 @@ static void gss_adaptive_async_assemble_chunk (GssTransaction * t,
     gpointer priv);
 static void gss_adaptive_async_assemble_chunk_finish (GssTransaction * t,
     gpointer priv);
+static void gss_adaptive_dash_range_async (GssTransaction * t, gpointer priv);
+static void gss_adaptive_dash_range_async_finish (GssTransaction * t,
+    gpointer priv);
 
 
 static guint8 *
@@ -414,10 +417,6 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
   int index;
   GssAdaptiveLevel *level;
   gsize start, end;
-  int i;
-  guint64 offset;
-  guint64 n_bytes;
-  guint64 header_size;
 
   /* skip over content/ */
   path += 8;
@@ -468,8 +467,46 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
   t->start = start;
   t->end = end;
 
-  offset = start;
-  n_bytes = end - start;
+  if (have_range) {
+    soup_message_headers_set_content_range (t->msg->response_headers,
+        ranges[0].start, ranges[0].end, level->track->dash_size);
+
+    soup_message_set_status (t->msg, SOUP_STATUS_PARTIAL_CONTENT);
+
+    soup_message_headers_free_ranges (t->msg->response_headers, ranges);
+  } else {
+    soup_message_set_status (t->msg, SOUP_STATUS_OK);
+  }
+
+  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
+      (path[0] == 'v') ? "video/mp4" : "audio/mp4");
+
+  {
+    GssAdaptiveQuery *query;
+
+    soup_server_pause_message (t->soupserver, t->msg);
+
+    query = g_malloc0 (sizeof (GssAdaptiveQuery));
+    query->adaptive = adaptive;
+    query->level = level;
+
+    gss_transaction_process_async (t, gss_adaptive_dash_range_async,
+        gss_adaptive_dash_range_async_finish, query);
+  }
+}
+
+static void
+gss_adaptive_dash_range_async (GssTransaction * t, gpointer priv)
+{
+  GssAdaptiveQuery *query = priv;
+  guint64 offset;
+  guint64 n_bytes;
+  guint64 header_size;
+  GssAdaptiveLevel *level = query->level;
+  int i;
+
+  offset = t->start;
+  n_bytes = t->end - t->start;
 
   if (ranges_overlap (offset, n_bytes, 0,
           level->track->dash_header_and_sidx_size)) {
@@ -495,10 +532,11 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
 
     if (ranges_overlap (offset, n_bytes, header_size + fragment->offset +
             fragment->moof_size, fragment->mdat_size)) {
-      mdat_data = gss_adaptive_assemble_chunk (t, adaptive, level, fragment);
-      if (adaptive->drm_type != GSS_DRM_CLEAR) {
+      mdat_data = gss_adaptive_assemble_chunk (t, query->adaptive, level,
+          fragment);
+      if (query->adaptive->drm_type != GSS_DRM_CLEAR) {
         gss_playready_encrypt_samples (fragment, mdat_data,
-            adaptive->content_key);
+            query->adaptive->content_key);
       }
 
       gss_soup_message_body_append_clipped (t->msg->response_body,
@@ -509,21 +547,16 @@ gss_adaptive_resource_get_dash_range_fragment (GssTransaction * t,
     }
   }
 
+}
+
+static void
+gss_adaptive_dash_range_async_finish (GssTransaction * t, gpointer priv)
+{
+  GssAdaptiveQuery *query = priv;
+
   soup_message_body_complete (t->msg->response_body);
-
-  if (have_range) {
-    soup_message_headers_set_content_range (t->msg->response_headers,
-        ranges[0].start, ranges[0].end, level->track->dash_size);
-
-    soup_message_set_status (t->msg, SOUP_STATUS_PARTIAL_CONTENT);
-
-    soup_message_headers_free_ranges (t->msg->response_headers, ranges);
-  } else {
-    soup_message_set_status (t->msg, SOUP_STATUS_OK);
-  }
-
-  soup_message_headers_replace (t->msg->response_headers, "Content-Type",
-      (path[0] == 'v') ? "video/mp4" : "audio/mp4");
+  soup_server_unpause_message (t->soupserver, t->msg);
+  g_free (query);
 }
 
 static void
