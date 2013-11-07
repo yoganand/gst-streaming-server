@@ -317,6 +317,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
 
   GSS_A ("    <AdaptationSet mimeType=\"audio/mp4\" "
       "lang=\"en\" "
+      "segmentAlignment=\"true\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
   append_content_protection (t, adaptive, mq.auth_token);
   for (i = 0; i < adaptive->n_audio_levels; i++) {
@@ -337,6 +338,7 @@ gss_adaptive_resource_get_dash_range_mpd (GssTransaction * t,
   GSS_A ("    </AdaptationSet>\n");
 
   GSS_A ("    <AdaptationSet mimeType=\"video/mp4\" "
+      "segmentAlignment=\"true\" "
       "subsegmentAlignment=\"true\" " "subsegmentStartsWithSAP=\"1\">\n");
   append_content_protection (t, adaptive, mq.auth_token);
   for (i = 0; i < adaptive->n_video_levels; i++) {
