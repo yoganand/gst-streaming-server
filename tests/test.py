@@ -7,6 +7,8 @@ import sys
 import time
 
 
+clear_enabled=True
+
 def test_get_status(url, expected_status):
   print ("Testing \"%s\"" % (url, ))
   conn = httplib.HTTPConnection("localhost", 8080)
@@ -92,7 +94,6 @@ test_get_status("/vod/elephantsdream/0/pr/ism/content?start_time=0&bitrate=75242
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&bitrate=752428", 404)
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0", 404)
 
-clear_enabled=False
 if clear_enabled:
   test_get_checksum("/vod/elephantsdream/0/clear/ism/Manifest", "c4ae5af94a7a983c3adddd4b1ef0f70802c3baa4")
   test_get_checksum("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0&bitrate=749643", "4dee4d4163d874db5566122476b5dea038e0b7df")
@@ -122,6 +123,17 @@ test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 22
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 0, 597, "54774c1a7a9829e0e8acf0ec94f0253f95717b57")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 598, 2189, "3ced228b3e6a707ae45d5ed65721b0e486d82a52")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 2190, 85915, "e45ac47f528379452fe22e2c9ce4491d5ae084db")
+
+if clear_enabled:
+  test_get_checksum("/vod/elephantsdream/0/clear/isoff-ondemand/manifest.mpd", "ea1d9a8e43384406459487b6141241017ee74a27")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/v0", 0, 655, "2f33c2079803b2657d23fb1e16e5fa85f9a349bc")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/v0", 656, 2247, "8615fb80b24584c4403ff884ef837cf0ec43ac52")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/v0", 2248, 432537, "0feb611df81f58b56c0fe1c1fc13cd51565224a6")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/a0", 0, 597, "7bd0e11ac2e6aa8a2cf4369a203a9c4e0dc0ece0")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/a0", 598, 2189, "2b838a08a33df152e56cdf87698c6c7acff01e7b")
+  test_get_checksum_range("/vod/elephantsdream/0/clear/isoff-ondemand/content/a0", 2190, 85915, "7321f26f7889f8ae45740ad9985af9cec606551b")
+
+
 
 #os.kill(pid, 9)
 #os.waitpid(pid, 0)
