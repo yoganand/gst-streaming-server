@@ -115,7 +115,7 @@ if clear_enabled:
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0", 404)
 
-test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "0a39d83723a1d0bca3946eb47b5e3344baf83cb5")
+test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "1cadb2a7e7c17b36afc3aef149a33c29deaeee61")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "a43a1f9b3dba34bcb98d30528e1e828514f4beb3")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 656, 2247, "22aaa93c0732299c523fc9a8640052d40c74604e")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "00dfe3aeca60abee5be5eb1274ead41707cf04d1")
