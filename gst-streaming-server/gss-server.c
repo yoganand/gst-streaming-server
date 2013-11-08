@@ -1262,9 +1262,11 @@ gss_server_resource_about (GssTransaction * t)
 
   GSS_P ("<h3>GStreamer Streaming Server</h3>\n");
   GSS_P ("<pre>\n");
-  GSS_P ("Copyright (C) 2009-2012 Entropy Wave Inc <info@entropywave.com>\n");
-  GSS_P ("Copyright (C) 2009-2012 David Schleef <ds@schleef.org>\n");
-  GSS_P ("Copyright (C) 2012 Jan Schmidt <thaytan@noraisin.net>\n");
+  GSS_P
+      ("Copyright (C) 2009-2012 Entropy Wave Inc &lt;info@entropywave.com&gt;\n");
+  GSS_P ("Copyright (C) 2009-2012 David Schleef &lt;ds@schleef.org&gt;\n");
+  GSS_P ("Copyright (C) 2012 Jan Schmidt &lt;thaytan@noraisin.net&gt;\n");
+  GSS_P ("Copyright (C) 2013 Rdio Inc &lt;ingestions@rdio.com&gt;\n");
   GSS_P ("\n");
   GSS_P ("This library is free software; you can redistribute it and/or\n");
   GSS_P ("modify it under the terms of the GNU Library General Public\n");
@@ -1347,7 +1349,7 @@ gss_server_resource_about (GssTransaction * t)
   GSS_P ("Copyright (C) 1997, 1998 Tim Janik\n");
   GSS_P ("Copyright (C) 2007, 2008, 2009  OpenedHand Ltd.\n");
   GSS_P ("Copyright (C) 2009, 2010, 2011  Intel Corp.\n");
-  GSS_P ("Copyright (C) 2010  Luca Bruno <lethalman88@gmail.com>\n");
+  GSS_P ("Copyright (C) 2010  Luca Bruno &lt;lethalman88@gmail.com&gt;\n");
   GSS_P ("\n");
   GSS_P ("This library is free software; you can redistribute it and/or\n");
   GSS_P ("modify it under the terms of the GNU Lesser General Public\n");
