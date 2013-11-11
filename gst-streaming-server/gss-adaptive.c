@@ -895,7 +895,8 @@ create_key_id (const char *key_string)
 }
 
 static gboolean
-parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
+parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir,
+    const char *requested_version)
 {
   JsonNode *node;
   JsonObject *obj;
@@ -941,6 +942,9 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir)
     version_string = json_node_get_string (n);
     if (version_string == NULL)
       return FALSE;
+
+    if (strcmp (version_string, requested_version) != 0)
+      continue;
 
     n = json_object_get_member (obj, "files");
     if (n == NULL)
@@ -1025,7 +1029,7 @@ gss_adaptive_load (GssServer * server, const char *key, const char *dir,
   gss_playready_generate_key (server->playready, adaptive->content_key,
       adaptive->kid, adaptive->kid_len);
 
-  ret = parse_json (adaptive, parser, dir);
+  ret = parse_json (adaptive, parser, dir, version);
   if (!ret) {
     gss_adaptive_free (adaptive);
     g_object_unref (parser);
