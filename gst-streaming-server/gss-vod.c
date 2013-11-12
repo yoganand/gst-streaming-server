@@ -320,17 +320,6 @@ gss_vod_get_adaptive_resource (GssTransaction * t)
   stream = chomp (&path);
   stream_type = gss_adaptive_get_stream_type (stream);
 
-  if (!content_version[0] ||
-      !g_ascii_isxdigit (content_version[0]) || content_version[1] != 0) {
-    gss_transaction_error_not_found (t, "invalid content version");
-    goto error;
-  }
-
-  if (g_ascii_xdigit_value (content_version[0]) != 0) {
-    gss_transaction_error_not_found (t, "unavailable content version");
-    goto error;
-  }
-
   if (drm_type == GSS_DRM_UNKNOWN) {
     gss_transaction_error_not_found (t, "invalid drm type");
     goto error;
