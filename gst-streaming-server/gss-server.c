@@ -1132,7 +1132,7 @@ gss_server_resource_callback (SoupServer * soupserver, SoupMessage * msg,
     soup_message_headers_replace (msg->response_headers,
         "Access-Control-Allow-Origin", "*");
     soup_message_headers_replace (msg->response_headers,
-        "Access-Control-Allow-Headers", "origin,range");
+        "Access-Control-Allow-Headers", "origin,range,content-type");
     soup_message_headers_replace (msg->response_headers,
         "Access-Control-Expose-Headers", "Server,range");
     soup_message_headers_replace (msg->response_headers,
