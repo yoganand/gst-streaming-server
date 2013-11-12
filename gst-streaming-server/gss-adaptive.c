@@ -1349,6 +1349,12 @@ gss_adaptive_get_resource (GssTransaction * t, GssAdaptive * adaptive,
 
   soup_message_headers_replace (t->msg->response_headers,
       "Access-Control-Allow-Origin", "*");
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Headers", "origin,range");
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Expose-Headers", "Server,range");
+  soup_message_headers_replace (t->msg->response_headers,
+      "Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
 
   failed = FALSE;
   switch (adaptive->stream_type) {
