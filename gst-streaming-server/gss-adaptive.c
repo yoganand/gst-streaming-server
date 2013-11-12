@@ -983,7 +983,8 @@ parse_json (GssAdaptive * adaptive, JsonParser * parser, const char *dir,
 
     return TRUE;
   }
-  return TRUE;
+  GST_ERROR ("requested version not found: %s", requested_version);
+  return FALSE;
 }
 
 GssAdaptive *
