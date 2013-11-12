@@ -73,7 +73,7 @@ test_get_status("/vod/elephantsdream/0/pr/ism/broken", 404)
 
 test_get_status("/vod/broken/0/pr/ism/content", 404)
 
-test_get_checksum("/vod/elephantsdream/0/pr/ism/Manifest", "279527329bac1ee684e9b9c11f4914225491007a")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/Manifest", "ae130fc21ed2457226ac0b55af655e7ba907ed9e")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=752766", "7ac1f4eb8f6d3b1035aa404a4dc339a06f6d25ab")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=1392712", "460ad7ff103420b58a44e7d4635a2a0d4bf8e183")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=2341910", "bf2896df824d27009a06f96d0eac57d4c9f8e20d")
@@ -116,13 +116,13 @@ if clear_enabled:
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&bitrate=752428", 404)
   test_get_status("/vod/elephantsdream/0/clear/ism/content?stream=video&start_time=0", 404)
 
-test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "52d8235723abe4256fdf4f5b0e36c1723d9fbe51")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "a43a1f9b3dba34bcb98d30528e1e828514f4beb3")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 656, 2247, "22aaa93c0732299c523fc9a8640052d40c74604e")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "00dfe3aeca60abee5be5eb1274ead41707cf04d1")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 0, 597, "54774c1a7a9829e0e8acf0ec94f0253f95717b57")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 598, 2189, "3ced228b3e6a707ae45d5ed65721b0e486d82a52")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 2190, 85915, "e45ac47f528379452fe22e2c9ce4491d5ae084db")
+test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "01c888d714940d88f76c93ad5a9cc34f8c5f0630")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "b6db0c49a705d2e478bd84a6f9dbf3f038751cf4")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "b6db0c49a705d2e478bd84a6f9dbf3f038751cf4")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "4d0841e089434993d459d26855baf8658ba411bc")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 0, 597, "809279bcd6eb3e933746d96a0747f0a434bd725e")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 598, 2189, "db68e9c679470bdcc03a9bc1042736ce5d3c59b2")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 2190, 85915, "ada346f0bb51bc8d4f96e55c75097c7451718e43")
 
 if clear_enabled:
   test_get_checksum("/vod/elephantsdream/0/clear/isoff-ondemand/manifest.mpd", "3d049e6aee62576cf0f72f5f22c782ee62999a08")

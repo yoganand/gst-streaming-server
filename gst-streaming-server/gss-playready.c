@@ -451,11 +451,13 @@ gss_playready_get_protection_header (GssAdaptive * adaptive,
       checksum,
       adaptive->content_id,
       (auth_token != NULL) ? "<auth_token>" : "",
-      auth_token, (auth_token != NULL) ? "</auth_token>" : "", la_url);
+      (auth_token != NULL) ? auth_token : "",
+      (auth_token != NULL) ? "</auth_token>" : "", la_url);
   g_free (kid_base64);
   g_free (checksum);
   len = strlen (wrmheader);
   utf16 = g_utf8_to_utf16 (wrmheader, len, NULL, &items, NULL);
+  GST_ERROR ("%s", wrmheader);
   g_free (wrmheader);
 
   content = g_malloc (items * sizeof (gunichar2) + 10);
