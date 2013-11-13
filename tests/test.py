@@ -24,7 +24,8 @@ def test_get_checksum(url, expected_checksum):
   res = conn.getresponse()
   m = hashlib.sha1()
   m.update(res.read())
-  print 'test_get_checksum("%s", "%s")' % (url, m.hexdigest())
+  if m.hexdigest() != expected_checksum:
+    print 'test_get_checksum("%s", "%s")' % (url, m.hexdigest())
   assert m.hexdigest() == expected_checksum
 
 def test_get_checksum_range(url, start, end, expected_checksum):
@@ -36,7 +37,8 @@ def test_get_checksum_range(url, start, end, expected_checksum):
   m = hashlib.sha1()
   m.update(res.read())
   assert res.status == 206
-  print 'test_get_checksum_range("%s", %d, %d, "%s")' % (url, start, end, m.hexdigest())
+  if m.hexdigest() != expected_checksum:
+    print 'test_get_checksum_range("%s", %d, %d, "%s")' % (url, start, end, m.hexdigest())
   assert m.hexdigest() == expected_checksum
 
 
@@ -74,15 +76,15 @@ test_get_status("/vod/elephantsdream/0/pr/ism/broken", 404)
 test_get_status("/vod/broken/0/pr/ism/content", 404)
 
 test_get_checksum("/vod/elephantsdream/0/pr/ism/Manifest", "ae130fc21ed2457226ac0b55af655e7ba907ed9e")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=752766", "7ac1f4eb8f6d3b1035aa404a4dc339a06f6d25ab")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=1392712", "460ad7ff103420b58a44e7d4635a2a0d4bf8e183")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=2341910", "bf2896df824d27009a06f96d0eac57d4c9f8e20d")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=4771928", "7fec77d6ff0369a4c5f022be48b3fe6b222c78cf")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=752766", "987544b6952ca7e22a368f3a6b294d44d48b4ef3")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=1392712", "0ea4a488cce7c88c37290108bf6f190e1cebf2fc")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=2341910", "f8988711cf0ab5bce054c061079674479053aaed")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=0&bitrate=4771928", "461e0531ece8fd28dca46f9320fed75f7c80a698")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=audio&start_time=0&bitrate=134578", "495bc12abc62eb80d8c4b4fbf35a748eb749b504")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=752766", "ea791edf3881289aa709e0e7c2015e1d87b80305")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=1392712", "09c8918b0dbe5aadc0a2c2fa465d23d5196a19f4")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=2341910", "a698362f8ab13b0e7e88387f99cb262f4cf7afa0")
-test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=4771928", "d367b41aefc2f0d6cdcb0e4e416062d5b437ee7e")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=752766", "217e1d7f61a5d2d3592460dfe1263a22e7d1c3a8")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=1392712", "7b5ff2df1927d83889df7a659b68fdadcdfd6554")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=2341910", "548291fc7965cb951b4b6734da4500c884a4debc")
+test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=video&start_time=50416000&bitrate=4771928", "3081b53c8bf237cee968e4f6a45af125ca629810")
 test_get_checksum("/vod/elephantsdream/0/pr/ism/content?stream=audio&start_time=50346666&bitrate=134578", "20a61d0c9abde21d19385d2a9230c755ce45c371")
 
 test_get_status("/vod/elephantsdream/0/pr/ism/content?stream=broken&start_time=0&bitrate=752428", 404)
@@ -119,7 +121,7 @@ if clear_enabled:
 test_get_checksum("/vod/elephantsdream/0/pr/isoff-ondemand/manifest.mpd", "a00a419a7f89f094200f965a428862cf01288863")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "3b25c1a6d5d3f8b4e4681f9c6b0a5b2269678144")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 0, 655, "3b25c1a6d5d3f8b4e4681f9c6b0a5b2269678144")
-test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "5e820171a7536d66df4c42c89e25b70c324d6817")
+test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/v0", 2248, 432537, "9c8764f536d9954bb74147c24dd7dbe0bbf27892")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 0, 597, "6303d6b686daccc1122e94e236fb7daed50870ab")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 598, 2189, "70d999e5805cfd51371f735e6030e9ed5c0f8041")
 test_get_checksum_range("/vod/elephantsdream/0/pr/isoff-ondemand/content/a0", 2190, 85915, "3abd1261886a65af156e182debeaba91be2eba87")

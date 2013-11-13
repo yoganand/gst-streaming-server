@@ -959,8 +959,10 @@ gss_isom_fragment_set_sample_encryption (GssIsomFragment * fragment,
       se->samples[i].num_entries = 1;
       se->samples[i].entries = g_malloc0 (se->samples[i].num_entries *
           sizeof (GssBoxUUIDSampleEncryptionSampleEntry));
+      clear_bytes = 48;
       /* x264 header is around 750 bytes */
-      clear_bytes = (fragment->timestamp == 0 && i == 0) ? 1000 : 16;
+      if (fragment->timestamp == 0 && i == 0)
+        clear_bytes = 1000;
       clear_bytes = MIN (clear_bytes, trun->samples[i].size);
       se->samples[i].entries[0].bytes_of_clear_data = clear_bytes;
       se->samples[i].entries[0].bytes_of_encrypted_data =
