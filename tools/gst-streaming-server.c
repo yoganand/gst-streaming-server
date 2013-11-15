@@ -22,7 +22,7 @@
 #include "config.h"
 #endif
 
-#include "gss-server.h"
+#include "gst-streaming-server.h"
 #include "gst-streaming-server/gss-user.h"
 #include "gst-streaming-server/gss-log.h"
 #include "gst-streaming-server/gss-manager.h"

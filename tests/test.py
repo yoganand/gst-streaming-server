@@ -38,8 +38,8 @@ def test_get_checksum_range(url, start, end, expected_checksum):
   assert m.hexdigest() == expected_checksum
 
 
-#args = ['../tools/gss-server']
-#pid = os.spawnv(os.P_NOWAIT, "../tools/gss-server", args)
+#args = ['../tools/gst-streaming-server']
+#pid = os.spawnv(os.P_NOWAIT, "../tools/gst-streaming-server", args)
 #print "PID is %d" % (pid,)
 
 #time.sleep(2)
