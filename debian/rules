@@ -13,6 +13,8 @@
 	dh $@  --with autotools-dev
 
 override_dh_auto_configure:
+	#dh_auto_configure -- --with-gst-api-version=1.0
+	NOCONFIGURE=1 ./autogen.sh
 	dh_auto_configure -- --with-gst-api-version=1.0
 
 override_dh_auto_test:
