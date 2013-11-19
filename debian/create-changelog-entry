@@ -13,6 +13,9 @@ cat >tmp <<-EOF
 gst-streaming-server (${version}) unstable; urgency=low
 
   * Automatic jenkins changelog
+EOF
+git log  -n 5 --format='    - %h %s' >>tmp
+cat >>tmp <<-EOF
 
  -- David Schleef <david.schleef@rd.io>  `date -R`
 
