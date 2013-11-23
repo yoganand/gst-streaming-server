@@ -509,6 +509,7 @@ gss_playready_generate_checksum (guint8 * key_id, guint8 * content_key)
   return g_base64_encode (dest, 8);
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x100010fL
 void
 gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
     guint8 * content_key)
@@ -555,6 +556,50 @@ gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
   }
   EVP_CIPHER_CTX_free (ctx);
 }
+#else
+void
+gss_playready_encrypt_samples (GssIsomFragment * fragment, guint8 * mdat_data,
+    guint8 * content_key)
+{
+  GssBoxTrun *trun = &fragment->trun;
+  GssBoxUUIDSampleEncryption *se = &fragment->sample_encryption;
+  guint64 sample_offset;
+  int i;
+
+  sample_offset = 8;
+
+  for (i = 0; i < trun->sample_count; i++) {
+    unsigned char raw_iv[16];
+    unsigned char ecount_buf[16] = { 0 };
+    unsigned int num = 0;
+    AES_KEY key;
+
+    memset (raw_iv, 0, 16);
+    GST_WRITE_UINT64_BE (raw_iv, se->samples[i].iv);
+
+    AES_set_encrypt_key (content_key, 16 * 8, &key);
+
+    if (se->samples[i].num_entries == 0) {
+      AES_ctr128_encrypt (mdat_data + sample_offset,
+          mdat_data + sample_offset, trun->samples[i].size,
+          &key, raw_iv, ecount_buf, &num);
+    } else {
+      guint64 offset;
+      int j;
+      offset = sample_offset;
+      for (j = 0; j < se->samples[i].num_entries; j++) {
+        offset += se->samples[i].entries[j].bytes_of_clear_data;
+        AES_ctr128_encrypt (mdat_data + offset,
+            mdat_data + offset,
+            se->samples[i].entries[j].bytes_of_encrypted_data,
+            &key, raw_iv, ecount_buf, &num);
+        offset += se->samples[i].entries[j].bytes_of_encrypted_data;
+      }
+    }
+    sample_offset += trun->samples[i].size;
+  }
+}
+#endif
 
 const char *
 gss_playready_get_uri (GssDrmType drm_type)
