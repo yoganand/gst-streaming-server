@@ -26,8 +26,7 @@ gss_info_SOURCES = \
 gss_transcoder_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS)
 gss_transcoder_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS)
 gss_transcoder_SOURCES = \
-	gss-transcoder.c \
-	gss-transcoder.h
+	gss-transcoder.c
 
 gss_isom_tool_CFLAGS = $(GSS_CFLAGS) $(GST_CFLAGS) $(SOUP_CFLAGS) $(GST_RTSP_SERVER_CFLAGS) $(JSON_GLIB_CFLAGS) $(OPENSSL_CFLAGS)
 gss_isom_tool_LDADD = $(GSS_LIBS) $(GST_LIBS) $(SOUP_LIBS) $(GST_RTSP_SERVER_LIBS) $(JSON_GLIB_LIBS) $(OPENSSL_LIBS)

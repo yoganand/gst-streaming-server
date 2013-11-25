@@ -53,7 +53,7 @@ sources = \
 	gss-adaptive.c \
 	gss-isom.c \
 	gss-isom-dump.c \
-	gss-iso-atoms.h \
+	gss-isom-boxes.h \
 	gss-sglist.c \
 	gss-stream.c \
 	gss-transaction.c \
