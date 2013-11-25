@@ -1,3 +1,9 @@
+gst-streaming-server (0.1~20131123-1) precise; urgency=low
+
+  * New snapshot
+
+ -- David Schleef <ds@schleef.org>  Sat, 23 Nov 2013 23:30:41 -0800
+
 gst-streaming-server (20130708-1) unstable; urgency=low
 
   * Initial release
