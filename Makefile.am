@@ -1,9 +1,25 @@
 
 AUTOMAKE_OPTIONS = foreign
 
-SUBDIRS = gst-streaming-server tools pkgconfig doc tests po
+SUBDIRS = gst-streaming-server tools pkgconfig doc tests po common
 
-EXTRA_DIST = autogen.sh gtk-doc.make HACKING TODO BUGS README
+debian_files = \
+	debian/changelog \
+	debian/source \
+	debian/source/format \
+	debian/README.source \
+	debian/rules \
+	debian/copyright \
+	debian/gst-streaming-server.upstart \
+	debian/control \
+	debian/compat \
+	debian/postinst \
+	debian/docs \
+	debian/create-changelog-entry \
+	debian/README.Debian \
+	debian/gst-streaming-server.default
+
+EXTRA_DIST = autogen.sh gtk-doc.make HACKING TODO BUGS README $(debian_files)
 
 DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
 
