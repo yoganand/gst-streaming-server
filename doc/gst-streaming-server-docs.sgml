@@ -2,6 +2,8 @@
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
                "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
 [
+  <!ENTITY % version-entities SYSTEM "version.entities">
+  %version-entities;
   <!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
 ]>
 <book id="index">
@@ -19,19 +21,33 @@
   </chapter>
   <chapter>
     <title>GSS Library Reference</title>
+    <xi:include href="xml/gss-adaptive.xml"/>
+    <xi:include href="xml/gss-addr-range.xml"/>
+    <xi:include href="xml/gss-box.xml"/>
     <xi:include href="xml/gss-config.xml"/>
-    <xi:include href="xml/gss-form.xml"/>
+    <xi:include href="xml/gss-drm.xml"/>
     <xi:include href="xml/gss-html.xml"/>
+    <xi:include href="xml/gss-isom.xml"/>
+    <xi:include href="xml/gss-json.xml"/>
+    <xi:include href="xml/gss-log.xml"/>
+    <xi:include href="xml/gss-manager.xml"/>
     <xi:include href="xml/gss-metrics.xml"/>
+    <xi:include href="xml/gss-module.xml"/>
+    <xi:include href="xml/gss-object.xml"/>
+    <xi:include href="xml/gss-playready.xml"/>
     <xi:include href="xml/gss-program.xml"/>
+    <xi:include href="xml/gss-pull.xml"/>
+    <xi:include href="xml/gss-push.xml"/>
     <xi:include href="xml/gss-resource.xml"/>
     <xi:include href="xml/gss-rtsp.xml"/>
     <xi:include href="xml/gss-server.xml"/>
     <xi:include href="xml/gss-session.xml"/>
+    <xi:include href="xml/gss-sglist.xml"/>
     <xi:include href="xml/gss-soup.xml"/>
     <xi:include href="xml/gss-stream.xml"/>
     <xi:include href="xml/gss-transaction.xml"/>
     <xi:include href="xml/gss-types.xml"/>
+    <xi:include href="xml/gss-user.xml"/>
     <xi:include href="xml/gss-utils.xml"/>
     <xi:include href="xml/gss-vod.xml"/>
     <xi:include href="xml/gss-websocket.xml"/>

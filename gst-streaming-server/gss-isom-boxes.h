@@ -166,7 +166,6 @@ struct _GssBoxUUIDSampleEncryption
   GssBoxUUIDSampleEncryptionSample *samples;
 };
 
-#define MAX_IV_SIZE 16
 struct _GssBoxUUIDSampleEncryptionSample
 {
   guint64 iv;

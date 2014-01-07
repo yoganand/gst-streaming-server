@@ -33,7 +33,6 @@ typedef struct _GssIsomMovie GssIsomMovie;
 typedef struct _GssIsomParser GssIsomParser;
 typedef struct _GssIsomSample GssIsomSample;
 typedef struct _GssIsomSampleIterator GssIsomSampleIterator;
-typedef struct _GssChunk GssChunk;
 
 typedef enum
 {
@@ -46,13 +45,6 @@ typedef enum
   GSS_ISOM_FTYP_QT__ = (1 << 6),
   GSS_ISOM_FTYP_ISO6 = (1 << 7),
 } GssIsomFtyp;
-
-struct _GssChunk {
-  guint64 offset;
-  guint64 size;
-  guint64 source_offset;
-  guint8 *data;
-};
 
 struct _GssIsomFragment {
   int track_id;
