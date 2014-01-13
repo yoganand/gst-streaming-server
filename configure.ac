@@ -228,6 +228,7 @@ AS_HOST_DEFINES()
 AC_CONFIG_FILES([
 Makefile 
 doc/Makefile
+doc/gss/Makefile
 gst-streaming-server/Makefile
 pkgconfig/Makefile
 pkgconfig/gst-streaming-server-uninstalled.pc
