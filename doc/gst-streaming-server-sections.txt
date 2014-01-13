@@ -23,7 +23,6 @@ gss_config_attach
 gss_config_create_object
 gss_config_create_object_2
 gss_config_get_post_hash
-gss_config_get_type
 gss_config_handle_post
 gss_config_handle_post_hash
 gss_config_load_config_file
@@ -233,7 +232,6 @@ gss_json_gobject_to_data
 <SECTION>
 <FILE>gss-manager</FILE>
 gss_manager_create_pipeline
-gss_manager_get_type
 gss_manager_new
 gss_manager_set_location
 gss_manager_start
@@ -261,7 +259,6 @@ gss_metrics_remove_client
 
 <SECTION>
 <FILE>gss-module</FILE>
-gss_module_get_type
 gss_module_set_admin_resource
 <SUBSECTION Standard>
 GssModule
@@ -281,7 +278,6 @@ GSS_OBJECT_NAME
 GSS_OBJECT_SAFE_TITLE
 GSS_OBJECT_SERVER
 GSS_OBJECT_TITLE
-gss_object_get_type
 gss_object_param_is_secure
 gss_object_set_automatic_name
 gss_object_set_name
@@ -376,7 +372,6 @@ gss_program_get_type
 
 <SECTION>
 <FILE>gss-pull</FILE>
-gss_pull_get_type
 gss_pull_new
 <SUBSECTION Standard>
 GssPull
@@ -392,7 +387,6 @@ gss_pull_get_type
 
 <SECTION>
 <FILE>gss-push</FILE>
-gss_push_get_type
 gss_push_new
 GssPushMethod
 <SUBSECTION Standard>
@@ -433,6 +427,7 @@ gss_server_rtsp_init
 <SECTION>
 <FILE>gss-server</FILE>
 <TITLE>GssServer</TITLE>
+GssFooterHtml
 GssServer
 GssServerClass
 gss_server_add_admin_callbacks
@@ -552,6 +547,8 @@ gss_stream_get_type
 
 <SECTION>
 <FILE>gss-transaction</FILE>
+GssTransactionCallback
+GssTransactionFunc
 GssTransaction
 gss_transaction_delay
 gss_transaction_dump
@@ -597,7 +594,6 @@ GSS_IS_USER_CLASS
 GSS_USER
 GSS_USER_CLASS
 GSS_TYPE_USER
-gss_user_get_type
 </SECTION>
 
 <SECTION>
@@ -633,7 +629,6 @@ GSS_VOD_GET_CLASS
 GSS_VOD
 GSS_VOD_CLASS
 GSS_TYPE_VOD
-gss_vod_get_type
 </SECTION>
 
 <SECTION>
@@ -649,21 +644,5 @@ gss_websocket_send_message
 <SUBSECTION Standard>
 GSS_TYPE_WEBSOCKET
 gss_websocket_get_type
-</SECTION>
-
-<SECTION>
-<FILE>junk</FILE>
-gss_data_bootstrap_css_len
-gss_data_bootstrap_js_len
-gss_data_bootstrap_responsive_css_len
-gss_data_dash_min_js_len
-gss_data_footer_entropywave_png_len
-gss_data_glyphicons_halflings_png_len
-gss_data_glyphicons_halflings_white_png_len
-gss_data_include_js_len
-gss_data_jquery_js_len
-gss_data_no_snapshot_jpg_len
-gss_data_offline_jpg_len
-gss_data_sign_in_blue_png_len
 </SECTION>
 

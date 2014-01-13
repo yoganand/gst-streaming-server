@@ -28,8 +28,8 @@
 
 G_BEGIN_DECLS
 
-typedef void (GssTransactionCallback)(GssTransaction *transaction);
-typedef void (GssTransactionFunc)(GssTransaction *transaction,
+typedef void (*GssTransactionCallback)(GssTransaction *transaction);
+typedef void (*GssTransactionFunc)(GssTransaction *transaction,
     gpointer priv);
 
 struct _GssTransaction {
@@ -50,8 +50,8 @@ struct _GssTransaction {
   gint64 total_time;
   gsize start, end;
 
-  GssTransactionFunc *process;
-  GssTransactionFunc *finish;
+  GssTransactionFunc process;
+  GssTransactionFunc finish;
   gpointer priv;
 };
 

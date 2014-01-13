@@ -8,16 +8,25 @@
 ]>
 <book id="index">
   <bookinfo>
-    <title>gst-streaming-server Reference Manual</title>
+    <title>GStreamer Streaming Server Reference Manual</title>
     <releaseinfo>
-      for gst-streaming-server &GSS_VERSION;.
+      This manual is for gst-streaming-server-&GSS_VERSION;.
       The latest version of this documentation can be found on-line at
       <ulink role="online-location" url="http://gstreamer.net/gst-streaming-server/index.html">http://gstreamer.net/gst-streaming-server/</ulink>.
     </releaseinfo>
   </bookinfo>
 
   <chapter>
-    <title>GSS Standalone Server</title>
+    <title>Getting Started</title>
+    <xi:include href="getting-started.xml"/>
+  </chapter>
+  <chapter>
+    <title>Installation</title>
+    <xi:include href="installation.xml"/>
+  </chapter>
+  <chapter>
+    <title>GSS HTTP Server</title>
+    <xi:include href="gss-http-server.xml"/>
   </chapter>
   <chapter>
     <title>GSS Library Reference</title>
@@ -46,7 +55,7 @@
     <xi:include href="xml/gss-soup.xml"/>
     <xi:include href="xml/gss-stream.xml"/>
     <xi:include href="xml/gss-transaction.xml"/>
-    <xi:include href="xml/gss-types.xml"/>
+    <!-- <xi:include href="xml/gss-types.xml"/> -->
     <xi:include href="xml/gss-user.xml"/>
     <xi:include href="xml/gss-utils.xml"/>
     <xi:include href="xml/gss-vod.xml"/>
@@ -66,5 +75,5 @@
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
   </index>
 
-  <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
+  <!-- <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include> -->
 </book>

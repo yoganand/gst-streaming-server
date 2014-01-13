@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd" [
+<!ENTITY % version-entities SYSTEM "version.entities">
+%version-entities;
+<!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+]>
+<refentry id="gss-http-server" revision="12 jan 2014">
+<refmeta>
+<refentrytitle>GSS HTTP Server</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GSS HTTP Server</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>GSS HTTP Server</refname>
+<refpurpose>
+About the HTTP Server.
+</refpurpose>
+</refnamediv>
+
+<refsect1>
+<title>GSS HTTP Server</title>
+
+  <para>
+    Stuff.
+  </para>
+
+</refsect1>
+
+</refentry>

@@ -144,6 +144,14 @@ if test "x$cross_compiling" = "xyes" ; then
 fi
 GTK_DOC_CHECK([1.0])
 
+dnl Check for documentation xrefs
+GLIB_PREFIX="`$PKG_CONFIG --variable=prefix glib-2.0`"
+AC_SUBST(GLIB_PREFIX)
+GST_PREFIX="`$PKG_CONFIG --variable=prefix gstreamer-1.0`"
+AC_SUBST(GST_PREFIX)
+SOUP_PREFIX="`$PKG_CONFIG --variable=prefix libsoup-2.4`"
+AC_SUBST(SOUP_PREFIX)
+
 
 ########################
 # GStreamer stuff

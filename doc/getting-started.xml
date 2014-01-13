@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd" [
+<!ENTITY % version-entities SYSTEM "version.entities">
+%version-entities;
+<!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+]>
+<refentry id="gss-getting-started" revision="12 jan 2014">
+<refmeta>
+<refentrytitle>Getting Started</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GStreamer Streaming Server</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Getting Started</refname>
+<refpurpose>
+Getting started with GStreamer Streaming Server.
+</refpurpose>
+</refnamediv>
+
+<refsect1>
+<title>Getting Started</title>
+
+  <para>
+    Start here.
+  </para>
+
+</refsect1>
+
+</refentry>

@@ -49,7 +49,7 @@ G_BEGIN_DECLS
 #define GSS_IS_SERVER_CLASS(obj) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GSS_TYPE_SERVER))
 
-typedef void (GssFooterHtml) (GssServer *server, GString *s, void *priv);
+typedef void (*GssFooterHtml) (GssServer *server, GString *s, void *priv);
 
 struct _GssServer
 {
@@ -96,7 +96,7 @@ struct _GssServer
 
   //time_t config_timestamp;
 
-  GssFooterHtml *footer_html;
+  GssFooterHtml footer_html;
   void *footer_html_priv;
 
   GList *modules;

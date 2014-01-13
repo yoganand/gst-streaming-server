@@ -48,9 +48,9 @@ struct _GssResource {
 
   GssResourceFlags flags;
 
-  GssTransactionCallback *get_callback;
-  GssTransactionCallback *put_callback;
-  GssTransactionCallback *post_callback;
+  GssTransactionCallback get_callback;
+  GssTransactionCallback put_callback;
+  GssTransactionCallback post_callback;
 
   GDestroyNotify destroy;
 
