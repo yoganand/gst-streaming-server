@@ -48,6 +48,22 @@
 #include <fcntl.h>
 #include <openssl/aes.h>
 
+/**
+ * SECTION:gss-adaptive
+ * @short_description: Class for describing adaptive bitrate streams
+ * @see_also: #GssVod
+ *
+ * GssAdaptive represents a collection of media files on disk that
+ * are different representations of the same source media.  Primarily,
+ * this means encodings at different bitrates intended for adaptive
+ * bitrate streaming.
+ * 
+ * Normally, GssAdaptive objects are automatically created and
+ * managed by a GssVod object that is attached to a GssServer.
+ * 
+ * Last reviewed on 2014-01-04 (0.10.0.1)
+ */
+
 #define AUDIO_TRACK_ID 1
 #define VIDEO_TRACK_ID 2
 

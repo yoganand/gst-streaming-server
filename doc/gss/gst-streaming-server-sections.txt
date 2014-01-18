@@ -1,5 +1,6 @@
 <SECTION>
 <FILE>gss-log</FILE>
+<TITLE>GssLog</TITLE>
 GssErrorEnum
 gss_log_send_syslog
 gss_log_set_verbosity
@@ -9,12 +10,14 @@ gss_log_init
 
 <SECTION>
 <FILE>gss</FILE>
+<TITLE>Gss</TITLE>
 gss_init
 gss_deinit
 </SECTION>
 
 <SECTION>
 <FILE>gss-config</FILE>
+<TITLE>GssConfig</TITLE>
 GssConfig
 GssConfigClass
 gss_config_add_server_resources
@@ -42,6 +45,7 @@ gss_config_get_type
 
 <SECTION>
 <FILE>gss-adaptive</FILE>
+<TITLE>GssAdaptive</TITLE>
 GSS_ADAPTIVE_KEY_LENGTH
 GssAdaptive
 GssAdaptiveLevel
@@ -58,6 +62,7 @@ gss_adaptive_stream_get_name
 
 <SECTION>
 <FILE>gss-addr-range</FILE>
+<TITLE>GssAddrRangeList</TITLE>
 GssAddrRangeList
 gss_addr_range_list_check_address
 gss_addr_range_list_free
@@ -67,6 +72,7 @@ gss_addr_range_list_new_from_string
 
 <SECTION>
 <FILE>gss-drm</FILE>
+<TITLE>GssDrm</TITLE>
 GssDrmInfo
 GssDrmType
 gss_drm_get_drm_name
@@ -76,6 +82,7 @@ gss_drm_get_drm_uuid
 
 <SECTION>
 <FILE>gss-html</FILE>
+<TITLE>GssHtml</TITLE>
 GSS_A
 GSS_P
 gss_html_append_image
@@ -102,6 +109,7 @@ gss_html_header_bare
 
 <SECTION>
 <FILE>gss-box</FILE>
+<TITLE>GssBox</TITLE>
 GssBoxAinf
 GssBoxAvcn
 GssBoxCprt
@@ -178,6 +186,7 @@ GssBoxVmhd
 
 <SECTION>
 <FILE>gss-isom</FILE>
+<TITLE>GssIsom</TITLE>
 GssIsomFragment
 GssIsomFtyp
 GssIsomMovie
@@ -226,11 +235,13 @@ gss_isom_track_serialize_dash
 
 <SECTION>
 <FILE>gss-json</FILE>
+<TITLE>GssJson</TITLE>
 gss_json_gobject_to_data
 </SECTION>
 
 <SECTION>
 <FILE>gss-manager</FILE>
+<TITLE>GssManager</TITLE>
 gss_manager_create_pipeline
 gss_manager_new
 gss_manager_set_location
@@ -250,6 +261,7 @@ gss_manager_get_type
 
 <SECTION>
 <FILE>gss-metrics</FILE>
+<TITLE>GssMetrics</TITLE>
 GssMetrics
 gss_metrics_add_client
 gss_metrics_free
@@ -259,6 +271,7 @@ gss_metrics_remove_client
 
 <SECTION>
 <FILE>gss-module</FILE>
+<TITLE>GssModule</TITLE>
 gss_module_set_admin_resource
 <SUBSECTION Standard>
 GssModule
@@ -274,6 +287,7 @@ gss_module_get_type
 
 <SECTION>
 <FILE>gss-object</FILE>
+<TITLE>GssObject</TITLE>
 GSS_OBJECT_NAME
 GSS_OBJECT_SAFE_TITLE
 GSS_OBJECT_SERVER
@@ -300,6 +314,7 @@ gss_object_get_type
 
 <SECTION>
 <FILE>gss-playready</FILE>
+<TITLE>GssPlayready</TITLE>
 gss_playready_add_protection_header
 gss_playready_encrypt_samples
 gss_playready_generate_key
@@ -372,6 +387,7 @@ gss_program_get_type
 
 <SECTION>
 <FILE>gss-pull</FILE>
+<TITLE>GssPull</TITLE>
 gss_pull_new
 <SUBSECTION Standard>
 GssPull
@@ -387,6 +403,7 @@ gss_pull_get_type
 
 <SECTION>
 <FILE>gss-push</FILE>
+<TITLE>GssPush</TITLE>
 gss_push_new
 GssPushMethod
 <SUBSECTION Standard>
@@ -403,6 +420,7 @@ gss_push_get_type
 
 <SECTION>
 <FILE>gss-resource</FILE>
+<TITLE>GssResource</TITLE>
 GssResource
 GssResourceFlags
 gss_resource_file
@@ -417,6 +435,7 @@ gss_resource_unimplemented
 
 <SECTION>
 <FILE>gss-rtsp</FILE>
+<TITLE>GssRtsp</TITLE>
 GssRtspStream
 gss_rtsp_stream_free
 gss_rtsp_stream_new
@@ -467,6 +486,7 @@ gss_server_get_type
 
 <SECTION>
 <FILE>gss-session</FILE>
+<TITLE>GssSession</TITLE>
 GssSession
 GssSessionAuthorizationFunc
 gss_addr_address_check
@@ -491,6 +511,7 @@ gss_session_set_hosts_allow
 
 <SECTION>
 <FILE>gss-sglist</FILE>
+<TITLE>GssSglist</TITLE>
 GssSGChunk
 GssSGList
 gss_sglist_free
@@ -502,6 +523,7 @@ gss_sglist_new
 
 <SECTION>
 <FILE>gss-soup</FILE>
+<TITLE>GssSoup</TITLE>
 gss_soup_get_base_url_http
 gss_soup_get_base_url_https
 gss_soup_get_request_host
@@ -547,6 +569,7 @@ gss_stream_get_type
 
 <SECTION>
 <FILE>gss-transaction</FILE>
+<TITLE>GssTransaction</TITLE>
 GssTransactionCallback
 GssTransactionFunc
 GssTransaction
@@ -564,6 +587,7 @@ gss_transaction_is_secure
 
 <SECTION>
 <FILE>gss-types</FILE>
+<TITLE>GssTypes</TITLE>
 GssConnection
 GssHLSSegment
 GssMetrics
@@ -579,6 +603,7 @@ GssTransaction
 
 <SECTION>
 <FILE>gss-user</FILE>
+<TITLE>GssUser</TITLE>
 gss_user_add_user_info
 gss_user_get_string
 gss_user_get_type
@@ -598,6 +623,7 @@ GSS_TYPE_USER
 
 <SECTION>
 <FILE>gss-utils</FILE>
+<TITLE>GssUtils</TITLE>
 GSS_CLEANUP
 GSS_TEXT_HTML
 GSS_TEXT_PLAIN
@@ -618,6 +644,7 @@ g_object_set_as_string
 
 <SECTION>
 <FILE>gss-vod</FILE>
+<TITLE>GssVod</TITLE>
 gss_vod_get_type
 gss_vod_new
 <SUBSECTION Standard>

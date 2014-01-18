@@ -12,7 +12,7 @@
     <releaseinfo>
       This manual is for gst-streaming-server-&GSS_VERSION;.
       The latest version of this documentation can be found on-line at
-      <ulink role="online-location" url="http://gstreamer.net/gst-streaming-server/index.html">http://gstreamer.net/gst-streaming-server/</ulink>.
+      <ulink role="online-location" url="http://gstreamer.freedesktop.org/data/doc/gstreamer/head/gst-streaming-server/html/">http://gstreamer.freedesktop.org/data/doc/gstreamer/head/gst-streaming-server/html/</ulink>.
     </releaseinfo>
   </bookinfo>
 
@@ -21,46 +21,49 @@
     <xi:include href="getting-started.xml"/>
   </chapter>
   <chapter>
-    <title>Installation</title>
-    <xi:include href="installation.xml"/>
-  </chapter>
-  <chapter>
     <title>GSS HTTP Server</title>
     <xi:include href="gss-http-server.xml"/>
   </chapter>
   <chapter>
     <title>GSS Library Reference</title>
-    <xi:include href="xml/gss-adaptive.xml"/>
-    <xi:include href="xml/gss-addr-range.xml"/>
-    <xi:include href="xml/gss-box.xml"/>
-    <xi:include href="xml/gss-config.xml"/>
-    <xi:include href="xml/gss-drm.xml"/>
-    <xi:include href="xml/gss-html.xml"/>
-    <xi:include href="xml/gss-isom.xml"/>
-    <xi:include href="xml/gss-json.xml"/>
-    <xi:include href="xml/gss-log.xml"/>
-    <xi:include href="xml/gss-manager.xml"/>
-    <xi:include href="xml/gss-metrics.xml"/>
-    <xi:include href="xml/gss-module.xml"/>
-    <xi:include href="xml/gss-object.xml"/>
-    <xi:include href="xml/gss-playready.xml"/>
-    <xi:include href="xml/gss-program.xml"/>
-    <xi:include href="xml/gss-pull.xml"/>
-    <xi:include href="xml/gss-push.xml"/>
-    <xi:include href="xml/gss-resource.xml"/>
-    <xi:include href="xml/gss-rtsp.xml"/>
-    <xi:include href="xml/gss-server.xml"/>
-    <xi:include href="xml/gss-session.xml"/>
-    <xi:include href="xml/gss-sglist.xml"/>
-    <xi:include href="xml/gss-soup.xml"/>
-    <xi:include href="xml/gss-stream.xml"/>
-    <xi:include href="xml/gss-transaction.xml"/>
-    <!-- <xi:include href="xml/gss-types.xml"/> -->
-    <xi:include href="xml/gss-user.xml"/>
-    <xi:include href="xml/gss-utils.xml"/>
-    <xi:include href="xml/gss-vod.xml"/>
-    <xi:include href="xml/gss-websocket.xml"/>
-
+    <section>
+      <title>Modules</title>
+      <xi:include href="xml/gss-manager.xml"/>
+      <xi:include href="xml/gss-playready.xml"/>
+      <xi:include href="xml/gss-server.xml"/>
+      <xi:include href="xml/gss-user.xml"/>
+      <xi:include href="xml/gss-vod.xml"/>
+    </section>
+    <section>
+      <title>Classes</title>
+      <xi:include href="xml/gss-adaptive.xml"/>
+      <xi:include href="xml/gss-config.xml"/>
+      <xi:include href="xml/gss-module.xml"/>
+      <xi:include href="xml/gss-object.xml"/>
+      <xi:include href="xml/gss-program.xml"/>
+      <xi:include href="xml/gss-pull.xml"/>
+      <xi:include href="xml/gss-push.xml"/>
+      <xi:include href="xml/gss-resource.xml"/>
+      <xi:include href="xml/gss-stream.xml"/>
+      <xi:include href="xml/gss-websocket.xml"/>
+    </section>
+    <section>
+      <title>Utility</title>
+      <xi:include href="xml/gss-addr-range.xml"/>
+      <xi:include href="xml/gss-box.xml"/>
+      <xi:include href="xml/gss-drm.xml"/>
+      <xi:include href="xml/gss-html.xml"/>
+      <xi:include href="xml/gss-isom.xml"/>
+      <xi:include href="xml/gss-json.xml"/>
+      <xi:include href="xml/gss-log.xml"/>
+      <xi:include href="xml/gss-metrics.xml"/>
+      <xi:include href="xml/gss-rtsp.xml"/>
+      <xi:include href="xml/gss-session.xml"/>
+      <xi:include href="xml/gss-sglist.xml"/>
+      <xi:include href="xml/gss-soup.xml"/>
+      <xi:include href="xml/gss-transaction.xml"/>
+      <xi:include href="xml/gss-utils.xml"/>
+    </section>
   </chapter>
   <chapter id="object-tree">
     <title>Object Hierarchy</title>

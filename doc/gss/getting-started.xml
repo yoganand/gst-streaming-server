@@ -20,12 +20,133 @@ Getting started with GStreamer Streaming Server.
 </refnamediv>
 
 <refsect1>
-<title>Getting Started</title>
+<title>Overview</title>
 
   <para>
-    Start here.
+    GStreamer Streaming Server (or GSS for short) is a custom HTTP
+    server that has specific features that make it useful for serving
+    media files, particularly live streaming video and video on demand.
+    GSS works best as a specialized origin server for only the media
+    portion of a web site.  This is similar to how you might use a
+    separate web server (and different web server software) for static
+    content vs. dynamic content.
+  </para>
+
+  <para>
+    In this chapter, there are sections for installing GSS, configuring
+    GSS, and a section each for using GSS for live streams and video on
+    demand streams.
   </para>
 
 </refsect1>
+
+<refsect1>
+<title>Installation</title>
+
+  <para>
+    The recommended installation method is to use the Ubuntu PPA
+    to install to a server running Ubuntu.  This will install the
+    appropriate files to start/stop the HTTP server when the machine
+    is turned on/off, using Upstart.  When installing from source,
+    the relevant files should be manually copied from the debian/
+    directory in the source code.
+  </para>
+
+<refsect2>
+<title>Installing Packages on Ubuntu</title>
+
+<para>
+  The GSS project maintainer occasionally uploads snapshots to the
+  GStreamer Streaming Server PPA, hosted on Launchpad.  Launchpad
+  automatically builds the package for precise on amd64 and i386,
+  which can be installed on precise or any later Ubuntu system.
+</para>
+
+<para>
+  The GSS PPA, including instructions for installing packages, can be
+  found on Launchpad at
+  <ulink role="online-location" url="https://launchpad.net/~dschleef/+archive/matterhorn-ppa/">https://launchpad.net/~dschleef/+archive/matterhorn-ppa/</ulink>.
+  The package is called "gst-streaming-server".
+</para>
+
+</refsect2>
+
+<refsect2>
+<title>Installing from source on Linux or UNIX-like systems</title>
+
+  <para>
+    The source code for GSS is stored using git at 
+    <ulink role="online-location" url="http://cgit.freedesktop.org/gstreamer/gst-streaming-server/">http://cgit.freedesktop.org/gstreamer/gst-streaming-server/</ulink>.
+    No source code releases in tar form have been done yet.
+  </para>
+
+  <para>
+    Code can be checked out from git using the commands:
+
+    <literallayout>
+      <userinput>git clone git://anongit.freedesktop.org/gstreamer/gst-streaming-server</userinput>
+    </literallayout>
+  </para>
+
+  <!-- this has been borrowed from the glib docs -->
+  <para>
+    On UNIX, GStreamer Streaming Server uses the standard GNU build system,
+    using <application>autoconf</application> for package
+    configuration and resolving portability issues,
+    <application>automake</application> for building makefiles
+    that comply with the GNU Coding Standards, and
+    <application>libtool</application> for building shared
+    libraries on multiple platforms.  The normal sequence for
+    compiling and installing GSS is thus:
+
+    <literallayout>
+      <userinput>./configure</userinput>
+      <userinput>make</userinput>
+      <userinput>make install</userinput>
+    </literallayout>
+    
+    The GSS web server can be tested in development by running the
+    program gss-streaming-server in the tools/ directory.
+  </para>
+
+  <para>
+    The standard options provided by <application>GNU
+    autoconf</application> may be passed to the
+    <command>configure</command> script.  Please see the
+    <application>autoconf</application> documentation or run
+    <command>./configure --help</command> for information about
+    the standard options.
+  </para>
+
+</refsect2>
+</refsect1>
+
+<refsect1>
+<title>Using GSS for Live Streams</title>
+
+  <para>
+  </para>
+
+</refsect2>
+
+<refsect1>
+<title>Using GSS for Video On Demand</title>
+
+  <para>
+    A collection of test files is available for testing video on
+    demand.  It is at FIXME.
+  </para>
+
+  <para>
+    Once the test collection is downloaded, untar the collection into
+    a convenient temporary directory.  Then create a directory named 'vod'
+    in the base directory for the web server.  If you are running in
+    development, this will be the directory in which the gst-streaming-server
+    resides.  If running from Ubuntu packages, this will be
+    /var/lib/gst-streaming-server/.
+  </para>
+
+</refsect1>
+
 
 </refentry>
