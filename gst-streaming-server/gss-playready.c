@@ -17,6 +17,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
+/**
+ * SECTION:gss-playready
+ * @short_description: Module that handles content encryption
+ *
+ */
+
 /*
  * Documentation on PlayReady is available here:
  * available at:

@@ -27,6 +27,12 @@
 #include "gss-content.h"
 #include "gss-utils.h"
 
+/**
+ * SECTION:gss-program
+ * @short_description: Class that manages several similar steams
+ *
+ */
+
 enum
 {
   PROP_NONE,

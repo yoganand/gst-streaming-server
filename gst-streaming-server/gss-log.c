@@ -12,6 +12,13 @@
 
 #define ENABLE_DEBUG
 
+/**
+ * SECTION:gss-log
+ * @short_description: Functions for handling logging using the GStreamer
+ *   logging system
+ *
+ */
+
 static int gss_log_verbosity = 0;
 
 static void log_handler (GstDebugCategory * category, GstDebugLevel level,

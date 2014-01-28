@@ -25,6 +25,12 @@
 #include "gss-utils.h"
 #include "gss-html.h"
 
+/**
+ * SECTION:gss-object
+ * @short_description: Base class for objects that are part of GSS
+ *
+ */
+
 enum
 {
   PROP_NAME = 1,

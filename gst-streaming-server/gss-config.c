@@ -34,6 +34,20 @@
 
 #include <libxml/parser.h>
 
+/**
+ * SECTION:gss-config
+ * @short_description: Class for handling configuration
+ * @see_also: #GssServer
+ *
+ * GssConfig stores configuration options for instances of subclasses
+ * of GObject.  Objects are "attached" to the GssConfig object in order
+ * to have the config object manage its configuration.  GssConfig will
+ * read and write to a configuration file, in XML format.
+ *
+ * GssConfig can also automatically create objects from their
+ * representation in the XML file.
+ */
+
 enum
 {
   PROP_0,

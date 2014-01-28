@@ -32,6 +32,13 @@
 #include <netinet/in.h>
 #include <net/if.h>
 
+/**
+ * SECTION:gss-manager
+ * @short_description: Class that manages live streams
+ * @see_also: #GssProgram
+ *
+ */
+
 enum
 {
   PROP_0,

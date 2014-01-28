@@ -28,6 +28,14 @@
 #include "gss-content.h"
 #include "gss-utils.h"
 
+/**
+ * SECTION:gss-push
+ * @short_description: Class that handles live streams that are pushed
+ *   from a client
+ * @see_also: #GssProgram, #GssPull
+ *
+ */
+
 enum
 {
   PROP_NONE,

@@ -27,6 +27,12 @@
 
 #include <string.h>
 
+/**
+ * SECTION:gss-html
+ * @short_description: Functions for generating HTML
+ * @see_also: #GssTransaction
+ *
+ */
 
 void
 gss_html_error_404 (GssServer * server, SoupMessage * msg)

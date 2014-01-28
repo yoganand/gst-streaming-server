@@ -37,6 +37,12 @@
 
 #define GST_CAT_DEFAULT gss_debug
 
+/**
+ * SECTION:gss-server
+ * @short_description: Class that manages the HTTP server
+ *
+ */
+
 
 #define BASE "/"
 

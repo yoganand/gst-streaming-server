@@ -43,6 +43,12 @@
 #include <fcntl.h>
 #include <openssl/aes.h>
 
+/**
+ * SECTION:gss-isom
+ * @short_description: Functions for manipulating ISO Media files
+ *
+ */
+
 typedef struct _Container Container;
 struct _Container
 {

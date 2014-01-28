@@ -25,6 +25,12 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 
+/**
+ * SECTION:gss-rtsp
+ * @short_description: Misc RTSP junk that's probably bitrotten
+ *
+ */
+
 
 void
 gss_server_rtsp_init (GssServer * server)

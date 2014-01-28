@@ -26,6 +26,14 @@
 #include "gss-soup.h"
 #include "gss-utils.h"
 
+/**
+ * SECTION:gss-resource
+ * @short_description: Structure that represents a URL or endpoint in
+ *   a server
+ * @see_also: #GssServer
+ *
+ */
+
 
 
 

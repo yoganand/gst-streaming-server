@@ -25,6 +25,13 @@
 #include "gss-utils.h"
 #include "gss-html.h"
 
+/**
+ * SECTION:gss-module
+ * @short_description: Base class for functionality that can be added to servers
+ * @see_also: #GssServer
+ *
+ */
+
 enum
 {
   MOO

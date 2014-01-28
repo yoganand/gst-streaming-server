@@ -30,6 +30,14 @@
 
 #include <stdio.h>
 
+/**
+ * SECTION:gss-pull
+ * @short_description: Class that handles live streams that are pulled
+ *   from a source
+ * @see_also: #GssProgram, #GssPush
+ *
+ */
+
 enum
 {
   PROP_NONE,

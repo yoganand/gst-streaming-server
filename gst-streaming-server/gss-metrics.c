@@ -23,6 +23,13 @@
 
 #include "gss-server.h"
 
+/**
+ * SECTION:gss-metrics
+ * @short_description: Structure that keeps track of metrics
+ * @see_also: #GssProgram
+ *
+ */
+
 
 GssMetrics *
 gss_metrics_new (void)
