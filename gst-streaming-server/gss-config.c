@@ -717,7 +717,7 @@ gss_config_dump_object (GObject * object, xmlNsPtr ns, xmlNodePtr parent)
   g_free (pspecs);
 }
 
-static void
+void
 gss_config_append_config_file (GssConfig * config, GString * s)
 {
   GList *g;

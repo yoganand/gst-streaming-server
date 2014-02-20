@@ -94,6 +94,7 @@ gboolean gss_config_handle_post_hash (GObject * object, GssTransaction * t,
     GHashTable *hash);
 void gss_config_add_server_resources (GssServer *server);
 void gss_config_post_resource (GssTransaction * t);
+void gss_config_append_config_file (GssConfig * config, GString * s);
 
 
 G_END_DECLS
